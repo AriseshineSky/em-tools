@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+begin
+  require "dotenv/load"
+rescue LoadError
+end
+
+require "json"
+require "optparse"
+
+require "em/tools"
+
+def usage(parser)
+  warn parser.help
+  exit 1
+end
+
+parser = OptionParser.new do |opts|
+  opts.banner = <<~BANNER
+    Usage: em-tools dump INDEX [options]
+
+    Stream all documents from an Elasticsearch index as NDJSON (one hit JSON object per line).
+
+    Set ELASTICSEARCH_URL (e.g. http://host:9200). Optional: create a .env file when using dotenv.
+
+    Examples:
+      em-tools dump ssg_products > ssg_products.ndjson
+      em-tools dump ssg_products -o ssg_products.ndjson
+  BANNER
+
+  opts.on("-o", "--output PATH", "Write to file instead of stdout") {|path| @output_path = path }
+  opts.on("-b", "--batch-size N", Integer, "Documents per request (default: 1000)") {|n| @batch_size = n }
+end
+
+@output_path = nil
+@batch_size = 1000
+
+# Use parse! so flags after positional args work (order! stops at the first non-option, e.g. "dump").
+parser.parse!
+
+subcommand = ARGV.shift
+usage(parser) unless subcommand == "dump"
+
+index = ARGV.shift
+usage(parser) unless index && !index.start_with?("-")
+
+unless ARGV.empty?
+  warn "error: unexpected arguments: #{ARGV.join(" ")}"
+  usage(parser)
+end
+
+if ENV["ELASTICSEARCH_URL"].to_s.strip.empty?
+  warn "error: ELASTICSEARCH_URL is not set"
+  exit 1
+end
+
+client = Em::Tools::ElasticsearchClient.new
+out = @output_path ? File.open(@output_path, "w") : $stdout
+
+begin
+  client.iterate_all(index: index, batch_size: @batch_size) do |hit|
+    out.puts(JSON.generate(hit))
+  end
+ensure
+  out.close if @output_path
+end
