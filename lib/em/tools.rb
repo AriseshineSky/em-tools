@@ -1,16 +1,21 @@
 # frozen_string_literal: true
 
-require_relative "tools/version"
 require "zeitwerk"
 
 module Em
   module Tools
-    class Error < StandardError; end
-
   end
 end
-loader = Zeitwerk::Loader.for_gem
-loader.inflector.inflect("html_parser" => "HTMLParser")
+
+# `em-tools` loads `lib/em/tools.rb`; `Zeitwerk::Loader.for_gem` only supports a single segment
+# under `lib/` (e.g. `lib/my_gem.rb`). Here the namespace lives under `lib/em/tools/`, so we push
+# that directory onto the existing `Em::Tools` module.
+loader = Zeitwerk::Loader.new
+loader.tag = "em-tools"
+loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
+loader.push_dir("#{__dir__}/tools", namespace: Em::Tools)
 loader.setup
-# Flat `elasticsearch_client.rb` would otherwise be resolved as Elasticsearch::Client under `elasticsearch.rb`.
+
+# `elasticsearch.rb` defines `Em::Tools::Elasticsearch`, so Zeitwerk would expect
+# `elasticsearch/client.rb` for `ElasticsearchClient` instead of `elasticsearch_client.rb`.
 require_relative "tools/elasticsearch_client"

@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "zeitwerk", "~> 2.0"
   spec.add_dependency "elasticsearch", "~> 7.17"
+  spec.add_dependency "ahocorasick-rust", "~> 2.0"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html

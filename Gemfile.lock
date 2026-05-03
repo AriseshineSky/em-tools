@@ -2,14 +2,20 @@ PATH
   remote: .
   specs:
     em-tools (0.1.0)
+      ahocorasick-rust (~> 2.0)
       elasticsearch (~> 7.17)
       zeitwerk (~> 2.0)
 
 GEM
   remote: https://rubygems.org/
   specs:
+    ahocorasick-rust (2.3.1)
+      rb_sys (~> 0.9.124)
+    ahocorasick-rust (2.3.1-x86_64-linux-gnu)
+      rb_sys (~> 0.9.124)
     base64 (0.3.0)
     date (3.5.1)
+    diff-lcs (1.6.2)
     dotenv (3.2.0)
     elasticsearch (7.17.11)
       elasticsearch-api (= 7.17.11)
@@ -46,12 +52,28 @@ GEM
       date
       stringio
     rake (13.4.2)
+    rake-compiler-dock (1.12.0)
+    rb_sys (0.9.127)
+      rake-compiler-dock (= 1.12.0)
     rdoc (7.2.0)
       erb
       psych (>= 4.0.0)
       tsort
     reline (0.6.3)
       io-console (~> 0.5)
+    rspec (3.13.2)
+      rspec-core (~> 3.13.0)
+      rspec-expectations (~> 3.13.0)
+      rspec-mocks (~> 3.13.0)
+    rspec-core (3.13.6)
+      rspec-support (~> 3.13.0)
+    rspec-expectations (3.13.5)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-mocks (3.13.8)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-support (3.13.7)
     stringio (3.2.0)
     tsort (0.2.0)
     uri (1.1.1)
@@ -66,10 +88,14 @@ DEPENDENCIES
   em-tools!
   irb
   rake (~> 13.0)
+  rspec
 
 CHECKSUMS
+  ahocorasick-rust (2.3.1) sha256=373abbbbfa7b15b20172d75ed4625dab5d2fde2972f241fa81890d58a726894f
+  ahocorasick-rust (2.3.1-x86_64-linux-gnu) sha256=1000ef263faae6848d253446f7a3476de90615b8d3f3b946030b84baa7464606
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
+  diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
   dotenv (3.2.0) sha256=e375b83121ea7ca4ce20f214740076129ab8514cd81378161f11c03853fe619d
   elasticsearch (7.17.11) sha256=ed080f085d939f21d07f424ebcea95326e4bdb5f770a8f33aac699374f2ffc86
   elasticsearch-api (7.17.11) sha256=fed8f7b64493c97cf3984a33396a798204b54b8e1b01c5b6c099fa3fd4209107
@@ -89,8 +115,15 @@ CHECKSUMS
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
   psych (5.3.1) sha256=eb7a57cef10c9d70173ff74e739d843ac3b2c019a003de48447b2963d81b1974
   rake (13.4.2) sha256=cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa89283701
+  rake-compiler-dock (1.12.0) sha256=f13205c2738f3d2053afcd03491a9e4541b22a59a0bfc53fc8bc883bd8188023
+  rb_sys (0.9.127) sha256=e9f90df3bb0577472d26d96127d5b5774b98f44de881e7d36aeefd28d6337847
   rdoc (7.2.0) sha256=8650f76cd4009c3b54955eb5d7e3a075c60a57276766ebf36f9085e8c9f23192
   reline (0.6.3) sha256=1198b04973565b36ec0f11542ab3f5cfeeec34823f4e54cebde90968092b1835
+  rspec (3.13.2) sha256=206284a08ad798e61f86d7ca3e376718d52c0bc944626b2349266f239f820587
+  rspec-core (3.13.6) sha256=a8823c6411667b60a8bca135364351dda34cd55e44ff94c4be4633b37d828b2d
+  rspec-expectations (3.13.5) sha256=33a4d3a1d95060aea4c94e9f237030a8f9eae5615e9bd85718fe3a09e4b58836
+  rspec-mocks (3.13.8) sha256=086ad3d3d17533f4237643de0b5c42f04b66348c28bf6b9c2d3f4a3b01af1d47
+  rspec-support (3.13.7) sha256=0640e5570872aafefd79867901deeeeb40b0c9875a36b983d85f54fb7381c47c
   stringio (3.2.0) sha256=c37cb2e58b4ffbd33fe5cd948c05934af997b36e0b6ca6fdf43afa234cf222e1
   tsort (0.2.0) sha256=9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f
   uri (1.1.1) sha256=379fa58d27ffb1387eaada68c749d1426738bd0f654d812fcc07e7568f5c57c6

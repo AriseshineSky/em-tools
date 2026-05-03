@@ -9,5 +9,6 @@ gem "irb"
 gem "rake", "~> 13.0"
 
 group :development, :test do
+  gem "rspec"
   gem "dotenv"
 end
