@@ -7,21 +7,15 @@ module Em
     class ElasticsearchClient
       attr_reader :client
 
-      # request_timeout is a transport option for ::Elasticsearch::Client, not a REST query param;
-      # passing it to #search / #index raises ArgumentError from elasticsearch-api param validation.
-      DEFAULT_REQUEST_TIMEOUT = 120
-
-      def initialize(request_timeout: nil)
-        @client = ::Elasticsearch::Client.new(
-          url: ENV['ELASTICSEARCH_URL']
-        )
+      def initialize
+        @client = ::Elasticsearch::Client.new(url: ENV['ELASTICSEARCH_URL'])
       end
 
       # ---- Index APIs ----
 
       # Create an index with optional settings and mappings
       def create_index(index, body: {}, **options)
-        client.indices.create(index: index, body: body, **options)
+        client.indices.create(index: index, body: body, **sanitize_api_options(options))
       end
 
       def iterate_all(index:, batch_size: 1000, &block)
@@ -60,59 +54,59 @@ module Em
 
       # Delete an index
       def delete_index(index, **options)
-        client.indices.delete(index: index, **options)
+        client.indices.delete(index: index, **sanitize_api_options(options))
       end
 
       # Check if an index exists
       def index_exists?(index, **options)
-        client.indices.exists(index: index, **options)
+        client.indices.exists(index: index, **sanitize_api_options(options))
       end
 
       # Get index settings
       def get_index_settings(index, **options)
-        client.indices.get_settings(index: index, **options)
+        client.indices.get_settings(index: index, **sanitize_api_options(options))
       end
 
       # Get index mappings
       def get_mappings(index, **options)
-        client.indices.get_mapping(index: index, **options)
+        client.indices.get_mapping(index: index, **sanitize_api_options(options))
       end
 
       # Put mappings on an existing index
       def put_mappings(index, body:, **options)
-        client.indices.put_mapping(index: index, body: body, **options)
+        client.indices.put_mapping(index: index, body: body, **sanitize_api_options(options))
       end
 
       # Refresh one or more indices
       def refresh(index = '_all', **options)
-        client.indices.refresh(index: index, **options)
+        client.indices.refresh(index: index, **sanitize_api_options(options))
       end
 
       # ---- Document APIs ----
 
       # Index a document (create or update)
       def index_document(index, body:, id: nil, **options)
-        client.index(index: index, id: id, body: body, **options)
+        client.index(index: index, id: id, body: body, **sanitize_api_options(options))
       end
 
       # Get a document by id
       def get_document(index, id, **options)
-        client.get(index: index, id: id, **options)
+        client.get(index: index, id: id, **sanitize_api_options(options))
       end
 
       # Delete a document by id
       def delete_document(index, id, **options)
-        client.delete(index: index, id: id, **options)
+        client.delete(index: index, id: id, **sanitize_api_options(options))
       end
 
       # Update a document by id
       def update_document(index, id, body:, **options)
-        client.update(index: index, id: id, body: body, **options)
+        client.update(index: index, id: id, body: body, **sanitize_api_options(options))
       end
 
       # Bulk index documents
       def bulk(body:, **options)
-        client.bulk(body: body, **options)
+        client.bulk(body: body, **sanitize_api_options(options))
       end
 
       # ---- Search APIs ----
@@ -122,7 +116,7 @@ module Em
         params = {}
         params[:index] = index if index
         params[:body] = body
-        params.merge!(options)
+        params.merge!(sanitize_api_options(options))
         client.search(**params)
       end
 
@@ -131,7 +125,7 @@ module Em
         params = {}
         params[:index] = index if index
         params[:body] = body if body
-        params.merge!(options)
+        params.merge!(sanitize_api_options(options))
         client.count(**params)
       end
 
@@ -139,39 +133,48 @@ module Em
 
       # Get cluster health
       def cluster_health(**options)
-        client.cluster.health(**options)
+        client.cluster.health(**sanitize_api_options(options))
       end
 
       # Get cluster stats
       def cluster_stats(**options)
-        client.cluster.stats(**options)
+        client.cluster.stats(**sanitize_api_options(options))
       end
 
       # Get node info
       def nodes_info(**options)
-        client.nodes.info(**options)
+        client.nodes.info(**sanitize_api_options(options))
       end
 
       # ---- Scroll APIs ----
 
       # Open a scroll search
       def scroll(scroll_id:, scroll: '1m', **options)
-        client.scroll(scroll_id: scroll_id, scroll: scroll, **options)
+        client.scroll(scroll_id: scroll_id, scroll: scroll, **sanitize_api_options(options))
       end
 
       # Clear a scroll
       def clear_scroll(scroll_id:, **options)
-        client.clear_scroll(scroll_id: scroll_id, **options)
+        client.clear_scroll(scroll_id: scroll_id, **sanitize_api_options(options))
       end
 
       # ---- Reindex ----
       def reindex(body:, **options)
-        client.reindex(body: body, **options)
+        client.reindex(body: body, **sanitize_api_options(options))
       end
 
       # ---- Task Management ----
       def tasks_get(task_id:, **options)
-        client.tasks.get(task_id: task_id, **options)
+        client.tasks.get(task_id: task_id, **sanitize_api_options(options))
+      end
+
+      private
+
+      # elasticsearch-api validates URL/query params; :request_timeout is not allowed there.
+      def sanitize_api_options(options)
+        return {} if options.nil? || options.empty?
+
+        options.reject { |k, _| k.to_sym == :request_timeout }
       end
     end
   end

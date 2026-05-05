@@ -11,48 +11,134 @@ end
 require 'bundler/gem_tasks'
 
 namespace :gcs do
-  desc 'Download AMZ marketplace seeds from GCS to tmp/gcs/ebay_<mp>.txt'
+  desc 'Download AMZ marketplace seeds from GCS to tmp/gcs/amz_<mp>.txt'
   task :download_seeds do
     require 'em/tools'
 
-    creds_path = Em::Tools::Config.gcs_service_account_path.to_s.strip
-    if creds_path.empty?
+    creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+    if creds_raw.empty?
       warn 'error: set GCS_SERVICE_ACCOUNT_PATH to your service account JSON file'
+      exit 1
+    end
+    creds_path = File.expand_path(creds_raw)
+    unless File.file?(creds_path)
+      warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
       exit 1
     end
 
     bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
-    prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics').sub(%r{/+\z}, '')
-
-    helper = Em::Tools::GcsHelper.new(creds_path, bucket, prefix)
+    prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics')
     root = File.expand_path(__dir__)
-    marketplaces = %w[US CA MX AE DE IN IT JP UK]
+    target = File.join(root, 'tmp')
 
-    marketplaces.each do |mp|
-      blob_name = "#{prefix}/sources/AMZ_#{mp}.txt"
-      local_path = File.join(root, 'tmp', 'gcs', "ebay_#{mp.downcase}.txt")
-      puts "begin to download #{blob_name} -> #{local_path}"
-      helper.download_file(blob_name, local_path)
-      puts "downloaded #{blob_name} -> #{local_path}"
-    end
+    Em::Tools::LowestOfferSeedFiles.sync_from_gcs(
+      target,
+      marketplaces: Em::Tools::LowestOfferListingsCoverageQuery::DEFAULT_MARKETPLACES,
+      creds_path: creds_path,
+      bucket: bucket,
+      prefix: prefix,
+      force: true
+    )
+    puts "Seeds synced to #{target} (GCS objects AMZ_<MP>.txt -> amz_<mp>.txt)"
   end
 end
 
 namespace :lowest_offer do
-  desc 'Compute lowest-offer activity coverage and index snapshot to Elasticsearch'
-  task :publish_snapshot do
+  desc 'Publish lowest-offer snapshot to ES. Seeds: LOWEST_OFFER_SEED_DIR/amz_<mp>.txt (Amazon ASINs; ' \
+       'ES: LOWEST_OFFER_ASIN_FIELD (default asin.keyword), raw ASIN terms. ' \
+       'LOWEST_OFFER_TERMS_BATCH_SIZE (default 2000) for large seeds. ' \
+       'Missing ASINs -> LOWEST_OFFER_MISSING_ASINS_DIR (default tmp/lowest_offer_missing_asins), ' \
+       'LOWEST_OFFER_WRITE_MISSING_ASINS=false to disable. ' \
+       'GCS in-memory if seed dir unset. ' \
+       'If seed dir is set and a file is missing, downloads GCS AMZ_<MP>.txt (needs GCS_SERVICE_ACCOUNT_PATH). ' \
+       'LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 re-downloads all needed seeds and overwrites amz_<mp>.txt. ' \
+       'Optional marketplaces (zsh: quote brackets): rake \'lowest_offer:publish_snapshot[us]\'. ' \
+       'Otherwise LOWEST_OFFER_MARKETPLACES or defaults. Debug: LOWEST_OFFER_RAKE_DEBUG=1 (opens IRB); ' \
+       'activity ES aggs per batch + ASINs -> LOWEST_OFFER_DEBUG_ACTIVITY_AGGS_DIR=/path.'
+  task :publish_snapshot, [:marketplaces] do |_t, args|
     require 'em/tools'
     require 'time'
 
     client = Em::Tools::ElasticsearchClient.new
-    rows = Em::Tools::LowestOfferListingsCoverageQuery.new(es_client: client).fetch_all
+    query_opts = { es_client: client }
+
+    seed_dir = ENV['LOWEST_OFFER_SEED_DIR'].to_s.strip
+    if seed_dir.empty?
+      creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+      if creds_raw.empty?
+        warn 'error: set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or set ' \
+             'GCS_SERVICE_ACCOUNT_PATH to load the same AMZ_*.txt objects from GCS in memory'
+        exit 1
+      end
+      creds_path = File.expand_path(creds_raw)
+      unless File.file?(creds_path)
+        warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+        exit 1
+      end
+
+      bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
+      prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics').sub(%r{/+\z}, '')
+
+      gcs = Em::Tools::GcsHelper.new(creds_path, bucket, prefix)
+      query_opts[:seed_text_fetcher] = lambda do |mp|
+        blob_name = "#{prefix}/sources/AMZ_#{mp.upcase}.txt"
+        gcs.download_string(blob_name)
+      end
+    else
+      seed_dir_expanded = File.expand_path(seed_dir)
+      marketplaces = Em::Tools::LowestOfferListingsCoverageQuery.marketplaces_for_publish(args[:marketplaces])
+      force = ENV['LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD'] == '1'
+      needs_sync = force || marketplaces.any? do |mp|
+        !Em::Tools::LowestOfferSeedFiles.seed_file_present?(seed_dir_expanded, mp)
+      end
+
+      if needs_sync
+        creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+        if creds_raw.empty?
+          warn 'error: missing seed files under LOWEST_OFFER_SEED_DIR; set GCS_SERVICE_ACCOUNT_PATH to pull ' \
+               'AMZ_<MP>.txt from GCS (or unset LOWEST_OFFER_SEED_DIR to use in-memory GCS only). ' \
+               'Use LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 to overwrite existing amz_<mp>.txt.'
+          exit 1
+        end
+        creds_path = File.expand_path(creds_raw)
+        unless File.file?(creds_path)
+          warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+          exit 1
+        end
+
+        bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
+        prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics')
+        puts "Syncing seeds from GCS -> #{seed_dir_expanded} (marketplaces=#{marketplaces.join(',')}, force=#{force})"
+        Em::Tools::LowestOfferSeedFiles.sync_from_gcs(
+          seed_dir_expanded,
+          marketplaces: marketplaces,
+          creds_path: creds_path,
+          bucket: bucket,
+          prefix: prefix,
+          force: force
+        )
+      end
+
+      query_opts[:seed_dir] = seed_dir_expanded
+    end
+    cli_mps = args[:marketplaces].to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
+    query_opts[:marketplaces] = cli_mps if cli_mps.any?
+
+    rows = Em::Tools::LowestOfferListingsCoverageQuery.new(**query_opts).fetch_all
     Em::Tools::LowestOfferCoverageSnapshot.persist!(
       rows,
       captured_at: Time.now,
       es_client: client,
       refresh: true
     )
-    puts "Indexed #{rows.size} marketplace rows -> #{Em::Tools::LowestOfferCoverageSnapshot.index_name}"
+    mps_label = if query_opts[:marketplaces]
+                  query_opts[:marketplaces].join(',')
+                elsif ENV['LOWEST_OFFER_MARKETPLACES'].to_s.strip.empty?
+                  'default list'
+                else
+                  ENV['LOWEST_OFFER_MARKETPLACES'].strip
+                end
+    puts "Indexed #{rows.size} marketplace row(s) (#{mps_label}) -> #{Em::Tools::LowestOfferCoverageSnapshot.index_name}"
   end
 
   desc 'Download GCS seeds (gcs:download_seeds) then publish_snapshot'

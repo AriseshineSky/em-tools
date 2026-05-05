@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'stringio'
 require 'google/cloud/storage'
 
 module Em
@@ -31,6 +32,21 @@ module Em
         File.open(local_path, 'wb') do |io|
           remote.download(io, verify: verify)
         end
+      end
+
+      # Downloads +blob_name+ into a String (full object in memory). Same object paths as
+      # #download_file; use for small/medium text seeds instead of writing to disk.
+      def download_string(blob_name, verify: :md5, encoding: Encoding::UTF_8)
+        bucket = @storage.bucket(@bucket_name)
+        raise "GCS bucket not found: #{@bucket_name}" unless bucket
+
+        remote = bucket.file(blob_name)
+        raise "GCS object not found: #{blob_name}" unless remote
+
+        io = StringIO.new
+        io.set_encoding(Encoding::BINARY)
+        remote.download(io, verify: verify)
+        io.string.force_encoding(encoding)
       end
     end
   end
