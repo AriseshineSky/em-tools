@@ -44,7 +44,8 @@ namespace :gcs do
 end
 
 namespace :lowest_offer do
-  desc 'Publish lowest-offer snapshot to ES. Seeds: LOWEST_OFFER_SEED_DIR/amz_<mp>.txt (Amazon ASINs; ' \
+  desc 'Publish lowest-offer snapshot to ES. Seeds: set LOWEST_OFFER_SEED_DIR to a directory containing ' \
+       'amz_<mp>.txt (or ebay_<mp>.txt), e.g. LOWEST_OFFER_SEED_DIR=tmp with ./tmp/amz_ca.txt for CA. ' \
        'ES: LOWEST_OFFER_ASIN_FIELD (default asin.keyword), raw ASIN terms. ' \
        'LOWEST_OFFER_TERMS_BATCH_SIZE (default 2000) for large seeds. ' \
        'Missing ASINs -> LOWEST_OFFER_MISSING_ASINS_DIR (default tmp/lowest_offer_missing_asins), ' \
@@ -53,8 +54,8 @@ namespace :lowest_offer do
        'If seed dir is set and a file is missing, downloads GCS AMZ_<MP>.txt (needs GCS_SERVICE_ACCOUNT_PATH). ' \
        'LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 re-downloads all needed seeds and overwrites amz_<mp>.txt. ' \
        'Optional marketplaces (zsh: quote brackets): rake \'lowest_offer:publish_snapshot[us]\'. ' \
-       'Otherwise LOWEST_OFFER_MARKETPLACES or defaults. Debug: LOWEST_OFFER_RAKE_DEBUG=1 (opens IRB); ' \
-       'activity ES aggs per batch + ASINs -> LOWEST_OFFER_DEBUG_ACTIVITY_AGGS_DIR=/path.'
+       'Otherwise LOWEST_OFFER_MARKETPLACES or defaults. One UTC +snapshot_time+ applies to all marketplaces ' \
+       'in this run (activity time windows + captured_at). Debug: LOWEST_OFFER_RAKE_DEBUG=1 (opens IRB).'
   task :publish_snapshot, [:marketplaces] do |_t, args|
     require 'em/tools'
     require 'time'
@@ -124,10 +125,29 @@ namespace :lowest_offer do
     cli_mps = args[:marketplaces].to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
     query_opts[:marketplaces] = cli_mps if cli_mps.any?
 
-    rows = Em::Tools::LowestOfferListingsCoverageQuery.new(**query_opts).fetch_all
+    snapshot_time = Time.now.utc
+    rows = Em::Tools::LowestOfferListingsCoverageQuery.new(**query_opts.merge(snapshot_time: snapshot_time)).fetch_all
+
+    if query_opts[:seed_dir]
+      rows.each do |row|
+        err = row[:error] || row['error']
+        next if err && !err.to_s.strip.empty?
+
+        loaded = row[:seed_asins_loaded] || row['seed_asins_loaded']
+        present = row[:seed_file_present] || row['seed_file_present']
+        next if loaded.to_i.positive?
+
+        warn "error: no seed ASINs loaded for #{row[:marketplace] || row['marketplace']} " \
+             "(seed_file_present=#{present.inspect}, seed_asins_loaded=#{loaded.inspect}). " \
+             "Check LOWEST_OFFER_SEED_DIR (#{query_opts[:seed_dir]}) contains amz_#{(row[:marketplace] || row['marketplace']).to_s.downcase}.txt " \
+             'or ebay_<mp>.txt (tab + JSON column 2 with source_product_id).'
+        exit 1
+      end
+    end
+
     Em::Tools::LowestOfferCoverageSnapshot.persist!(
       rows,
-      captured_at: Time.now,
+      captured_at: snapshot_time,
       es_client: client,
       refresh: true
     )
