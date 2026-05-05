@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require "spec_helper"
+require 'spec_helper'
 
-RSpec.describe "Blacklist Live API", :live do
-  it "fetches real blacklist keywords from API" do
-    skip "Live test disabled" unless ENV["RUN_LIVE_TESTS"] == "true"
+RSpec.describe 'Blacklist Live API', :live do
+  it 'fetches real blacklist keywords from API' do
+    skip 'Live test disabled' unless ENV['RUN_LIVE_TESTS'] == 'true'
 
     # ensure config exists
     expect(Em::Tools::Config.blacklist_api_endpoint).not_to be_nil

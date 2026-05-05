@@ -1,14 +1,20 @@
 # frozen_string_literal: true
 
-require "elasticsearch"
+require 'elasticsearch'
 
 module Em
   module Tools
     class ElasticsearchClient
       attr_reader :client
 
-      def initialize
-        @client = ::Elasticsearch::Client.new(url: ENV["ELASTICSEARCH_URL"])
+      # request_timeout is a transport option for ::Elasticsearch::Client, not a REST query param;
+      # passing it to #search / #index raises ArgumentError from elasticsearch-api param validation.
+      DEFAULT_REQUEST_TIMEOUT = 120
+
+      def initialize(request_timeout: nil)
+        @client = ::Elasticsearch::Client.new(
+          url: ENV['ELASTICSEARCH_URL']
+        )
       end
 
       # ---- Index APIs ----
@@ -18,38 +24,38 @@ module Em
         client.indices.create(index: index, body: body, **options)
       end
 
-      def iterate_all(index:, batch_size: 1000)
+      def iterate_all(index:, batch_size: 1000, &block)
         pit_id = nil
-        pit = client.open_point_in_time(index: index, keep_alive: "1m")
-        pit_id = pit["id"]
+        pit = client.open_point_in_time(index: index, keep_alive: '1m')
+        pit_id = pit['id']
 
         response = client.search(
           body: {
             size: batch_size,
-            pit: {id: pit_id, keep_alive: "1m"},
-            sort: [{_shard_doc: "asc"}],
-            query: {match_all: {}}
-          },
+            pit: { id: pit_id, keep_alive: '1m' },
+            sort: [{ _shard_doc: 'asc' }],
+            query: { match_all: {} }
+          }
         )
 
         loop do
-          hits = response["hits"]["hits"]
+          hits = response['hits']['hits']
           break if hits.empty?
 
-          hits.each {|doc| yield doc}
+          hits.each(&block)
 
           response = client.search(
             body: {
               size: batch_size,
-              pit: {id: pit_id, keep_alive: "1m"},
-              sort: [{_shard_doc: "asc"}],
-              search_after: hits.last["sort"],
-              query: {match_all: {}}
+              pit: { id: pit_id, keep_alive: '1m' },
+              sort: [{ _shard_doc: 'asc' }],
+              search_after: hits.last['sort'],
+              query: { match_all: {} }
             }
           )
         end
       ensure
-        client.close_point_in_time(body: {id: pit_id}) if pit_id
+        client.close_point_in_time(body: { id: pit_id }) if pit_id
       end
 
       # Delete an index
@@ -78,14 +84,14 @@ module Em
       end
 
       # Refresh one or more indices
-      def refresh(index = "_all", **options)
+      def refresh(index = '_all', **options)
         client.indices.refresh(index: index, **options)
       end
 
       # ---- Document APIs ----
 
       # Index a document (create or update)
-      def index_document(index, id: nil, body:, **options)
+      def index_document(index, body:, id: nil, **options)
         client.index(index: index, id: id, body: body, **options)
       end
 
@@ -112,7 +118,7 @@ module Em
       # ---- Search APIs ----
 
       # Search with a query body
-      def search(index: nil, body:, **options)
+      def search(body:, index: nil, **options)
         params = {}
         params[:index] = index if index
         params[:body] = body
@@ -149,7 +155,7 @@ module Em
       # ---- Scroll APIs ----
 
       # Open a scroll search
-      def scroll(scroll_id:, scroll: "1m", **options)
+      def scroll(scroll_id:, scroll: '1m', **options)
         client.scroll(scroll_id: scroll_id, scroll: scroll, **options)
       end
 
@@ -170,4 +176,3 @@ module Em
     end
   end
 end
-

@@ -1,53 +1,56 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "json"
+require 'net/http'
+require 'json'
 
-module Em::Tools::Blacklist
-  class Loader
-    def fetch
-      uri = build_uri
-      res = Net::HTTP.get_response(uri)
+module Em
+  module Tools
+    module Blacklist
+      class Loader
+        def fetch
+          uri = build_uri
+          res = Net::HTTP.get_response(uri)
 
-      raise "Blacklist API failed: #{res.code}" unless res.is_a?(Net::HTTPSuccess)
+          raise "Blacklist API failed: #{res.code}" unless res.is_a?(Net::HTTPSuccess)
 
-      JSON.parse(res.body)
-    end
+          JSON.parse(res.body)
+        end
 
-    def fetch_keywords
-      data = fetch
+        def fetch_keywords
+          data = fetch
 
-      Array(data["blacklist_keywords"]).flat_map do |item|
-        parse_keywords(item["keywords"])
-      end.uniq
-    end
+          Array(data['blacklist_keywords']).flat_map do |item|
+            parse_keywords(item['keywords'])
+          end.uniq
+        end
 
-    def initialize
-    end
+        def initialize; end
 
-    private
+        private
 
-    def build_uri
-      uri = URI.join(
-        Em::Tools::Config.blacklist_api_endpoint,
-        Em::Tools::Config.blacklist_api_path.to_s
-      )
+        def build_uri
+          uri = URI.join(
+            Em::Tools::Config.blacklist_api_endpoint,
+            Em::Tools::Config.blacklist_api_path.to_s
+          )
 
-      uri.query = URI.encode_www_form(
-        token: Em::Tools::Config.blacklist_api_token
-      )
+          uri.query = URI.encode_www_form(
+            token: Em::Tools::Config.blacklist_api_token
+          )
 
-      uri
-    end
+          uri
+        end
 
-    def parse_keywords(keywords)
-      case keywords
-      when String
-        [keywords]
-      when Array
-        keywords
-      else
-        []
+        def parse_keywords(keywords)
+          case keywords
+          when String
+            [keywords]
+          when Array
+            keywords
+          else
+            []
+          end
+        end
       end
     end
   end

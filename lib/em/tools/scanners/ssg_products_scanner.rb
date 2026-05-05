@@ -1,12 +1,16 @@
-module Em::Tools::Scanners
-  class SsgProductsScanner
-    def initialize(client)
-      @client = cline
-    end
+# frozen_string_literal: true
 
-    def each
-      @client.iterate_all(index: "ssg_products") do |doc|
-        yield doc
+module Em
+  module Tools
+    module Scanners
+      class SsgProductsScanner
+        def initialize(_client)
+          @client = cline
+        end
+
+        def each(&block)
+          @client.iterate_all(index: 'ssg_products', &block)
+        end
       end
     end
   end
