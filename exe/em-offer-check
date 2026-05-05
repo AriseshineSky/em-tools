@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+
+# frozen_string_literal: true
+
+# Run +lowest_offer:publish_snapshot+ from the repo root (so Bundler finds the Gemfile).
+#
+# Usage:
+#   bundle exec ruby exe/em-offer-check
+#   bundle exec ruby exe/em-offer-check us,ca
+#   bundle exec ruby exe/em-offer-check us ca jp
+#   LOWEST_OFFER_MARKETPLACES=mx,uk bundle exec ruby exe/em-offer-check
+#   LOWEST_OFFER_SEED_DIR=tmp bundle exec ruby exe/em-offer-check ca
+#
+# +marketplaces+ is built as an Array: CLI args (each may be +us,ca+), else +LOWEST_OFFER_MARKETPLACES+ (comma-separated), else +%w[in]+.
+
+ROOT = File.expand_path('..', __dir__)
+Dir.chdir(ROOT)
+
+require 'bundler/setup'
+begin
+  require 'dotenv/load'
+rescue LoadError
+end
+marketplaces =
+  if ARGV.any?
+    ARGV.flat_map { |a| a.split(',') }.map(&:strip).reject(&:empty?).map(&:downcase)
+  elsif !ENV['LOWEST_OFFER_MARKETPLACES'].to_s.strip.empty?
+    ENV['LOWEST_OFFER_MARKETPLACES'].split(',').map(&:strip).reject(&:empty?).map(&:downcase)
+  else
+    %w[in]
+  end
+
+rake_task = "lowest_offer:publish_snapshot[#{marketplaces.join(',')}]"
+
+cmd = %w[bundle exec rake] + [rake_task]
+warn "+ #{cmd.join(' ')}" if ENV['VERBOSE']
+
+exit(system(*cmd) ? 0 : 1)
