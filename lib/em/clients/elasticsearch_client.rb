@@ -4,6 +4,7 @@ require 'elasticsearch'
 
 module Em
   module Clients
+    # rubocop:disable Metrics/ClassLength
     class ElasticsearchClient
       attr_reader :client
 
@@ -18,6 +19,7 @@ module Em
         client.indices.create(index: index, body: body, **sanitize_api_options(options))
       end
 
+      # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
       def iterate_all(index:, batch_size: 1000, &block)
         pit_id = nil
         pit = client.open_point_in_time(index: index, keep_alive: '1m')
@@ -51,6 +53,7 @@ module Em
       ensure
         client.close_point_in_time(body: { id: pit_id }) if pit_id
       end
+      # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
       # Delete an index
       def delete_index(index, **options)
@@ -107,6 +110,11 @@ module Em
       # Bulk index documents
       def bulk(body:, **options)
         client.bulk(body: body, **sanitize_api_options(options))
+      end
+
+      # Delete documents matching a query (e.g. prune stale inventory rows per feed).
+      def delete_by_query(index:, body:, **options)
+        client.delete_by_query(index: index, body: body, **sanitize_api_options(options))
       end
 
       # ---- Search APIs ----
@@ -177,5 +185,6 @@ module Em
         options.reject { |k, _| k.to_sym == :request_timeout }
       end
     end
+    # rubocop:enable Metrics/ClassLength
   end
 end

@@ -5,9 +5,10 @@ require 'yaml'
 
 module Em
   module Tools
+    # rubocop:disable Metrics/ClassLength
     # Loads +sources+ (a list of +gs://+ URIs) from +config/inventory_sync.yml+ (or a given path).
     class InventorySyncSources
-      Source = Data.define(:gs_uri, :index, :refresh)
+      Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete)
 
       class Error < StandardError; end
 
@@ -30,7 +31,8 @@ module Em
         list = validate_sources!(node)
         idx = default_index(node)
         ref = default_refresh(node)
-        list.each_with_index.map { |item, i| build_entry(item, i, idx, ref) }
+        prune = default_prune_obsolete(node)
+        list.each_with_index.map { |item, i| build_entry(item, i, idx, ref, prune) }
       end
 
       private
@@ -68,34 +70,48 @@ module Em
         truthy?(node['refresh'])
       end
 
-      def build_entry(item, idx, default_index, default_refresh)
+      def default_prune_obsolete(node)
+        truthy?(node['prune_obsolete'])
+      end
+
+      def build_entry(item, idx, default_index, default_refresh, default_prune)
         case item
         when String
-          string_source(item, idx, default_index, default_refresh)
+          string_source(item, idx, default_index, default_refresh, default_prune)
         when Hash
-          hash_source(item, idx, default_index, default_refresh)
+          hash_source(item, idx, default_index, default_refresh, default_prune)
         else
           raise Error, "sources[#{idx}] must be a String (gs://...) or a Hash, got #{item.class}"
         end
       end
 
-      def string_source(item, idx, default_index, default_refresh)
+      def string_source(item, idx, default_index, default_refresh, default_prune)
+        uri = assert_gs_uri!(item.strip, idx)
         Source.new(
-          gs_uri: assert_gs_uri!(item.strip, idx),
+          gs_uri: uri,
           index: default_index,
-          refresh: default_refresh
+          refresh: default_refresh,
+          feed_id: nil,
+          prune_obsolete: default_prune
         )
       end
 
-      def hash_source(item, idx, default_index, default_refresh)
-        uri = item['uri'] || item['gs_uri']
-        raise Error, "sources[#{idx}] needs a uri or gs_uri key" if uri.nil? || uri.to_s.strip.empty?
-
+      def hash_source(item, idx, default_index, default_refresh, default_prune)
+        uri = uri_from_item!(item, idx)
         Source.new(
-          gs_uri: assert_gs_uri!(uri.to_s.strip, idx),
+          gs_uri: uri,
           index: coalesce_index(item['index'], default_index),
-          refresh: coalesce_refresh(item, default_refresh)
+          refresh: coalesce_refresh(item, default_refresh),
+          feed_id: coalesce_feed_id(item['feed_id']),
+          prune_obsolete: coalesce_prune_obsolete(item, default_prune)
         )
+      end
+
+      def uri_from_item!(item, idx)
+        raw = item['uri'] || item['gs_uri']
+        raise Error, "sources[#{idx}] needs a uri or gs_uri key" if raw.nil? || raw.to_s.strip.empty?
+
+        assert_gs_uri!(raw.to_s.strip, idx)
       end
 
       def coalesce_index(override, default_index)
@@ -110,6 +126,20 @@ module Em
         truthy?(item['refresh'])
       end
 
+      # Explicit +feed_id+ in YAML only; otherwise nil so {InventorySync} uses CSV +Source+ as +inventory_feed+.
+      def coalesce_feed_id(override)
+        return nil if override.nil?
+
+        s = override.to_s.strip
+        s.empty? ? nil : s
+      end
+
+      def coalesce_prune_obsolete(item, default_prune)
+        return truthy?(item['prune_obsolete']) if item.key?('prune_obsolete')
+
+        default_prune
+      end
+
       def assert_gs_uri!(uri, idx)
         return uri if uri.match?(%r{\Ags://[^/]+/.+\z}i)
 
@@ -120,5 +150,6 @@ module Em
         value == true || value.to_s.strip.downcase == 'true' || value.to_s.strip == '1'
       end
     end
+    # rubocop:enable Metrics/ClassLength
   end
 end

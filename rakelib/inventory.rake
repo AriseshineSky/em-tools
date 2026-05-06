@@ -6,10 +6,15 @@ module InventoryRakeHelpers
 
   DEFAULT_GS_URI = 'gs://em-bucket/boyner-Inv.csv'
 
-  def run_gcs_inventory_sync(gs_uri:, index:, refresh:, fetcher_opts:, sink:)
-    sync = Em::Tools::InventorySync.new(sink: sink, index: index)
-    Em::Tools::GcsBlobFetcher.new(**fetcher_opts).with_downloaded(gs_uri) do |path|
-      sync.sync_from_path(path, refresh: refresh)
+  def run_gcs_inventory_sync(**opts)
+    sync = Em::Tools::InventorySync.new(
+      sink: opts.fetch(:sink),
+      index: opts.fetch(:index),
+      feed_id: opts.fetch(:feed_id),
+      prune_obsolete: opts.fetch(:prune_obsolete, false)
+    )
+    Em::Tools::GcsBlobFetcher.new(**opts.fetch(:fetcher_opts)).with_downloaded(opts.fetch(:gs_uri)) do |path|
+      sync.sync_from_path(path, refresh: opts.fetch(:refresh))
     end
   end
 
@@ -78,20 +83,24 @@ namespace :inventory do
 
     puts "Inventory sync from #{config_path} (#{sources.size} source(s))"
     sources.each_with_index do |src, i|
-      puts "[#{i + 1}/#{sources.size}] #{src.gs_uri} -> index=#{src.index} refresh=#{src.refresh}"
+      puts "[#{i + 1}/#{sources.size}] #{src.gs_uri} -> index=#{src.index} refresh=#{src.refresh} " \
+           "feed_id=#{src.feed_id.inspect} prune=#{src.prune_obsolete}"
       InventoryRakeHelpers.run_gcs_inventory_sync(
         gs_uri: src.gs_uri,
         index: src.index,
         refresh: src.refresh,
+        feed_id: src.feed_id,
+        prune_obsolete: src.prune_obsolete,
         fetcher_opts: fetcher_opts,
-        sink: sink
+        sink:
       )
     end
     puts 'Done.'
   end
 
   desc 'Sync a single GCS CSV (debug). Target: arg gs_uri, or INVENTORY_GS_URI, or INVENTORY_GCS_BUCKET+OBJECT; ' \
-       'ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH, INVENTORY_INDEX, INVENTORY_REFRESH=1'
+       'ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH, INVENTORY_INDEX, INVENTORY_REFRESH=1, ' \
+       'INVENTORY_PRUNE_OBSOLETE=1, INVENTORY_FEED_ID (defaults to resolved gs:// URI when pruning)'
   task :sync_from_gcs, [:gs_uri] do |_t, args|
     require 'em/tools'
 
@@ -109,16 +118,21 @@ namespace :inventory do
 
     index = ENV.fetch('INVENTORY_INDEX', Em::Tools::InventorySync::INDEX)
     refresh = ENV['INVENTORY_REFRESH'] == '1'
+    prune = ENV['INVENTORY_PRUNE_OBSOLETE'] == '1'
+    feed_id = ENV['INVENTORY_FEED_ID'].to_s.strip
+    feed_id = gs_uri if feed_id.empty?
     creds = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
     fetcher_opts = creds.empty? ? {} : { credentials_path: File.expand_path(creds) }
     sink = Em::Tools::ElasticsearchBulkSink.new
-    puts "Inventory sync: #{gs_uri} -> #{index} (refresh=#{refresh})"
+    puts "Inventory sync: #{gs_uri} -> #{index} (refresh=#{refresh} prune=#{prune} feed_id=#{feed_id.inspect})"
     InventoryRakeHelpers.run_gcs_inventory_sync(
       gs_uri: gs_uri,
       index: index,
       refresh: refresh,
+      feed_id: feed_id,
+      prune_obsolete: prune,
       fetcher_opts: fetcher_opts,
-      sink: sink
+      sink:
     )
     puts 'Done.'
   end
