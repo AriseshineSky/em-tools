@@ -16,6 +16,5 @@ loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.push_dir("#{__dir__}/tools", namespace: Em::Tools)
 loader.setup
 
-# `elasticsearch.rb` defines `Em::Tools::Elasticsearch`, so Zeitwerk would expect
-# `elasticsearch/client.rb` for `ElasticsearchClient` instead of `elasticsearch_client.rb`.
-require_relative 'tools/elasticsearch_client'
+# `Em::Clients::ElasticsearchClient` lives under +lib/em/clients/+ (outside the Tools Zeitwerk root).
+require_relative 'clients/elasticsearch_client'
