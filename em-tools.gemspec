@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.add_dependency 'ahocorasick-rust', '~> 2.0'
+  spec.add_dependency 'csv'
   spec.add_dependency 'elasticsearch', '~> 7.17'
   spec.add_dependency 'google-cloud-storage'
   spec.add_dependency 'zeitwerk', '~> 2.0'

@@ -3,7 +3,7 @@
 require 'elasticsearch'
 
 module Em
-  module Tools
+  module Clients
     class ElasticsearchClient
       attr_reader :client
 

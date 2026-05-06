@@ -20,5 +20,7 @@ coverage/
 .env.*
 !.env.example
 
+config/
+
 
 
