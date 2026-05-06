@@ -54,8 +54,6 @@ gem 'em-tools', git: 'https://github.com/AriseshineSky/em-tools.git'
 
 Optional **`.env`** in the repo root is loaded by Rake / `exe/em-tools` when the `dotenv` gem is present.
 
-Legacy (optional): if you still keep **`config/gcs.yml`** or **`config/inventory_sync.yml`**, they are used only when the merged settings file has no usable `gcs.buckets` / `inventory_sync.sources` (see code).
-
 ---
 
 ## Environment variables (common)
@@ -90,7 +88,7 @@ bundle install
 
 **Inventory: sync all sources from YAML**
 
-Reads `config/inventory_sync.yml` for the current `APP_ENV`, downloads each `gs://` object, upserts rows into Elasticsearch.
+Reads `inventory_sync.sources` from the merged settings file (`config/settings.yml` if you have one, otherwise `examples/config/settings.example.yml`), for the current `APP_ENV`, then downloads each `gs://` object and upserts into Elasticsearch.
 
 ```bash
 export ELASTICSEARCH_URL='http://your-es:9200'
@@ -102,7 +100,7 @@ bundle exec rake inventory:sync
 Use a different config file (path relative to repo root; quote in zsh):
 
 ```bash
-bundle exec rake 'inventory:sync[config/my-inventory.yml]'
+bundle exec rake 'inventory:sync[tmp/inventory-only.yml]'
 ```
 
 **Inventory: sync a single GCS object (debug)**

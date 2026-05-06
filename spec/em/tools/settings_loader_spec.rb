@@ -38,4 +38,10 @@ RSpec.describe Em::Tools::SettingsLoader do
   it 'builds per-site env prefix' do
     expect(described_class.site_env_prefix('my-partner')).to eq('EM_TOOLS_SITE_MY_PARTNER_')
   end
+
+  it 'resolves default_path to an existing file (example when config/settings.yml absent)' do
+    p = described_class.default_path
+    expect(File.file?(p)).to be(true)
+    expect(p).to end_with('.yml')
+  end
 end

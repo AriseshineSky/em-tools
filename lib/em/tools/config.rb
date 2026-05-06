@@ -17,7 +17,8 @@ module Em
                 dig_string(settings, %w[elasticsearch url])
         return first if first
 
-        raise 'ELASTICSEARCH_URL missing (set in .env or settings YAML elasticsearch.url; see examples/config/settings.example.yml)'
+        raise 'ELASTICSEARCH_URL missing (set in .env or settings YAML elasticsearch.url; ' \
+              'see examples/config/settings.example.yml)'
       end
 
       def self.redis_url
@@ -84,9 +85,7 @@ module Em
 
       private_class_method :string_present, :dig_string
 
-      # ========================
-      # 新增：GCS 配置入口 ⭐
-      # ========================
+      # GCS bucket names and optional credentials from merged settings (+gcs+).
       class Gcs
         def initialize
           @config = load_config
@@ -117,9 +116,12 @@ module Em
         def load_config
           merged = Em::Tools::Config.settings
           gcs = merged['gcs']
-          return normalize_gcs_settings(gcs) if use_settings_gcs?(gcs)
+          unless use_settings_gcs?(gcs)
+            raise 'GCS config missing: add gcs.buckets to your settings YAML ' \
+                  '(see examples/config/settings.example.yml)'
+          end
 
-          legacy_gcs_yaml_config
+          normalize_gcs_settings(gcs)
         end
 
         def use_settings_gcs?(gcs)
@@ -142,20 +144,6 @@ module Em
 
           buckets.each_with_object({}) do |(k, v), acc|
             acc[k.to_s] = v
-          end
-        end
-
-        def legacy_gcs_yaml_config
-          path = File.expand_path('../../../config/gcs.yml', __dir__)
-          return {} unless File.file?(path)
-
-          env = ENV['APP_ENV'] || 'development'
-          raw = File.read(path)
-          parsed = ERB.new(raw).result
-          yaml = YAML.safe_load(parsed, aliases: true)
-          yaml = {} unless yaml.is_a?(Hash)
-          yaml.fetch(env) do
-            raise "Missing env #{env} in config/gcs.yml (legacy; use settings YAML gcs: section instead)"
           end
         end
       end

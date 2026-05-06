@@ -6,8 +6,7 @@ require 'yaml'
 module Em
   module Tools
     # rubocop:disable Metrics/ClassLength
-    # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+), a YAML path argument,
-    # or legacy +config/inventory_sync.yml+ when present.
+    # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+) or from an explicit YAML path.
     class InventorySyncSources
       Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete)
 
@@ -22,12 +21,9 @@ module Em
           node = inventory_sync_node_from_settings(settings)
           return new(nil, preloaded_node: node).entries if node
 
-          return new(default_config_path).entries if File.file?(default_config_path)
-
           raise Error,
-                'No inventory sources: add inventory_sync.sources to your settings YAML, ' \
-                'or pass a YAML file path to rake inventory:sync[path], ' \
-                'or add config/inventory_sync.yml (legacy)'
+                'No inventory sources: add a non-empty inventory_sync.sources list to your settings YAML, ' \
+                'or pass a dedicated YAML path to rake inventory:sync[path]'
         end
 
         def inventory_sync_node_from_settings(settings)
@@ -41,10 +37,6 @@ module Em
 
           inv
         end
-
-        def default_config_path
-          File.expand_path('../../../config/inventory_sync.yml', __dir__)
-        end
       end
 
       def initialize(path = nil, preloaded_node: nil)
@@ -53,12 +45,7 @@ module Em
       end
 
       def entries
-        node =
-          if @preloaded_node
-            @preloaded_node
-          else
-            section(load_yaml!)
-          end
+        node = @preloaded_node || section(load_yaml!)
         list = validate_sources!(node)
         idx = default_index(node)
         ref = default_refresh(node)
@@ -81,7 +68,7 @@ module Em
       def section(doc)
         env = ENV['APP_ENV'] || 'development'
         doc.fetch(env) do
-          raise Error, "Missing env #{env.inspect} in #{@path} (define #{env} or default:)"
+          raise Error, "Missing env #{env.inspect} in #{config_source_label} (define #{env} or default:)"
         end
       end
 
@@ -89,10 +76,15 @@ module Em
         list = node['sources']
         if list.nil? || !list.is_a?(Array) || list.empty?
           env = ENV['APP_ENV'] || 'development'
-          raise Error, "sources must be a non-empty array in #{@path} for env #{env.inspect}"
+          raise Error, "sources must be a non-empty array in #{config_source_label} for env #{env.inspect}"
         end
 
         list
+      end
+
+      def config_source_label
+        p = @path.to_s.strip
+        p.empty? ? 'merged settings (inventory_sync)' : p
       end
 
       def default_index(node)

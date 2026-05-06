@@ -7,22 +7,25 @@ module Em
     module SettingsHydrator
       module_function
 
-      # rubocop:disable Metrics/AbcSize -- one place to list every hydrated key.
       def apply_if_blank!
         return if ENV['EM_TOOLS_SKIP_SETTINGS_HYDRATE'].to_s == '1'
         return unless File.file?(SettingsLoader.default_path)
 
-        h = SettingsLoader.load
-        assign_if_blank('ELASTICSEARCH_URL', dig_string(h, %w[elasticsearch url]))
-        assign_if_blank('REDIS_URL', dig_string(h, %w[redis url]))
-        assign_if_blank('BLACKLIST_API_ENDPOINT', dig_string(h, %w[blacklist_api endpoint]))
-        assign_if_blank('BLACKLIST_API_PATH', dig_string(h, %w[blacklist_api path]))
-        assign_if_blank('BLACKLIST_API_KEY', dig_string(h, %w[blacklist_api api_key]))
-        assign_if_blank('BLACKLIST_API_TOKEN', dig_string(h, %w[blacklist_api api_token]))
-        assign_if_blank('GCS_SERVICE_ACCOUNT_PATH', dig_string(h, %w[gcs service_account_path]))
-        hydrate_sites(h['sites'])
+        settings = SettingsLoader.load
+        hydrate_core_env!(settings)
+        hydrate_sites(settings['sites'])
       end
-      # rubocop:enable Metrics/AbcSize
+
+      def hydrate_core_env!(settings)
+        assign_if_blank('ELASTICSEARCH_URL', dig_string(settings, %w[elasticsearch url]))
+        assign_if_blank('REDIS_URL', dig_string(settings, %w[redis url]))
+        assign_if_blank('BLACKLIST_API_ENDPOINT', dig_string(settings, %w[blacklist_api endpoint]))
+        assign_if_blank('BLACKLIST_API_PATH', dig_string(settings, %w[blacklist_api path]))
+        assign_if_blank('BLACKLIST_API_KEY', dig_string(settings, %w[blacklist_api api_key]))
+        assign_if_blank('BLACKLIST_API_TOKEN', dig_string(settings, %w[blacklist_api api_token]))
+        assign_if_blank('GCS_SERVICE_ACCOUNT_PATH', dig_string(settings, %w[gcs service_account_path]))
+      end
+      private_class_method :hydrate_core_env!
 
       def assign_if_blank(env_key, value)
         return if ENV[env_key].to_s.strip.present?

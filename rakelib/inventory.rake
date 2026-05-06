@@ -57,8 +57,8 @@ module InventoryRakeHelpers
 end
 
 namespace :inventory do
-  desc 'Sync GCS inventory CSVs from merged settings (inventory_sync.sources), ' \
-       'or legacy config/inventory_sync.yml, or a YAML path arg. Needs ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH.'
+  desc 'Sync GCS inventory CSVs from merged settings (inventory_sync.sources) or a YAML path arg. ' \
+       'Needs ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH.'
   task :sync, [:config_path] do |_t, args|
     require 'em/tools'
 

@@ -65,7 +65,7 @@ lib/em/tools/
 ## 4. 配置变多时的原则（简要）
 
 - **集中合并**：默认值 → YAML → `ENV` → CLI（你们已在部分命令里实践）。
-- **按领域拆 YAML**（如 `config/gcs.yml`），避免单文件无限增长。
+- **配置**：合并为单一 settings YAML（`gcs` + `inventory_sync` + 连接串）；仅在确有必要时再拆专用 YAML。
 - **在边界校验**：进入 Runner 前就把类型与必填项搞清楚。
 
 详见 `docs/LEARNING_SUMMARY.md` 中配置相关小节。

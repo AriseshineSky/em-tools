@@ -38,7 +38,7 @@ Python 里 `amz_upload_products_from_es.py` 做了典型胶水代码：`init_db`
 ## 4. 与 Python 对齐的配置键
 
 - ASIN 流：`AsinStreamOptions` / YAML 块 `amz.uploadable_filter.asin_stream` 等与 em-tasks 侧一致。
-- 价格规则：支持扁平键 `price.rules.amz_<marketplace>` 或嵌套 `price.rules.amz_<marketplace>`（见 `config/amz_celery_compat.example.yml`）。
+- 价格规则：支持扁平键 `price.rules.amz_<marketplace>` 或嵌套 `price.rules.amz_<marketplace>`（见 `examples/config/amz_celery_compat.example.yml`）。
 
 **可学点**：配置层尽量**沿用已有键名**，降低运维与文档的心智负担；解析逻辑集中在小类中便于 RSpec 覆盖。
 
