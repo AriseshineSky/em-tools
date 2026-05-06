@@ -4,6 +4,9 @@ require 'fileutils'
 require 'json'
 require 'set'
 
+require_relative 'lowest_offer_asin_pattern'
+require_relative 'lowest_offer_inventory_asin_loader'
+
 module Em
   module Tools
     # Time-window activity and seed coverage for lowest_offer_listings_* indices (no Rails).
@@ -17,6 +20,9 @@ module Em
     #
     # Activity/coverage ES queries use +bool.filter+ +terms+ on +@asin_field+ with **seed ASINs only** (no broad query).
     # Optional +snapshot_time+ (UTC) freezes time-window aggs to that instant for one publish; omit to use ES +now+.
+    #
+    # ID source +LOWEST_OFFER_ID_SOURCE+ (default +seed+): +seed+ uses files / +seed_text_fetcher+ as below;
+    # +inventory+ loads distinct Amazon ASINs from Elasticsearch +em_inventory+ (see +LowestOfferInventoryAsinLoader+).
     #
     # Seeds: +seed_dir+ looks for +amz_<mp>.txt+ then +ebay_<mp>.txt+. Each non-empty line: tab-separated,
     # **column 2** (0-based index 1) is JSON; +source_product_id+ is taken as the ASIN for ES +terms+.
@@ -48,12 +54,25 @@ module Em
 
       # +seed_text_fetcher+ — optional Proc (marketplace lowercase String) -> seed file String (in-memory).
       # +seed_dir+ — optional directory with +amz_<mp>.txt+ ; used when set before +seed_text_fetcher+.
+      # +id_source+ — +seed+ (default) or +inventory+ (+LOWEST_OFFER_ID_SOURCE+).
       def initialize(es_client:, marketplaces: nil, time_field: nil, asin_field: nil, seed_dir: nil,
-                     seed_text_fetcher: nil, snapshot_time: nil)
+                     seed_text_fetcher: nil, snapshot_time: nil, id_source: nil,
+                     inventory_index: nil, inventory_source_field: nil, inventory_source_terms: nil,
+                     inventory_product_id_field: nil, inventory_marketplace_field: nil,
+                     inventory_max_hits: nil)
         @es_client = es_client
         @seed_dir = (seed_dir || ENV['LOWEST_OFFER_SEED_DIR']).to_s.strip
         @seed_text_fetcher = seed_text_fetcher
         @snapshot_time = snapshot_time&.utc
+        @id_source = (id_source || ENV['LOWEST_OFFER_ID_SOURCE'] || 'seed').to_s.strip.downcase
+        configure_inventory_options!(
+          inventory_index: inventory_index,
+          inventory_source_field: inventory_source_field,
+          inventory_source_terms: inventory_source_terms,
+          inventory_product_id_field: inventory_product_id_field,
+          inventory_marketplace_field: inventory_marketplace_field,
+          inventory_max_hits: inventory_max_hits
+        )
         @marketplaces = if marketplaces&.any?
                           marketplaces.map { |m| m.to_s.downcase }
                         else
@@ -111,6 +130,8 @@ module Em
         {
           marketplace: mp.upcase,
           index_name: index,
+          id_source: @id_source,
+          inventory_index: (@id_source == 'inventory' ? @inventory_index : nil),
           seed_asins_loaded: seeds.length,
           seed_asins_unique: seeds.uniq.length,
           seed_file_present: seed_file_present_for_marketplace?(mp)
@@ -119,12 +140,15 @@ module Em
 
       # When +@seed_dir+ is set: whether +amz_<mp>.txt+ or +ebay_<mp>.txt+ exists (before parsing). +nil+ if seeds come only from +seed_text_fetcher+ (e.g. GCS).
       def seed_file_present_for_marketplace?(mp)
+        return nil if @id_source == 'inventory'
         return nil if @seed_dir.empty?
 
         %W[amz_#{mp}.txt ebay_#{mp}.txt].any? { |name| File.file?(File.join(@seed_dir, name)) }
       end
 
       def load_seed_asins(mp)
+        return load_asins_from_inventory(mp) if @id_source == 'inventory'
+
         text =
           if !@seed_dir.empty?
             read_seed_text_from_dir(mp)
@@ -136,6 +160,43 @@ module Em
         extract_source_product_ids_from_seed_text(text.to_s)
       rescue StandardError => e
         warn "LowestOfferListingsCoverageQuery seed load failed for #{mp}: #{e.message}"
+        []
+      end
+
+      # rubocop:disable Metrics/ParameterLists
+      def configure_inventory_options!(inventory_index:, inventory_source_field:, inventory_source_terms:,
+                                       inventory_product_id_field:, inventory_marketplace_field:, inventory_max_hits:)
+        @inventory_index = (inventory_index || ENV['LOWEST_OFFER_INVENTORY_INDEX']).to_s.strip
+        @inventory_index = 'em_inventory' if @inventory_index.empty?
+        sf = (inventory_source_field || ENV['LOWEST_OFFER_INVENTORY_SOURCE_FIELD']).to_s.strip
+        @inventory_source_field = sf.empty? ? 'source.keyword' : sf
+        terms = inventory_source_terms || parse_csv_env('LOWEST_OFFER_INVENTORY_AMAZON_SOURCES')
+        @inventory_source_terms = terms
+        pf = (inventory_product_id_field || ENV['LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD']).to_s.strip
+        @inventory_product_id_field = pf.empty? ? 'source_product_id' : pf
+        mf = (inventory_marketplace_field || ENV['LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD']).to_s.strip
+        @inventory_marketplace_field = mf.empty? ? nil : mf
+        @inventory_max_hits = inventory_max_hits
+      end
+      # rubocop:enable Metrics/ParameterLists
+
+      def parse_csv_env(key)
+        ENV[key].to_s.split(',').map(&:strip).reject(&:empty?)
+      end
+
+      def load_asins_from_inventory(mp)
+        loader = LowestOfferInventoryAsinLoader.new(
+          es_client: @es_client,
+          index: @inventory_index,
+          source_field: @inventory_source_field,
+          source_terms: @inventory_source_terms,
+          product_id_field: @inventory_product_id_field,
+          marketplace_field: @inventory_marketplace_field,
+          max_hits: @inventory_max_hits
+        )
+        loader.load(mp)
+      rescue StandardError => e
+        warn "LowestOfferListingsCoverageQuery inventory load failed for #{mp}: #{e.message}"
         []
       end
 
@@ -180,14 +241,11 @@ module Em
         return nil unless m
 
         s = m[1].to_s.strip
-        seed_asin_like?(s) ? s : nil
+        LowestOfferAsinPattern.match?(s) ? s : nil
       end
 
       def seed_asin_like?(s)
-        u = s.to_s.strip.upcase
-        return false if u.empty?
-
-        u.match?(/\A(?:B[0-9A-Z]{9}|[0-9]{9}[0-9X])\z/)
+        LowestOfferAsinPattern.match?(s)
       end
 
       def read_seed_text_from_dir(mp)
@@ -472,11 +530,11 @@ module Em
         return nil if missing_asins.empty?
 
         FileUtils.mkdir_p(@missing_asins_dir)
-        mp = marketplace.to_s.downcase
-        path = File.join(@missing_asins_dir, "missing_asins_#{mp}.txt")
+        mkt = marketplace.to_s.downcase
+        path = File.join(@missing_asins_dir, "missing_asins_#{mkt}.txt")
         File.write(
           path,
-          missing_asins_file_body(mp, index, missing_asins),
+          missing_asins_file_body(mkt, index, missing_asins),
           encoding: 'UTF-8'
         )
         path
@@ -485,15 +543,15 @@ module Em
         nil
       end
 
-      def missing_asins_file_body(mp, index, missing_asins)
+      def missing_asins_file_body(mkt, index, missing_asins)
         lines = []
-        lines << "# marketplace: #{mp.upcase}"
+        lines << "# marketplace: #{mkt.upcase}"
         lines << "# index: #{index}"
         lines << "# asin_field: #{@asin_field}"
         lines << "# missing_count: #{missing_asins.size}"
         lines << '# one ASIN per line (same values as used in Elasticsearch terms query)'
         lines << ''
-        missing_asins.map { |a| a.to_s.upcase }.sort.uniq.each { |a| lines << a }
+        missing_asins.map { |asin| asin.to_s.upcase }.sort.uniq.each { |asin| lines << asin }
         lines.join("\n")
       end
 
@@ -503,6 +561,7 @@ module Em
 
       class << self
         # Same marketplace resolution as +initialize+ (rake + publish_snapshot+ args first).
+        # rubocop:disable Metrics/PerceivedComplexity
         def marketplaces_for_publish(cli_marketplaces_csv)
           list = cli_marketplaces_csv.to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
           return list if list.any?
@@ -512,6 +571,7 @@ module Em
 
           DEFAULT_MARKETPLACES.dup
         end
+        # rubocop:enable Metrics/PerceivedComplexity
       end
     end
   end

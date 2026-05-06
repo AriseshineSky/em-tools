@@ -1,2 +1,52 @@
+AllCops:
+  Exclude:
+    - 'docs/**/*'
+
 Style/Documentation:
   Enabled: false
+
+# CLI command classes are thin OptionParser scripts; splitting them purely for metrics hurts readability.
+Metrics/AbcSize:
+  Exclude:
+    - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'
+    - 'lib/em/tools/lowest_offer_listings_coverage_query.rb'
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+    - 'lib/em/tools/cli/commands/**/*'
+Metrics/ClassLength:
+  Exclude:
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+    - 'lib/em/tools/cli/commands/**/*'
+Metrics/BlockNesting:
+  Exclude:
+    - 'rakelib/**/*.rake'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+    - 'lib/em/tools/cli/commands/**/*'
+
+Metrics/ParameterLists:
+  Exclude:
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'
+    - 'lib/em/tools/lowest_offer_listings_coverage_query.rb'
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+    - 'lib/em/tools/cli/commands/**/*'
+Metrics/MethodLength:
+  Exclude:
+    - 'lib/em/tools/cli/app.rb'
+    - 'lib/em/tools/cli/commands/**/*'
+    - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'
+    - 'lib/em/tools/amazon/upload_products_from_es/runner.rb'
+    - 'lib/em/tools/lowest_offer_listings_coverage_query.rb'
+    - 'lib/em/tools/ebay_listings_coverage_query.rb'
+    - 'lib/em/tools/ebay_listings_coverage_snapshot.rb'

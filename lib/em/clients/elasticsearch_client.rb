@@ -9,7 +9,7 @@ module Em
       attr_reader :client
 
       def initialize
-        @client = ::Elasticsearch::Client.new(url: ENV['ELASTICSEARCH_URL'])
+        @client = ::Elasticsearch::Client.new(url: Em::Tools::Config.elasticsearch_url)
       end
 
       # ---- Index APIs ----
@@ -50,6 +50,50 @@ module Em
             }
           )
         end
+      ensure
+        client.close_point_in_time(body: { id: pit_id }) if pit_id
+      end
+      # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
+
+      # Point-in-time scan with a custom +query+ (same transport pattern as +iterate_all+).
+      # Optional +max_hits+ stops after that many documents yielded.
+      # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+      def iterate_query(index:, query:, batch_size: 1000, sort: [{ _shard_doc: 'asc' }], max_hits: nil, &block)
+        pit_id = nil
+        yielded = 0
+        pit = client.open_point_in_time(index: index, keep_alive: '1m')
+        pit_id = pit['id']
+
+        response = client.search(
+          body: {
+            size: batch_size,
+            pit: { id: pit_id, keep_alive: '1m' },
+            sort: sort,
+            query: query
+          }
+        )
+
+        loop do
+          hits = response['hits']['hits']
+          break if hits.empty?
+
+          hits.each do |hit|
+            block.call(hit)
+            yielded += 1
+            return yielded if max_hits && yielded >= max_hits
+          end
+
+          response = client.search(
+            body: {
+              size: batch_size,
+              pit: { id: pit_id, keep_alive: '1m' },
+              sort: sort,
+              search_after: hits.last['sort'],
+              query: query
+            }
+          )
+        end
+        yielded
       ensure
         client.close_point_in_time(body: { id: pit_id }) if pit_id
       end
@@ -126,6 +170,14 @@ module Em
         params[:body] = body
         params.merge!(sanitize_api_options(options))
         client.search(**params)
+      end
+
+      # Multi-get documents by +_id+ from a single index (batch product lookup by ASIN).
+      def mget(index:, ids:, **options)
+        id_list = Array(ids).map(&:to_s).map(&:strip).reject(&:empty?)
+        return { 'docs' => [] } if id_list.empty?
+
+        client.mget(index: index, body: { ids: id_list }, **sanitize_api_options(options))
       end
 
       # Count documents matching a query

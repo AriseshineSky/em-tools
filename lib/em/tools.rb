@@ -16,5 +16,8 @@ loader.inflector = Zeitwerk::GemInflector.new(__FILE__)
 loader.push_dir("#{__dir__}/tools", namespace: Em::Tools)
 loader.setup
 
+Em::Tools::SettingsHydrator.apply_if_blank!
+
 # `Em::Clients::ElasticsearchClient` lives under +lib/em/clients/+ (outside the Tools Zeitwerk root).
 require_relative 'clients/elasticsearch_client'
+require_relative 'tools/cli/app'

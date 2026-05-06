@@ -6,7 +6,8 @@ require 'yaml'
 module Em
   module Tools
     # rubocop:disable Metrics/ClassLength
-    # Loads +sources+ (a list of +gs://+ URIs) from +config/inventory_sync.yml+ (or a given path).
+    # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+), a YAML path argument,
+    # or legacy +config/inventory_sync.yml+ when present.
     class InventorySyncSources
       Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete)
 
@@ -14,7 +15,31 @@ module Em
 
       class << self
         def load!(path = nil)
-          new(path).entries
+          p = path.to_s.strip
+          return new(File.expand_path(p)).entries unless p.empty?
+
+          settings = SettingsLoader.load
+          node = inventory_sync_node_from_settings(settings)
+          return new(nil, preloaded_node: node).entries if node
+
+          return new(default_config_path).entries if File.file?(default_config_path)
+
+          raise Error,
+                'No inventory sources: add inventory_sync.sources to your settings YAML, ' \
+                'or pass a YAML file path to rake inventory:sync[path], ' \
+                'or add config/inventory_sync.yml (legacy)'
+        end
+
+        def inventory_sync_node_from_settings(settings)
+          return nil unless settings.is_a?(Hash)
+
+          inv = settings['inventory_sync']
+          return nil unless inv.is_a?(Hash)
+
+          sources = inv['sources']
+          return nil unless sources.is_a?(Array) && sources.any?
+
+          inv
         end
 
         def default_config_path
@@ -22,12 +47,18 @@ module Em
         end
       end
 
-      def initialize(path = nil)
-        @path = path || self.class.default_config_path
+      def initialize(path = nil, preloaded_node: nil)
+        @path = path
+        @preloaded_node = preloaded_node
       end
 
       def entries
-        node = section(load_yaml!)
+        node =
+          if @preloaded_node
+            @preloaded_node
+          else
+            section(load_yaml!)
+          end
         list = validate_sources!(node)
         idx = default_index(node)
         ref = default_refresh(node)
@@ -38,6 +69,8 @@ module Em
       private
 
       def load_yaml!
+        raise Error, 'Inventory sync config path missing' if @path.nil? || @path.to_s.strip.empty?
+
         raw = File.read(@path)
         parsed = ERB.new(raw).result
         YAML.safe_load(parsed, permitted_classes: [], permitted_symbols: [], aliases: true)

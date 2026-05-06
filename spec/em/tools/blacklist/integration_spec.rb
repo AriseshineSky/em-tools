@@ -3,18 +3,18 @@
 require 'spec_helper'
 
 RSpec.describe Em::Tools::Blacklist::Engine do
-  let(:keywords) { [''] }
+  let(:keywords) { %w[badword] }
   let(:engine) { described_class.new(keywords) }
 
   let(:blocked_cases) do
     [
-      ''
+      'contains badword in title'
     ]
   end
 
   let(:clean_cases) do
     [
-      ''
+      'clean product title'
     ]
   end
 

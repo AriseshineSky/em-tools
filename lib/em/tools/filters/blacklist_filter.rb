@@ -9,7 +9,7 @@ module Em
         end
 
         def blocked?(text)
-          !@automation.match?(text)
+          @automation.match?(text)
         end
 
         def lookup(text)

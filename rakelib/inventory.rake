@@ -48,17 +48,17 @@ module InventoryRakeHelpers
     raise ArgumentError, "expected gs://bucket/path/to/file.csv, got: #{uri.inspect}"
   end
 
-  def config_file_path(root, relative)
+  def resolve_inventory_yaml_path(root, relative)
     rel = relative.to_s.strip
-    return File.join(root, 'config', 'inventory_sync.yml') if rel.empty?
+    return nil if rel.empty?
 
     File.expand_path(rel, root)
   end
 end
 
 namespace :inventory do
-  desc 'Sync every GCS URI listed in config/inventory_sync.yml (section APP_ENV). ' \
-       'Optional arg: path to YAML relative to repo root. Needs ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH.'
+  desc 'Sync GCS inventory CSVs from merged settings (inventory_sync.sources), ' \
+       'or legacy config/inventory_sync.yml, or a YAML path arg. Needs ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH.'
   task :sync, [:config_path] do |_t, args|
     require 'em/tools'
 
@@ -68,7 +68,7 @@ namespace :inventory do
     end
 
     root = File.expand_path('..', __dir__)
-    config_path = InventoryRakeHelpers.config_file_path(root, args[:config_path])
+    config_path = InventoryRakeHelpers.resolve_inventory_yaml_path(root, args[:config_path])
 
     creds = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
     fetcher_opts = creds.empty? ? {} : { credentials_path: File.expand_path(creds) }
@@ -81,7 +81,8 @@ namespace :inventory do
       exit 1
     end
 
-    puts "Inventory sync from #{config_path} (#{sources.size} source(s))"
+    config_label = config_path || Em::Tools::SettingsLoader.default_path
+    puts "Inventory sync from #{config_label} (#{sources.size} source(s))"
     sources.each_with_index do |src, i|
       puts "[#{i + 1}/#{sources.size}] #{src.gs_uri} -> index=#{src.index} refresh=#{src.refresh} " \
            "feed_id=#{src.feed_id.inspect} prune=#{src.prune_obsolete}"

@@ -4,6 +4,8 @@
 namespace :lowest_offer do
   desc 'Publish lowest-offer snapshot to ES. Seeds: set LOWEST_OFFER_SEED_DIR to a directory containing ' \
        'amz_<mp>.txt (or ebay_<mp>.txt), e.g. LOWEST_OFFER_SEED_DIR=tmp with ./tmp/amz_ca.txt for CA. ' \
+       'Alternatively LOWEST_OFFER_ID_SOURCE=inventory reads Amazon ASINs from ES index em_inventory ' \
+       '(see LOWEST_OFFER_INVENTORY_* env vars). ' \
        'ES: LOWEST_OFFER_ASIN_FIELD (default asin.keyword), raw ASIN terms. ' \
        'LOWEST_OFFER_TERMS_BATCH_SIZE (default 2000) for large seeds. ' \
        'Missing ASINs -> LOWEST_OFFER_MISSING_ASINS_DIR (default tmp/lowest_offer_missing_asins), ' \
@@ -20,43 +22,15 @@ namespace :lowest_offer do
 
     client = Em::Clients::ElasticsearchClient.new
     query_opts = { es_client: client }
+    inventory_mode = ENV['LOWEST_OFFER_ID_SOURCE'].to_s.strip.downcase == 'inventory'
 
-    seed_dir = ENV['LOWEST_OFFER_SEED_DIR'].to_s.strip
-    if seed_dir.empty?
-      creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-      if creds_raw.empty?
-        warn 'error: set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or set ' \
-             'GCS_SERVICE_ACCOUNT_PATH to load the same AMZ_*.txt objects from GCS in memory'
-        exit 1
-      end
-      creds_path = File.expand_path(creds_raw)
-      unless File.file?(creds_path)
-        warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
-        exit 1
-      end
-
-      bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
-      prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics').sub(%r{/+\z}, '')
-
-      gcs = Em::Tools::GcsHelper.new(creds_path, bucket, prefix)
-      query_opts[:seed_text_fetcher] = lambda do |mp|
-        blob_name = "#{prefix}/sources/AMZ_#{mp.upcase}.txt"
-        gcs.download_string(blob_name)
-      end
-    else
-      seed_dir_expanded = File.expand_path(seed_dir)
-      marketplaces = Em::Tools::LowestOfferListingsCoverageQuery.marketplaces_for_publish(args[:marketplaces])
-      force = ENV['LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD'] == '1'
-      needs_sync = force || marketplaces.any? do |mp|
-        !Em::Tools::LowestOfferSeedFiles.seed_file_present?(seed_dir_expanded, mp)
-      end
-
-      if needs_sync
+    unless inventory_mode
+      seed_dir = ENV['LOWEST_OFFER_SEED_DIR'].to_s.strip
+      if seed_dir.empty?
         creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
         if creds_raw.empty?
-          warn 'error: missing seed files under LOWEST_OFFER_SEED_DIR; set GCS_SERVICE_ACCOUNT_PATH to pull ' \
-               'AMZ_<MP>.txt from GCS (or unset LOWEST_OFFER_SEED_DIR to use in-memory GCS only). ' \
-               'Use LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 to overwrite existing amz_<mp>.txt.'
+          warn 'error: set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or set ' \
+               'GCS_SERVICE_ACCOUNT_PATH to load the same AMZ_*.txt objects from GCS in memory'
           exit 1
         end
         creds_path = File.expand_path(creds_raw)
@@ -66,19 +40,50 @@ namespace :lowest_offer do
         end
 
         bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
-        prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics')
-        puts "Syncing seeds from GCS -> #{seed_dir_expanded} (marketplaces=#{marketplaces.join(',')}, force=#{force})"
-        Em::Tools::LowestOfferSeedFiles.sync_from_gcs(
-          seed_dir_expanded,
-          marketplaces: marketplaces,
-          creds_path: creds_path,
-          bucket: bucket,
-          prefix: prefix,
-          force: force
-        )
-      end
+        prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics').sub(%r{/+\z}, '')
 
-      query_opts[:seed_dir] = seed_dir_expanded
+        gcs = Em::Tools::GcsHelper.new(creds_path, bucket, prefix)
+        query_opts[:seed_text_fetcher] = lambda do |mp|
+          blob_name = "#{prefix}/sources/AMZ_#{mp.upcase}.txt"
+          gcs.download_string(blob_name)
+        end
+      else
+        seed_dir_expanded = File.expand_path(seed_dir)
+        marketplaces = Em::Tools::LowestOfferListingsCoverageQuery.marketplaces_for_publish(args[:marketplaces])
+        force = ENV['LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD'] == '1'
+        needs_sync = force || marketplaces.any? do |mp|
+          !Em::Tools::LowestOfferSeedFiles.seed_file_present?(seed_dir_expanded, mp)
+        end
+
+        if needs_sync
+          creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+          if creds_raw.empty?
+            warn 'error: missing seed files under LOWEST_OFFER_SEED_DIR; set GCS_SERVICE_ACCOUNT_PATH to pull ' \
+                 'AMZ_<MP>.txt from GCS (or unset LOWEST_OFFER_SEED_DIR to use in-memory GCS only). ' \
+                 'Use LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 to overwrite existing amz_<mp>.txt.'
+            exit 1
+          end
+          creds_path = File.expand_path(creds_raw)
+          unless File.file?(creds_path)
+            warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+            exit 1
+          end
+
+          bucket = ENV.fetch('GCS_BUCKET', 'em-bucket')
+          prefix = ENV.fetch('GCS_SEEDS_PREFIX', 'em-analytics')
+          puts "Syncing seeds from GCS -> #{seed_dir_expanded} (marketplaces=#{marketplaces.join(',')}, force=#{force})"
+          Em::Tools::LowestOfferSeedFiles.sync_from_gcs(
+            seed_dir_expanded,
+            marketplaces: marketplaces,
+            creds_path: creds_path,
+            bucket: bucket,
+            prefix: prefix,
+            force: force
+          )
+        end
+
+        query_opts[:seed_dir] = seed_dir_expanded
+      end
     end
     cli_mps = args[:marketplaces].to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
     query_opts[:marketplaces] = cli_mps if cli_mps.any?
@@ -86,7 +91,23 @@ namespace :lowest_offer do
     snapshot_time = Time.now.utc
     rows = Em::Tools::LowestOfferListingsCoverageQuery.new(**query_opts.merge(snapshot_time: snapshot_time)).fetch_all
 
-    if query_opts[:seed_dir]
+    if inventory_mode
+      rows.each do |row|
+        err = row[:error] || row['error']
+        next if err && !err.to_s.strip.empty?
+
+        loaded = row[:seed_asins_loaded] || row['seed_asins_loaded']
+        next if loaded.to_i.positive?
+
+        idx = row[:inventory_index] || row['inventory_index'] || ENV['LOWEST_OFFER_INVENTORY_INDEX']
+        warn 'error: no Amazon ASINs loaded from em_inventory for ' \
+             "#{row[:marketplace] || row['marketplace']} " \
+             "(inventory_index=#{idx.inspect}, seed_asins_loaded=#{loaded.inspect}). " \
+             'Check LOWEST_OFFER_INVENTORY_AMAZON_SOURCES matches _source.source values, ' \
+             'LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD, and optional LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD.'
+        exit 1
+      end
+    elsif query_opts[:seed_dir]
       rows.each do |row|
         err = row[:error] || row['error']
         next if err && !err.to_s.strip.empty?
