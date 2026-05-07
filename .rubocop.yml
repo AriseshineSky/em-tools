@@ -14,6 +14,7 @@ Metrics/AbcSize:
     - 'lib/em/tools/cli/commands/**/*'
 Metrics/ClassLength:
   Exclude:
+    - 'lib/em/tools/config.rb'
     - 'lib/em/tools/ebay_listings_coverage_query.rb'
     - 'lib/em/tools/cli/commands/**/*'
 Metrics/BlockNesting:
@@ -43,6 +44,7 @@ Metrics/CyclomaticComplexity:
     - 'lib/em/tools/cli/commands/**/*'
 Metrics/MethodLength:
   Exclude:
+    - 'lib/em/tools/config.rb'
     - 'lib/em/tools/cli/app.rb'
     - 'lib/em/tools/cli/commands/**/*'
     - 'lib/em/tools/amazon/asin_product_index_pipeline.rb'

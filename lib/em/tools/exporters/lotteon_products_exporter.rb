@@ -3,15 +3,14 @@
 module Em
   module Tools
     module Exporters
-      class SsgProductsExporter
-        EXPORTER_KEY = 'ssg_products'
+      class LotteonProductsExporter
+        EXPORTER_KEY = 'lotteon_products'
 
-        # @param client [Em::Clients::ElasticsearchClient, nil] optional; default from Config.
         def initialize(client = nil)
           @client = client || Em::Clients::ElasticsearchClient.new(
             url: Em::Tools::Config.exporter_elasticsearch_url(EXPORTER_KEY)
           )
-          @index = Em::Tools::Config.exporter_index(EXPORTER_KEY, 'ssg_products')
+          @index = Em::Tools::Config.exporter_index(EXPORTER_KEY, 'user1_lotteon_products')
         end
 
         def to_jsonl(file_path)

@@ -3,7 +3,8 @@
 module Em
   module Tools
     # Fills +ENV+ from merged settings YAML (+SettingsLoader.default_path+) only for keys that are still blank,
-    # after +dotenv+ (or the shell) has run. Keeps existing rake / CLI that read +ENV+ working.
+    # after +dotenv+ (or the shell) has run. Operational URLs and indexes (+DATA_ELASTICSEARCH_URL+,
+    # +INVENTORY_INDEX+, eBay inventory index, etc.) are expected in +.env+ only — not copied from YAML here.
     module SettingsHydrator
       module_function
 
@@ -28,7 +29,7 @@ module Em
       private_class_method :hydrate_core_env!
 
       def assign_if_blank(env_key, value)
-        return if ENV[env_key].to_s.strip.present?
+        return unless ENV[env_key].to_s.strip.empty?
 
         v = value.to_s.strip
         ENV[env_key] = v unless v.empty?

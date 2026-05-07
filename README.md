@@ -20,7 +20,7 @@
 | **Blacklist / products** | Aho–Corasick–based blacklist engine, SSG product scanner/exporter, product importer. |
 | **`exe/em-tools`** | CLI entrypoint: `dump`, `import-products`, `uploadable-product-filter`, `amz-upload-products-from-es`, `amz-uploadable-products-formatter-from-file`, `asin-products-to-es` (see [em-tools CLI](#em-tools-cli) below). |
 | **`Em::Tools::Amazon::UploadableProductsFormatterFromFile`** | ASIN file → ES `mget` (product + optional offer index) → one JSON line per ASIN + sidecar files under `~/.em_tasks/amz_<mp>/` (Ruby counterpart to em-celery `amz_uploadable_products_formatter_from_file`). |
-| **`Em::Tools::Config` / `SettingsLoader` / `SettingsHydrator`** | One merged YAML (`config/settings.yml` if present, else `examples/config/settings.example.yml`) + `.env`: ES, Redis, blacklist, `sites`, **`gcs`** buckets, **`inventory_sync`** CSV list; optional hydrate into `ENV` at boot. |
+| **`Em::Tools::Config` / `SettingsLoader` / `SettingsHydrator`** | **`.env`** holds operational URLs and secrets; optional YAML (`config/settings.yml` or example) supplies **`inventory_sync.sources`**, **`exporters`**, **`gcs.buckets`** — YAML may hydrate only generic blank `ENV` keys (see hydrator), not task-specific index/cluster overrides. |
 
 Ruby **>= 3.2**. Main gem dependencies: `elasticsearch` ~> 7.17, `google-cloud-storage`, `zeitwerk`, `csv`, `ahocorasick-rust`.
 
@@ -46,13 +46,17 @@ gem 'em-tools', git: 'https://github.com/AriseshineSky/em-tools.git'
 
 | File | Purpose |
 |------|---------|
-| **`examples/config/settings.example.yml`** | Default merged app config in-repo: `elasticsearch`, `redis`, `blacklist_api`, `sites`, **`gcs`** (buckets, optional `service_account_path`), **`inventory_sync`** (`sources`, `index`, `refresh`, `prune_obsolete`). ERB allowed. |
+| **`examples/config/settings.example.yml`** | Optional structural defaults: **`inventory_sync.sources`**, **`exporters`**, **`gcs.buckets`**, placeholder **`elasticsearch_clusters`** (override hosts in `.env`). Connection secrets belong in **`.env`**. |
 | **`config/settings.yml`** | Optional override (common if `config/` is gitignored): copy or symlink from the example and edit. |
 | **`EM_TOOLS_SETTINGS_PATH`** | Point to any YAML file using the same `default` + `APP_ENV` merge shape. |
 | **`examples/config/*.example.yml`** | Small CLI-only YAML samples (`amazon_asin_product_pipeline`, `amz_celery_compat`, `amz_uploadable_filter`) passed with `--config`. |
-| **`.env` / `.env.example`** | Secrets and machine-local overrides. After `dotenv`, **`Em::Tools::SettingsHydrator`** fills still-blank `ENV` keys from the merged settings file. |
+| **`.env` / `.env.example`** | Primary place for **`ELASTICSEARCH_URL`**, **`DATA_ELASTICSEARCH_URL`**, **`GCS_SERVICE_ACCOUNT_PATH`**, **`INVENTORY_INDEX`**, **`EBAY_LISTINGS_COVERAGE_*`**, etc. |
 
 Optional **`.env`** in the repo root is loaded by Rake / `exe/em-tools` when the `dotenv` gem is present.
+
+**YAML (`examples/config/settings.example.yml`):** use when you need versioned lists such as **`inventory_sync.sources`** or **`exporters`** cluster/index mapping. **`SettingsHydrator`** may still fill a few generic blank keys from YAML (e.g. **`ELASTICSEARCH_URL`** if unset); multi-cluster and task indexes should stay in **`.env`**.
+
+**Multiple Elasticsearch hosts (exporters):** set **`DATA_ELASTICSEARCH_URL`** or **`ELASTICSEARCH_CLUSTER_<NAME>_URL`** in `.env`; **`Em::Tools::Config.elasticsearch_cluster_url`** / **`data_elasticsearch_url`** read those before YAML. Example exporter keys: `ssg_products`, `lotteon_products`.
 
 ---
 
@@ -66,7 +70,7 @@ Optional **`.env`** in the repo root is loaded by Rake / `exe/em-tools` when the
 | **`EM_TOOLS_SITE_<NAME>_TOKEN`**, **`_ENDPOINT`**, **`_BASE_URL`** | Override `sites.<name>` from settings (`<NAME>` is uppercased, `-` → `_`). **`Em::Tools::Config.site('acme')`** returns a merged `Hash`. |
 | **`EM_TOOLS_SETTINGS_PATH`** | Absolute path to a YAML file instead of the default resolution (`config/settings.yml` or the committed example). |
 | **`EM_TOOLS_SKIP_SETTINGS_HYDRATE`** | Set to `1` to skip copying YAML into `ENV` (tests set this in `spec_helper`). |
-| **`GCS_SERVICE_ACCOUNT_PATH`** | Path to GCS JSON key. Can also be defaulted from settings `gcs.service_account_path` when hydrated. |
+| **`GCS_SERVICE_ACCOUNT_PATH`** | Path to GCS JSON key (set in **`.env`**; YAML `gcs.service_account_path` only fills `ENV` when blank). |
 | **`APP_ENV`** | Picks the overlay section merged on top of `default` in the settings YAML (default **`development`**). |
 
 Inventory / one-off sync extras: `INVENTORY_INDEX`, `INVENTORY_REFRESH`, `INVENTORY_GS_URI`, `INVENTORY_GCS_BUCKET`, `INVENTORY_GCS_OBJECT`, `INVENTORY_PRUNE_OBSOLETE`, `INVENTORY_FEED_ID` (see Rake descriptions).
@@ -157,9 +161,9 @@ bundle exec rake install
 
 ### em-tools CLI
 
-Run from a checkout as `bundle exec ruby -I lib exe/em-tools …`, or after `bundle exec rake install` as `bundle exec em-tools …`. Load order: **Bundler** → optional **`dotenv`** (`.env`) → **`Em::Tools::SettingsHydrator`** (YAML defaults into blank `ENV` keys) → command.
+Run from a checkout as `bundle exec ruby -I lib exe/em-tools …`, or after `bundle exec rake install` as `bundle exec em-tools …`. Load order: **Bundler** → optional **`dotenv`** (`.env`) → **`Em::Tools::SettingsHydrator`** (optional YAML → blank `ENV`) → command.
 
-**Global:** set **`ELASTICSEARCH_URL`** (or `config/settings.yml` + hydrate) for any command that talks to ES. Command-specific help: `bundle exec em-tools COMMAND --help` (e.g. `… dump --help`).
+**Global:** set **`ELASTICSEARCH_URL`** in **`.env`** for any command that talks to ES. Command-specific help: `bundle exec em-tools COMMAND --help` (e.g. `… dump --help`).
 
 | Command | Summary |
 |---------|---------|

@@ -88,6 +88,9 @@ module Em
       end
 
       def default_index(node)
+        env_idx = ENV['INVENTORY_INDEX'].to_s.strip
+        return env_idx unless env_idx.empty?
+
         node['index'] || InventorySync::INDEX
       end
 

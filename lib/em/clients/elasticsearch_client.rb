@@ -8,8 +8,11 @@ module Em
     class ElasticsearchClient
       attr_reader :client
 
-      def initialize
-        @client = ::Elasticsearch::Client.new(url: Em::Tools::Config.elasticsearch_url)
+      # @param url [String, nil] override cluster URL; nil uses {Em::Tools::Config.elasticsearch_url}.
+      def initialize(url: nil)
+        resolved = url.to_s.strip
+        resolved = Em::Tools::Config.elasticsearch_url if resolved.empty?
+        @client = ::Elasticsearch::Client.new(url: resolved)
       end
 
       # ---- Index APIs ----

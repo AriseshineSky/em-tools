@@ -10,6 +10,9 @@ module Em
     class InventorySync
       BATCH_SIZE = 2000
 
+      # Default target index for inventory CSV sync (overridable via +INVENTORY_INDEX+ or YAML +inventory_sync.index+).
+      INDEX = 'em_inventory'
+
       ID_FIELDS = %w[product_id sku asin id].freeze
 
       def initialize(sink:, index:, **opts)

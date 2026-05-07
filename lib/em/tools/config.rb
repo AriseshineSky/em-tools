@@ -21,6 +21,62 @@ module Em
               'see examples/config/settings.example.yml)'
       end
 
+      # Named ES URLs: +ELASTICSEARCH_CLUSTER_<NAME>_URL+ (NAME uppercased, +\-+ -> +_+), then
+      # +DATA_ELASTICSEARCH_URL+ for cluster names +data+ and +analytics+, then settings YAML
+      # (+elasticsearch_clusters.<name>.url+).
+      def self.elasticsearch_cluster_url(name)
+        n = name.to_s
+        pfx = "ELASTICSEARCH_CLUSTER_#{n.upcase.tr('-', '_')}_URL"
+        u = string_present(ENV[pfx])
+        return u if u
+
+        if %w[data analytics].include?(n)
+          u = string_present(ENV['DATA_ELASTICSEARCH_URL'])
+          return u if u
+        end
+
+        clusters = settings['elasticsearch_clusters']
+        return nil unless clusters.is_a?(Hash)
+
+        node = clusters[n]
+        return nil unless node.is_a?(Hash)
+
+        string_present(node['url'])
+      end
+
+      # Optional second cluster (convenience); same as +DATA_ELASTICSEARCH_URL+ env or YAML +data+ cluster.
+      def self.data_elasticsearch_url
+        string_present(ENV['DATA_ELASTICSEARCH_URL']) ||
+          elasticsearch_cluster_url('data') ||
+          elasticsearch_cluster_url('analytics')
+      end
+
+      # Per-exporter ES URL from +exporters.<key>+: optional +url+, or +cluster+ (name in +elasticsearch_clusters+).
+      # Falls back to {elasticsearch_url}.
+      def self.exporter_elasticsearch_url(exporter_key)
+        cfg = exporter_entry(exporter_key.to_s)
+        return elasticsearch_url if cfg.nil?
+
+        direct = string_present(cfg['url'])
+        return direct if direct
+
+        cluster = string_present(cfg['cluster'])
+        if cluster
+          resolved = elasticsearch_cluster_url(cluster)
+          return resolved if resolved
+        end
+
+        elasticsearch_url
+      end
+
+      # Index name for an exporter (+exporters.<key>.index+), or +fallback_index+ when unset.
+      def self.exporter_index(exporter_key, fallback_index)
+        cfg = exporter_entry(exporter_key.to_s)
+        return fallback_index if cfg.nil?
+
+        string_present(cfg['index']) || fallback_index
+      end
+
       def self.redis_url
         string_present(ENV['REDIS_URL']) || dig_string(settings, %w[redis url])
       end
@@ -82,6 +138,15 @@ module Em
         s = v.to_s.strip
         s.empty? ? nil : s
       end
+
+      def self.exporter_entry(key)
+        map = settings['exporters']
+        return nil unless map.is_a?(Hash)
+
+        entry = map[key.to_s]
+        entry.is_a?(Hash) ? entry : nil
+      end
+      private_class_method :exporter_entry
 
       private_class_method :string_present, :dig_string
 
