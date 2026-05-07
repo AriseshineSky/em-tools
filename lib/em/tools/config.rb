@@ -103,8 +103,9 @@ module Em
       end
 
       # Path to a GCS service account JSON key (optional; used by gcs rake tasks / GcsHelper).
+      # When +GCS_SERVICE_ACCOUNT_PATH+ is unset, defaults to +~/.em_celery/gcs-sa.json+.
       def self.gcs_service_account_path
-        File.expand_path(ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s)
+        GcsServiceAccountPath.resolve
       end
 
       # Per-site HTTP settings from +sites.<name>+ in settings.yml, overridden by

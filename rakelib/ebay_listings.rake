@@ -45,16 +45,15 @@ namespace :ebay_listings do
 
         query_opts[:seed_dir] = seed_dir_expanded
       else
-        creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-        if creds_raw.empty?
-          warn 'error: set EBAY_LISTINGS_COVERAGE_SEED_DIR (ebay_<mp>.txt), EBAY_LISTINGS_COVERAGE_SEED_FILE, ' \
-               'or EBAY_LISTINGS_COVERAGE_ID_SOURCE=inventory, or set GCS_SERVICE_ACCOUNT_PATH to load ' \
-               'EBAY_<MP>.txt from GCS in memory'
-          exit 1
-        end
-        creds_path = File.expand_path(creds_raw)
+        creds_path = Em::Tools::GcsServiceAccountPath.resolve
         unless File.file?(creds_path)
-          warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+          if ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip.empty?
+            warn 'error: set EBAY_LISTINGS_COVERAGE_SEED_DIR (ebay_<mp>.txt), EBAY_LISTINGS_COVERAGE_SEED_FILE, ' \
+                 'or EBAY_LISTINGS_COVERAGE_ID_SOURCE=inventory, or place a GCS JSON key at ' \
+                 "#{creds_path}, or set GCS_SERVICE_ACCOUNT_PATH to load EBAY_<MP>.txt from GCS in memory"
+          else
+            warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+          end
           exit 1
         end
 

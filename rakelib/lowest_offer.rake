@@ -27,15 +27,14 @@ namespace :lowest_offer do
     unless inventory_mode
       seed_dir = ENV['LOWEST_OFFER_SEED_DIR'].to_s.strip
       if seed_dir.empty?
-        creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-        if creds_raw.empty?
-          warn 'error: set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or set ' \
-               'GCS_SERVICE_ACCOUNT_PATH to load the same AMZ_*.txt objects from GCS in memory'
-          exit 1
-        end
-        creds_path = File.expand_path(creds_raw)
+        creds_path = Em::Tools::GcsServiceAccountPath.resolve
         unless File.file?(creds_path)
-          warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+          if ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip.empty?
+            warn 'error: set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or put a GCS JSON key at ' \
+                 "#{creds_path}, or set GCS_SERVICE_ACCOUNT_PATH to load the same AMZ_*.txt objects from GCS in memory"
+          else
+            warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+          end
           exit 1
         end
 
@@ -56,16 +55,16 @@ namespace :lowest_offer do
         end
 
         if needs_sync
-          creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-          if creds_raw.empty?
-            warn 'error: missing seed files under LOWEST_OFFER_SEED_DIR; set GCS_SERVICE_ACCOUNT_PATH to pull ' \
-                 'AMZ_<MP>.txt from GCS (or unset LOWEST_OFFER_SEED_DIR to use in-memory GCS only). ' \
-                 'Use LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 to overwrite existing amz_<mp>.txt.'
-            exit 1
-          end
-          creds_path = File.expand_path(creds_raw)
+          creds_path = Em::Tools::GcsServiceAccountPath.resolve
           unless File.file?(creds_path)
-            warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+            if ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip.empty?
+              warn 'error: missing seed files under LOWEST_OFFER_SEED_DIR; place a GCS JSON key at ' \
+                   "#{creds_path} or set GCS_SERVICE_ACCOUNT_PATH to pull AMZ_<MP>.txt from GCS " \
+                   '(or unset LOWEST_OFFER_SEED_DIR to use in-memory GCS only). ' \
+                   'Use LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 to overwrite existing amz_<mp>.txt.'
+            else
+              warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+            end
             exit 1
           end
 

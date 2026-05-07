@@ -7,7 +7,6 @@ module Em
   module Tools
     # Resolves a service-account JSON path and downloads a single object addressed by +gs://bucket/path+.
     class GcsBlobFetcher
-
       def self.parse_uri(gs_uri)
         s = gs_uri.to_s.strip
         m = s.match(%r{\Ags://([^/]+)/(.+)\z}i)
@@ -43,8 +42,10 @@ module Em
       private
 
       def resolve_credentials_path(explicit)
-        path = explicit || ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-        File.expand_path(path)
+        s = explicit.to_s.strip
+        return File.expand_path(s) unless s.empty?
+
+        GcsServiceAccountPath.resolve
       end
 
       def verify_credentials!

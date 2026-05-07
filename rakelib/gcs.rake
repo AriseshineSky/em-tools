@@ -6,14 +6,13 @@ namespace :gcs do
   task :download_seeds do
     require 'em/tools'
 
-    creds_raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
-    if creds_raw.empty?
-      warn 'error: set GCS_SERVICE_ACCOUNT_PATH to your service account JSON file'
-      exit 1
-    end
-    creds_path = File.expand_path(creds_raw)
+    creds_path = Em::Tools::GcsServiceAccountPath.resolve
     unless File.file?(creds_path)
-      warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+      if ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip.empty?
+        warn "error: place your service account JSON at #{creds_path} or set GCS_SERVICE_ACCOUNT_PATH"
+      else
+        warn "error: GCS_SERVICE_ACCOUNT_PATH is not a file: #{creds_path}"
+      end
       exit 1
     end
 
