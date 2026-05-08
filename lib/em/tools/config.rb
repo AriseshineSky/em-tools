@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'uri'
+
 module Em
   module Tools
     class Config
@@ -19,6 +21,43 @@ module Em
 
         raise 'ELASTICSEARCH_URL missing (set in .env or settings YAML elasticsearch.url; ' \
               'see examples/config/settings.example.yml)'
+      end
+
+      # Options merged into +Elasticsearch::Client.new+ (basic auth or API key).
+      #
+      # When +url+ already contains credentials (+http://user:pass@host+), returns +{}+ so global
+      # +ELASTICSEARCH_*+ env does not override the second cluster (+DATA_ELASTICSEARCH_URL+, etc.).
+      #
+      # When +url+ has no embedded credentials, optional +ELASTICSEARCH_API_KEY+ or
+      # +ELASTICSEARCH_USERNAME+ / +ELASTICSEARCH_PASSWORD+ apply (primary cluster).
+      def self.elasticsearch_client_arguments(url: nil)
+        target = string_present(url.to_s)
+        return {} if target && url_has_embedded_credentials?(target)
+
+        api_key = string_present(ENV['ELASTICSEARCH_API_KEY'])
+        if api_key
+          { api_key: api_key }
+        else
+          user = string_present(ENV['ELASTICSEARCH_USERNAME'])
+          password = string_present(ENV['ELASTICSEARCH_PASSWORD'])
+          args = {}
+          args[:user] = user if user
+          args[:password] = password if password
+          args
+        end
+      end
+
+      # +explicit+ (e.g. +ES_DUMP_ELASTICSEARCH_URL+) wins; then optional data/analytics cluster from
+      # +DATA_ELASTICSEARCH_URL+ when +prefer_data_cluster+ is true; otherwise {elasticsearch_url}.
+      def self.elasticsearch_connection_url(explicit: nil, prefer_data_cluster: false)
+        direct = string_present(explicit)
+        return direct if direct
+
+        if prefer_data_cluster
+          data_elasticsearch_url || elasticsearch_url
+        else
+          elasticsearch_url
+        end
       end
 
       # Named ES URLs: +ELASTICSEARCH_CLUSTER_<NAME>_URL+ (NAME uppercased, +\-+ -> +_+), then
@@ -52,21 +91,23 @@ module Em
       end
 
       # Per-exporter ES URL from +exporters.<key>+: optional +url+, or +cluster+ (name in +elasticsearch_clusters+).
-      # Falls back to {elasticsearch_url}.
+      # Lotteon defaults to the data cluster (+DATA_ELASTICSEARCH_URL+) when YAML has no exporter entry.
       def self.exporter_elasticsearch_url(exporter_key)
-        cfg = exporter_entry(exporter_key.to_s)
-        return elasticsearch_url if cfg.nil?
+        key = exporter_key.to_s
+        cfg = exporter_entry(key)
 
-        direct = string_present(cfg['url'])
-        return direct if direct
+        unless cfg.nil?
+          direct = string_present(cfg['url'])
+          return direct if direct
 
-        cluster = string_present(cfg['cluster'])
-        if cluster
-          resolved = elasticsearch_cluster_url(cluster)
-          return resolved if resolved
+          cluster = string_present(cfg['cluster'])
+          if cluster
+            resolved = elasticsearch_cluster_url(cluster)
+            return resolved if resolved
+          end
         end
 
-        elasticsearch_url
+        lotteon_fallback_elasticsearch_url(key)
       end
 
       # Index name for an exporter (+exporters.<key>.index+), or +fallback_index+ when unset.
@@ -140,6 +181,8 @@ module Em
         s.empty? ? nil : s
       end
 
+      private_class_method :string_present, :dig_string
+
       def self.exporter_entry(key)
         map = settings['exporters']
         return nil unless map.is_a?(Hash)
@@ -147,9 +190,22 @@ module Em
         entry = map[key.to_s]
         entry.is_a?(Hash) ? entry : nil
       end
-      private_class_method :exporter_entry
 
-      private_class_method :string_present, :dig_string
+      def self.lotteon_fallback_elasticsearch_url(exporter_key)
+        return data_elasticsearch_url || elasticsearch_url if exporter_key.to_s == 'lotteon_products'
+
+        elasticsearch_url
+      end
+
+      private_class_method :exporter_entry, :lotteon_fallback_elasticsearch_url
+
+      def self.url_has_embedded_credentials?(url_string)
+        uri = URI.parse(url_string.to_s)
+        uri.user && !uri.user.empty?
+      rescue URI::InvalidURIError
+        false
+      end
+      private_class_method :url_has_embedded_credentials?
 
       # GCS bucket names and optional credentials from merged settings (+gcs+).
       class Gcs

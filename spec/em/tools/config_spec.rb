@@ -81,4 +81,96 @@ RSpec.describe Em::Tools::Config do
       expect(s['token']).to eq('secret')
     end
   end
+
+  describe '.elasticsearch_client_arguments' do
+    after do
+      ENV.delete('ELASTICSEARCH_API_KEY')
+      ENV.delete('ELASTICSEARCH_USERNAME')
+      ENV.delete('ELASTICSEARCH_PASSWORD')
+      described_class.reload!
+    end
+
+    it 'returns empty hash when no auth env is set' do
+      expect(described_class.elasticsearch_client_arguments).to eq({})
+    end
+
+    it 'returns api_key when ELASTICSEARCH_API_KEY is set' do
+      ENV['ELASTICSEARCH_API_KEY'] = 'encoded-key'
+      described_class.reload!
+      expect(described_class.elasticsearch_client_arguments).to eq({ api_key: 'encoded-key' })
+    end
+
+    it 'returns user and password when set' do
+      ENV['ELASTICSEARCH_USERNAME'] = 'u'
+      ENV['ELASTICSEARCH_PASSWORD'] = 'p'
+      described_class.reload!
+      expect(described_class.elasticsearch_client_arguments).to eq({ user: 'u', password: 'p' })
+    end
+
+    it 'prefers api_key over username/password' do
+      ENV['ELASTICSEARCH_API_KEY'] = 'k'
+      ENV['ELASTICSEARCH_USERNAME'] = 'u'
+      ENV['ELASTICSEARCH_PASSWORD'] = 'p'
+      described_class.reload!
+      expect(described_class.elasticsearch_client_arguments).to eq({ api_key: 'k' })
+    end
+
+    it 'returns empty hash when url embeds credentials so global env does not override' do
+      ENV['ELASTICSEARCH_USERNAME'] = 'global'
+      ENV['ELASTICSEARCH_PASSWORD'] = 'wrong'
+      described_class.reload!
+      expect(described_class.elasticsearch_client_arguments(url: 'http://a:b@localhost:9200')).to eq({})
+    end
+  end
+
+  describe '.elasticsearch_connection_url' do
+    around do |example|
+      prev_primary = ENV['ELASTICSEARCH_URL']
+      prev_data = ENV['DATA_ELASTICSEARCH_URL']
+      example.run
+      prev_primary.nil? ? ENV.delete('ELASTICSEARCH_URL') : ENV['ELASTICSEARCH_URL'] = prev_primary
+      prev_data.nil? ? ENV.delete('DATA_ELASTICSEARCH_URL') : ENV['DATA_ELASTICSEARCH_URL'] = prev_data
+      described_class.reload!
+    end
+
+    it 'uses explicit argument when given' do
+      ENV['ELASTICSEARCH_URL'] = 'http://primary:9200'
+      ENV['DATA_ELASTICSEARCH_URL'] = 'http://data:9200'
+      described_class.reload!
+      expect(described_class.elasticsearch_connection_url(explicit: 'http://custom:9200')).to eq('http://custom:9200')
+    end
+
+    it 'prefers DATA_ELASTICSEARCH_URL when prefer_data_cluster is true' do
+      ENV['ELASTICSEARCH_URL'] = 'http://primary:9200'
+      ENV['DATA_ELASTICSEARCH_URL'] = 'http://data:9200'
+      described_class.reload!
+      expect(described_class.elasticsearch_connection_url(prefer_data_cluster: true)).to eq('http://data:9200')
+    end
+
+    it 'falls back to primary when prefer_data_cluster but DATA is unset' do
+      Tempfile.create(['esconn', '.yml']) do |f|
+        f.write(<<~YAML)
+          default:
+            elasticsearch:
+              url: http://primary:9200
+            elasticsearch_clusters: {}
+          development: {}
+        YAML
+        f.flush
+        ENV['EM_TOOLS_SETTINGS_PATH'] = f.path
+        ENV['APP_ENV'] = 'development'
+        ENV['ELASTICSEARCH_URL'] = 'http://primary:9200'
+        ENV.delete('DATA_ELASTICSEARCH_URL')
+        described_class.reload!
+        expect(described_class.elasticsearch_connection_url(prefer_data_cluster: true)).to eq('http://primary:9200')
+      end
+    end
+
+    it 'uses primary when prefer_data_cluster is false' do
+      ENV['ELASTICSEARCH_URL'] = 'http://primary:9200'
+      ENV['DATA_ELASTICSEARCH_URL'] = 'http://data:9200'
+      described_class.reload!
+      expect(described_class.elasticsearch_connection_url(prefer_data_cluster: false)).to eq('http://primary:9200')
+    end
+  end
 end

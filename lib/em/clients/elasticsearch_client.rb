@@ -12,7 +12,8 @@ module Em
       def initialize(url: nil)
         resolved = url.to_s.strip
         resolved = Em::Tools::Config.elasticsearch_url if resolved.empty?
-        @client = ::Elasticsearch::Client.new(url: resolved)
+        args = Em::Tools::Config.elasticsearch_client_arguments(url: resolved).merge(url: resolved)
+        @client = ::Elasticsearch::Client.new(args)
       end
 
       # ---- Index APIs ----
