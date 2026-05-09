@@ -122,25 +122,21 @@ module EmTools
         string_present(ENV['REDIS_URL']) || dig_string(settings, %w[redis url])
       end
 
+      # Blacklist API config is .env-only; YAML must not carry these secrets.
       def self.blacklist_api_endpoint
-        string_present(ENV['BLACKLIST_API_ENDPOINT']) ||
-          dig_string(settings, %w[blacklist_api endpoint])
+        string_present(ENV['BLACKLIST_API_ENDPOINT'])
       end
 
       def self.blacklist_api_path
-        string_present(ENV['BLACKLIST_API_PATH']) ||
-          dig_string(settings, %w[blacklist_api path])
+        string_present(ENV['BLACKLIST_API_PATH'])
       end
 
       def self.blacklist_api_key
-        string_present(ENV['BLACKLIST_API_KEY']) ||
-          dig_string(settings, %w[blacklist_api api_key])
+        string_present(ENV['BLACKLIST_API_KEY'])
       end
 
       def self.blacklist_api_token
-        string_present(ENV['BLACKLIST_API_TOKEN']) ||
-          dig_string(settings, %w[blacklist_api api_token]) ||
-          blacklist_api_key
+        string_present(ENV['BLACKLIST_API_TOKEN']) || blacklist_api_key
       end
 
       # Path to a GCS service account JSON key (optional; used by gcs rake tasks /
@@ -208,66 +204,43 @@ module EmTools
       end
       private_class_method :url_has_embedded_credentials?
 
-      # GCS bucket names and optional credentials from merged settings (+gcs+).
+      # GCS bucket name routing from merged settings (+gcs.buckets+). Project ID and
+      # credentials path are NEVER read from YAML — use +.env+ +GCS_PROJECT_ID+ /
+      # +GCS_SERVICE_ACCOUNT_PATH+ / +GCS_CREDENTIALS+ instead.
       class Gcs
         def initialize
-          @config = load_config
+          @buckets = load_buckets
         end
 
         def project_id
-          @config['project_id']
+          present(ENV['GCS_PROJECT_ID'])
         end
 
         def credentials
-          cred = @config['credentials']
-          s = cred.to_s.strip
-          return s unless s.empty?
-
-          p = Config.gcs_service_account_path.to_s.strip
-          p.empty? ? nil : p
+          present(ENV['GCS_CREDENTIALS']) || present(Config.gcs_service_account_path)
         end
 
         def bucket(name = :inventory)
-          buckets = @config['buckets'] || {}
-          value = buckets[name.to_s] || buckets[name.to_sym]
-
+          value = @buckets[name.to_s] || @buckets[name.to_sym]
           value or raise "GCS bucket not found: #{name}"
         end
 
         private
 
-        def load_config
-          merged = EmTools::Core::Config.settings
-          gcs = merged['gcs']
-          unless use_settings_gcs?(gcs)
+        def present(str)
+          s = str.to_s.strip
+          s.empty? ? nil : s
+        end
+
+        def load_buckets
+          gcs = EmTools::Core::Config.settings['gcs']
+          buckets = gcs.is_a?(Hash) ? gcs['buckets'] : nil
+          unless buckets.is_a?(Hash) && !buckets.empty?
             raise 'GCS config missing: add gcs.buckets to your settings YAML ' \
                   '(see examples/config/settings.example.yml)'
           end
 
-          normalize_gcs_settings(gcs)
-        end
-
-        def use_settings_gcs?(gcs)
-          return false unless gcs.is_a?(Hash)
-
-          buckets = gcs['buckets']
-          buckets.is_a?(Hash) && !buckets.empty?
-        end
-
-        def normalize_gcs_settings(gcs)
-          {
-            'project_id' => gcs['project_id'],
-            'credentials' => gcs['credentials'],
-            'buckets' => stringify_buckets(gcs['buckets'])
-          }
-        end
-
-        def stringify_buckets(buckets)
-          return {} unless buckets.is_a?(Hash)
-
-          buckets.each_with_object({}) do |(k, v), acc|
-            acc[k.to_s] = v
-          end
+          buckets.each_with_object({}) { |(k, v), acc| acc[k.to_s] = v }
         end
       end
     end

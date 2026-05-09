@@ -17,14 +17,12 @@ module EmTools
         hydrate_sites(settings['sites'])
       end
 
+      # Hydrate only NON-SECRET local-dev fallbacks from settings YAML. Secrets
+      # (BLACKLIST_API_*, GCS_SERVICE_ACCOUNT_PATH, GCS_CREDENTIALS, real cluster URLs)
+      # MUST come from .env — never from a committed YAML.
       def hydrate_core_env!(settings)
         assign_if_blank('ELASTICSEARCH_URL', dig_string(settings, %w[elasticsearch url]))
         assign_if_blank('REDIS_URL', dig_string(settings, %w[redis url]))
-        assign_if_blank('BLACKLIST_API_ENDPOINT', dig_string(settings, %w[blacklist_api endpoint]))
-        assign_if_blank('BLACKLIST_API_PATH', dig_string(settings, %w[blacklist_api path]))
-        assign_if_blank('BLACKLIST_API_KEY', dig_string(settings, %w[blacklist_api api_key]))
-        assign_if_blank('BLACKLIST_API_TOKEN', dig_string(settings, %w[blacklist_api api_token]))
-        assign_if_blank('GCS_SERVICE_ACCOUNT_PATH', dig_string(settings, %w[gcs service_account_path]))
       end
       private_class_method :hydrate_core_env!
 
