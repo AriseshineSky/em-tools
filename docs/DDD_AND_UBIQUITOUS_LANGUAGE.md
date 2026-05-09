@@ -40,9 +40,9 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 
 | 层 | 职责 | 在本 gem 中的典型形态 |
 |----|------|------------------------|
-| **领域（Domain）** | 业务规则与名词，不依赖框架 | 值对象、领域服务、**业务命名的 façade**（见 `Em::Tools::Domain::OfferListingFreshness::CoverageAssessment`） |
+| **领域（Domain）** | 业务规则与名词，不依赖框架 | 值对象、领域服务、**业务命名的 façade**（见 `EmTools::Plugins::AmazonLowestOffer::Queries::CoverageAssessment`） |
 | **应用（Application）** | 用例编排、事务边界 | Rake 任务、`Runner`、`Cli::Commands::*` 里「拼依赖 + 调一次领域」 |
-| **基础设施（Infrastructure）** | ES、GCS、HTTP、文件 | `Em::Clients::ElasticsearchClient`、`GcsHelper`、`ElasticsearchBulkSink` |
+| **基础设施（Infrastructure）** | ES、GCS、HTTP、文件 | `EmTools::Clients::ElasticsearchClient`、`EmTools::Clients::GcsHelper`、`EmTools::Clients::SpreeClient`、`EmTools::Core::Sinks::ElasticsearchBulkSink` |
 
 原则：**领域层不 `puts`、不读 `ARGV`**；CLI / Rake 只做应用层。
 
@@ -50,7 +50,7 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 
 ## 4. 渐进式落地（避免大爆炸重命名）
 
-1. **新能力**：优先在 `lib/em/tools/domain/<上下文>/` 下用业务类名包一层，内部委托现有类。  
+1. **新能力**：优先在对应插件下用业务类名包一层（如 `lib/em_tools/plugins/<plugin>/queries/`、`/transforms/`、`/sinks/`），内部委托现有类。  
 2. **旧类名**：可保留为「技术实现」，在类注释第一行写「在通用语言中称为：…」。  
 3. **对外 API / rake**：稳定优先；准备好后再把 rake 内部改为调用 `Domain::*` façade。  
 4. **变量名**：在方法内部用 `watched_product_ids`、`listing_index` 等，比单字母 `mp`/`idx` 更接近业务（长方法里可局部用缩写，但入口参数建议完整）。
@@ -59,7 +59,7 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 
 ## 5. 代码入口示例
 
-- **刊登新鲜度评估（领域 façade）**：`Em::Tools::Domain::OfferListingFreshness::CoverageAssessment`  
+- **刊登新鲜度评估（领域 façade）**：`EmTools::Plugins::AmazonLowestOffer::Queries::CoverageAssessment`  
   - 把「受关注的商品标识从哪来」表达为 `:from_promotion_seed_feed` / `:from_operating_inventory`，再映射到现有的 `id_source`。
 
 详细 API 见该类的 YARD 风格注释（源码内）。

@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require 'bundler/setup'
-require 'em/tools'
+require 'em_tools'
 require 'dotenv'
 Dotenv.load
 

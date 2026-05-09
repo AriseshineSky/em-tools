@@ -4,7 +4,7 @@ This document records fixes applied to **em-tools** (Zeitwerk loading, blacklist
 
 ## Zeitwerk: `Em::Tools` constants not loading (`Config`, etc.)
 
-**Problem:** `Zeitwerk::Loader.for_gem` assumes the gem entry file lives directly under `lib/`, e.g. `lib/my_gem.rb` with `lib/my_gem/*.rb` beside it. This project uses **`lib/em/tools.rb`** (namespace under `lib/em/`), so `for_gem` wired the wrong root and autoload did not define `Em::Tools::Config` and other classes under `lib/em/tools/`.
+**Problem:** `Zeitwerk::Loader.for_gem` assumes the gem entry file lives directly under `lib/`, e.g. `lib/my_gem.rb` with `lib/my_gem/*.rb` beside it. This project uses **`lib/em/tools.rb`** (namespace under `lib/em/`), so `for_gem` wired the wrong root and autoload did not define `EmTools::Core::Config` and other classes under `lib/em/tools/`.
 
 **Change:** In `lib/em/tools.rb`, replace `for_gem` with an explicit loader:
 
@@ -23,14 +23,14 @@ This document records fixes applied to **em-tools** (Zeitwerk loading, blacklist
 
 **Problem:**
 
-- Spec expected `Em::Tools::Config.blacklist_api_token` but only `blacklist_api_key` existed.
-- `Em::Tools::Blacklist::Loader` used bare `Config`, which Ruby resolved as `Em::Tools::Blacklist::Loader::Config` (wrong).
+- Spec expected `EmTools::Core::Config.blacklist_api_token` but only `blacklist_api_key` existed.
+- `EmTools::Core::Blacklist::Loader` used bare `Config`, which Ruby resolved as `EmTools::Core::Blacklist::Loader::Config` (wrong).
 - `initialize(url:)` / `URL(url)` did not match `Loader.new` in the live spec and was broken.
 
 **Change:**
 
 - Add `Config.blacklist_api_token` reading `BLACKLIST_API_TOKEN`, falling back to `BLACKLIST_API_KEY`.
-- In `Loader#build_uri`, use `Em::Tools::Config` explicitly.
+- In `Loader#build_uri`, use `EmTools::Core::Config` explicitly.
 - Replace the broken initializer with `def initialize; end`.
 - Use `blacklist_api_path.to_s` when joining URIs so a `nil` path does not break `URI.join`.
 
@@ -59,13 +59,13 @@ This document records fixes applied to **em-tools** (Zeitwerk loading, blacklist
 ## Quick verification
 
 ```bash
-bundle exec ruby -e 'require "em/tools"; puts [Em::Tools::Config, Em::Tools::ElasticsearchClient].map(&:name)'
+bundle exec ruby -e "require 'em_tools'; puts [EmTools::Core::Config, EmTools::Clients::ElasticsearchClient].map(&:name)"
 
 RUN_LIVE_TESTS=true \
   BLACKLIST_API_ENDPOINT=... \
   BLACKLIST_API_PATH=... \
   BLACKLIST_API_TOKEN=... \
-  bundle exec rspec spec/em/tools/blacklist/live_api_spec.rb
+  bundle exec rspec spec/em_tools/core/blacklist/live_api_spec.rb
 ```
 
 The live spec should pass the `Config` checks; any failure after that is from the real HTTP request (endpoint, auth, or network).

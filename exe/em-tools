@@ -8,5 +8,5 @@ rescue LoadError
   # Optional dependency: continue without .env loading.
 end
 
-require 'em/tools'
-Em::Tools::Cli::App.start(ARGV)
+require 'em_tools'
+EmTools::Core::Cli::App.start(ARGV)

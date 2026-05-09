@@ -19,7 +19,7 @@ require 'bundler/setup'
 
 ENV['EM_TOOLS_SKIP_SETTINGS_HYDRATE'] = '1'
 
-require 'em/tools'
+require 'em_tools'
 RSpec.configure do |config|
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest

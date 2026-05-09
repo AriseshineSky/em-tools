@@ -27,29 +27,30 @@
 
 ## 2. 目录与命名空间（Zeitwerk）
 
-根目录为 `lib/em/tools/`，与 `Em::Tools` 对齐。当前及推荐扩展方向：
+入口文件 `lib/em_tools.rb` 用 `Zeitwerk::Loader.for_gem` 装载 `lib/em_tools/`，与顶层模块 `EmTools` 对齐。当前及推荐扩展方向：
 
 ```
-lib/em/tools/
-  amazon/           # Amazon / ASIN / upload 相关领域逻辑（含 `AsinProductIndexPipeline`：ASIN 索引 → 产品 mget → 过滤 → bulk 写入目标索引）
-  blacklist/        # 黑名单引擎与加载（与具体业务源解耦）
-  cli/              # 仅 CLI：OptionParser、读 argv、调用下层
-  clients/          # 若放 gem 内：见 lib/em/clients（ES 等）
-  exporters/        # 写出侧
-  filters/          # 可复用过滤器（组合进 importer 或 pipeline）
-  importers/        # 面向「一批业务对象」的编排（可逐步变薄）
-  processing/       # 通用：流水线组合（见 Processing::Pipeline）
-  domain/           # 业务语言入口（DDD façade）：委托旧实现，渐进对齐通用语言
-  scanners/         # 面向「扫描 / 流式读」的源
-  …                 # 新领域新建目录，避免塞进 giant 类
+lib/em_tools/
+  core/             # 引擎与基础设施（与具体业务无关）
+    cli/            # 通用 CLI 调度器与跨插件命令
+    blacklist/      # 黑名单引擎与加载
+    inventory/      # 库存同步通用流程
+    rules/          # 通用规则策略 + 注册表
+    sinks/          # 通用 sink（Elasticsearch bulk 等）
+    pipeline.rb     # 通用流水线契约
+    pipeline_engine.rb / plugin_registry.rb / plugin/  # 插件接口
+  plugins/          # 业务插件，每个一个目录，自己 plugin.rb 注册
+    amazon_uploadable/  amazon_lowest_offer/  ebay/
+    storefront/         lotteon/              ssg/
+  clients/          # 对接外部服务的 HTTP 客户端（ES / GCS / Spree 等）
 ```
 
 新增一个能力时的**决策树**：
 
-1. 只多一种**读入**？→ Scanner / Source + 必要时 small client。
-2. 只多一种**规则或筛选项**？→ `filters/` 或 `blacklist/` 旁新增类，由 importer 或 pipeline 引用。
-3. 只多一条**CLI 命令**？→ `cli/commands/` 下新类，**不写业务**，只组依赖并调用领域对象。
-4. 跨多源多筛的**新业务线**？→ 新子目录（如 `inventory_sync.rb` 同级抽成 `inventory/` 模块）+ 一个 `Runner` 作组合根。
+1. 只多一种**读入**？→ 在对应 plugin 下加 Scanner / Source + 必要时 small client（client 进 `lib/em_tools/clients/`）。
+2. 只多一种**规则或筛选项**？→ 跨业务的进 `core/rules/` 或 `core/blacklist/`，业务专属的进对应 plugin 的 `filters/`，由 plugin 在 `filters` 中暴露给 PipelineEngine。
+3. 只多一条**CLI 命令**？→ 在对应 plugin 的 `cli/` 下新类（或核心通用命令进 `core/cli/commands/`），**不写业务**，只组依赖并调用领域对象，再通过 `plugin.rb#cli_commands` 暴露。
+4. 跨多源多筛的**新业务线**？→ 新建 plugin 目录 `lib/em_tools/plugins/<new>/`，写 `plugin.rb` 自注册，并在该目录下组织 sources/filters/transforms/sinks。
 
 ---
 
@@ -72,7 +73,7 @@ lib/em/tools/
 
 ---
 
-## 5. 可组合的处理链：`Em::Tools::Processing::Pipeline`
+## 5. 可组合的处理链：`EmTools::Core::Pipeline`
 
 对「多步转换 + 清洗 + 可插拔」的场景，使用统一契约：
 
@@ -82,7 +83,7 @@ lib/em/tools/
 示例：
 
 ```ruby
-pipeline = Em::Tools::Processing::Pipeline.new([
+pipeline = EmTools::Core::Pipeline.new([
   ->(row, _ctx) { row.transform_values { |v| v.is_a?(String) ? v.strip : v } },
   ->(row, ctx)   { ctx[:blacklist].blocked?(row['title']) ? :drop : row }
 ])

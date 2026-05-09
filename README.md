@@ -10,17 +10,17 @@
 
 | Area | Role |
 |------|------|
-| **`Em::Tools::InventorySync`** | Parses inventory CSV (headers normalized to `snake_case`), upserts into ES via a pluggable sink. Uses CSV **`Source`** as **`inventory_feed`** when pruning stale docs. |
-| **`Em::Tools::GcsBlobFetcher`** | Service-account auth and download of a single object by `gs://bucket/path`. |
-| **`Em::Tools::InventorySyncSources`** | Loads `inventory_sync.sources` from merged settings YAML (or a path you pass to `rake inventory:sync[path]`). |
-| **`Em::Tools::ElasticsearchBulkSink`** | Default sink: `bulk`, `refresh`, `delete_by_query` via **`Em::Clients::ElasticsearchClient`**. |
+| **`EmTools::Core::Inventory::Sync`** | Parses inventory CSV (headers normalized to `snake_case`), upserts into ES via a pluggable sink. Uses CSV **`Source`** as **`inventory_feed`** when pruning stale docs. |
+| **`EmTools::Clients::GcsBlobFetcher`** | Service-account auth and download of a single object by `gs://bucket/path`. |
+| **`EmTools::Core::Inventory::SyncSources`** | Loads `inventory_sync.sources` from merged settings YAML (or a path you pass to `rake inventory:sync[path]`). |
+| **`EmTools::Core::Sinks::ElasticsearchBulkSink`** | Default sink: `bulk`, `refresh`, `delete_by_query` via **`EmTools::Clients::ElasticsearchClient`**. |
 | **Lowest offer** | `LowestOfferListingsCoverageQuery`, `LowestOfferSeedFiles`, `LowestOfferCoverageSnapshot` plus Rake tasks to pull AMZ seeds from GCS and index snapshots. |
 | **eBay listings coverage** | `EbayListingsCoverageQuery`, `EbayListingsCoverageSnapshot`, `rake ebay_listings:publish_snapshot` — seed `product_id` list vs one configurable products index (`time` buckets). |
-| **`Em::Tools::GcsHelper`** | Bucket-scoped download helpers for seeds and other blobs. |
+| **`EmTools::Clients::GcsHelper`** | Bucket-scoped download helpers for seeds and other blobs. |
 | **Blacklist / products** | Aho–Corasick–based blacklist engine, SSG product scanner/exporter, product importer. |
 | **`exe/em-tools`** | CLI entrypoint: `dump`, `import-products`, `uploadable-product-filter`, `amz-upload-products-from-es`, `amz-uploadable-products-formatter-from-file`, `asin-products-to-es` (see [em-tools CLI](#em-tools-cli) below). |
-| **`Em::Tools::Amazon::UploadableProductsFormatterFromFile`** | ASIN file → ES `mget` (product + optional offer index) → one JSON line per ASIN + sidecar files under `~/.em_tasks/amz_<mp>/` (Ruby counterpart to em-celery `amz_uploadable_products_formatter_from_file`). |
-| **`Em::Tools::Config` / `SettingsLoader` / `SettingsHydrator`** | **`.env`** holds operational URLs and secrets; optional YAML (`config/settings.yml` or example) supplies **`inventory_sync.sources`**, **`exporters`**, **`gcs.buckets`** — YAML may hydrate only generic blank `ENV` keys (see hydrator), not task-specific index/cluster overrides. |
+| **`EmTools::Plugins::AmazonUploadable::Formatters::UploadableProductsFormatterFromFile`** | ASIN file → ES `mget` (product + optional offer index) → one JSON line per ASIN + sidecar files under `~/.em_tasks/amz_<mp>/` (Ruby counterpart to em-celery `amz_uploadable_products_formatter_from_file`). |
+| **`EmTools::Core::Config` / `SettingsLoader` / `SettingsHydrator`** | **`.env`** holds operational URLs and secrets; optional YAML (`config/settings.yml` or example) supplies **`inventory_sync.sources`**, **`exporters`**, **`gcs.buckets`** — YAML may hydrate only generic blank `ENV` keys (see hydrator), not task-specific index/cluster overrides. |
 
 Ruby **>= 3.2**. Main gem dependencies: `elasticsearch` ~> 7.17, `google-cloud-storage`, `zeitwerk`, `csv`, `ahocorasick-rust`.
 
@@ -56,7 +56,7 @@ Optional **`.env`** in the repo root is loaded by Rake / `exe/em-tools` when the
 
 **YAML (`examples/config/settings.example.yml`):** use when you need versioned lists such as **`inventory_sync.sources`** or **`exporters`** cluster/index mapping. **`SettingsHydrator`** may still fill a few generic blank keys from YAML (e.g. **`ELASTICSEARCH_URL`** if unset); multi-cluster and task indexes should stay in **`.env`**.
 
-**Multiple Elasticsearch hosts (exporters):** set **`DATA_ELASTICSEARCH_URL`** or **`ELASTICSEARCH_CLUSTER_<NAME>_URL`** in `.env`; **`Em::Tools::Config.elasticsearch_cluster_url`** / **`data_elasticsearch_url`** read those before YAML. Example exporter keys: `ssg_products`, `lotteon_products`.
+**Multiple Elasticsearch hosts (exporters):** set **`DATA_ELASTICSEARCH_URL`** or **`ELASTICSEARCH_CLUSTER_<NAME>_URL`** in `.env`; **`EmTools::Core::Config.elasticsearch_cluster_url`** / **`data_elasticsearch_url`** read those before YAML. Example exporter keys: `ssg_products`, `lotteon_products`.
 
 ---
 
@@ -64,10 +64,10 @@ Optional **`.env`** in the repo root is loaded by Rake / `exe/em-tools` when the
 
 | Variable | Used by |
 |----------|---------|
-| **`ELASTICSEARCH_URL`** | ES client URL. Highest priority; otherwise merged settings → `elasticsearch.url`, then **`Em::Tools::Config.elasticsearch_url`**. |
-| **`REDIS_URL`** | Optional; **`Em::Tools::Config.redis_url`** reads `ENV` or settings → `redis.url`. |
-| **`BLACKLIST_API_*`** | Optional; **`Em::Tools::Config.blacklist_api_*`** merges `ENV` with settings → `blacklist_api`. |
-| **`EM_TOOLS_SITE_<NAME>_TOKEN`**, **`_ENDPOINT`**, **`_BASE_URL`** | Override `sites.<name>` from settings (`<NAME>` is uppercased, `-` → `_`). **`Em::Tools::Config.site('acme')`** returns a merged `Hash`. |
+| **`ELASTICSEARCH_URL`** | ES client URL. Highest priority; otherwise merged settings → `elasticsearch.url`, then **`EmTools::Core::Config.elasticsearch_url`**. |
+| **`REDIS_URL`** | Optional; **`EmTools::Core::Config.redis_url`** reads `ENV` or settings → `redis.url`. |
+| **`BLACKLIST_API_*`** | Optional; **`EmTools::Core::Config.blacklist_api_*`** merges `ENV` with settings → `blacklist_api`. |
+| **`EM_TOOLS_SITE_<NAME>_TOKEN`**, **`_ENDPOINT`**, **`_BASE_URL`** | Override `sites.<name>` from settings (`<NAME>` is uppercased, `-` → `_`). **`EmTools::Core::Config.site('acme')`** returns a merged `Hash`. |
 | **`EM_TOOLS_SETTINGS_PATH`** | Absolute path to a YAML file instead of the default resolution (`config/settings.yml` or the committed example). |
 | **`EM_TOOLS_SKIP_SETTINGS_HYDRATE`** | Set to `1` to skip copying YAML into `ENV` (tests set this in `spec_helper`). |
 | **`GCS_SERVICE_ACCOUNT_PATH`** | Path to GCS JSON key (set in **`.env`**; YAML `gcs.service_account_path` only fills `ENV` when blank). |
@@ -161,7 +161,7 @@ bundle exec rake install
 
 ### em-tools CLI
 
-Run from a checkout as `bundle exec ruby -I lib exe/em-tools …`, or after `bundle exec rake install` as `bundle exec em-tools …`. Load order: **Bundler** → optional **`dotenv`** (`.env`) → **`Em::Tools::SettingsHydrator`** (optional YAML → blank `ENV`) → command.
+Run from a checkout as `bundle exec ruby -I lib exe/em-tools …`, or after `bundle exec rake install` as `bundle exec em-tools …`. Load order: **Bundler** → optional **`dotenv`** (`.env`) → **`EmTools::Core::SettingsHydrator`** (optional YAML → blank `ENV`) → command.
 
 **Global:** set **`ELASTICSEARCH_URL`** in **`.env`** for any command that talks to ES. Command-specific help: `bundle exec em-tools COMMAND --help` (e.g. `… dump --help`).
 
@@ -191,17 +191,17 @@ bundle exec ruby -I lib exe/em-tools amz-uploadable-products-formatter-from-file
 ### Library usage
 
 ```ruby
-require 'em/tools'
+require 'em_tools'
 
 # Elasticsearch URL resolution (ENV, then config/settings.yml):
-Em::Tools::Config.elasticsearch_url
+EmTools::Core::Config.elasticsearch_url
 
 # Optional Redis / per-site HTTP settings from YAML + ENV (see Configuration files):
-Em::Tools::Config.redis_url
-Em::Tools::Config.site('example_partner') # => { "endpoint" => ..., "token" => ... }
+EmTools::Core::Config.redis_url
+EmTools::Core::Config.site('example_partner') # => { "endpoint" => ..., "token" => ... }
 
 # Example: programmatic inventory sync (GCS → temp file → ES) is usually composed from
-# Em::Tools::GcsBlobFetcher, Em::Tools::InventorySync, Em::Tools::ElasticsearchBulkSink
+# EmTools::Clients::GcsBlobFetcher, EmTools::Core::Inventory::Sync, EmTools::Core::Sinks::ElasticsearchBulkSink
 ```
 
 ---
@@ -213,7 +213,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Rake task definitions live under **`rakelib/*.rake`** (auto-loaded by Rake). Core library code is under **`lib/em/tools/`** with **`Em::Clients::ElasticsearchClient`** in **`lib/em/clients/`**.
+Rake task definitions live under **`rakelib/*.rake`** (top-level, auto-loaded by Rake) and **`lib/em_tools/plugins/<plugin>/rakelib/*.rake`** (loaded dynamically by the `Rakefile`). Core library code is under **`lib/em_tools/core/`**, plugin code under **`lib/em_tools/plugins/<plugin>/`**, and external service clients (e.g. **`EmTools::Clients::ElasticsearchClient`**) in **`lib/em_tools/clients/`**.
 
 ---
 

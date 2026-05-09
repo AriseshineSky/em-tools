@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative 'lib/em/tools/version'
+require_relative 'lib/em_tools/core/version'
 
 Gem::Specification.new do |spec|
   spec.name = 'em-tools'
-  spec.version = Em::Tools::VERSION
+  spec.version = EmTools::Core::VERSION
   spec.authors = ['SmileintheSky']
   spec.email = ['befruitful12@gmail.com']
 
