@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'logger'
+require "logger"
 
 module EmTools
   module Plugins
@@ -19,7 +19,7 @@ module EmTools
 
             def initialize(marketplace:, ttl: 30, config: {}, logger: nil)
               @marketplace = marketplace.to_s.downcase.strip
-              raise ArgumentError, 'marketplace is required' if @marketplace.empty?
+              raise ArgumentError, "marketplace is required" if @marketplace.empty?
 
               @asin_index = "amz_asins_#{@marketplace}"
               @ttl = ttl.to_i
@@ -39,24 +39,24 @@ module EmTools
                   product_service: false,
                   offer_service: false,
                   price_calculator_pipelines: false,
-                  formatter_run_file_outputs: false
+                  formatter_run_file_outputs: false,
                 },
-                stream: build_filter.describe
+                stream: build_filter.describe,
               }
             end
 
             def run!(client:, io: $stdout, max_asins: nil)
               @logger.info(
-                "Start uploadable-products formatting marketplace=#{@marketplace} index=#{@asin_index} ttl=#{@ttl}"
+                "Start uploadable-products formatting marketplace=#{@marketplace} index=#{@asin_index} ttl=#{@ttl}",
               )
               build_filter.stream_asins!(client: client, io: io, max_asins: max_asins)
               @logger.info(
-                "Completed uploadable-products formatting marketplace=#{@marketplace} index=#{@asin_index}"
+                "Completed uploadable-products formatting marketplace=#{@marketplace} index=#{@asin_index}",
               )
             rescue StandardError => e
               @logger.error(
                 "Failed uploadable-products formatting marketplace=#{@marketplace} " \
-                "index=#{@asin_index}: #{e.class}: #{e.message}"
+                  "index=#{@asin_index}: #{e.class}: #{e.message}",
               )
               raise
             end
@@ -67,12 +67,12 @@ module EmTools
               Filters::UploadableProductFilter.new(
                 marketplace: @marketplace,
                 ttl: @ttl,
-                config: @config
+                config: @config,
               )
             end
 
             def default_logger
-              EmTools::Core::Logger.for(progname: 'amz-upload-runner')
+              EmTools::Core::Logger.for(progname: "amz-upload-runner")
             end
           end
         end

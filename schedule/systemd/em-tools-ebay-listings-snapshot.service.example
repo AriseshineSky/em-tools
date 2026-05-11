@@ -1,0 +1,27 @@
+# em-tools — eBay listings coverage snapshot.
+
+[Unit]
+Description=em-tools eBay listings coverage snapshot
+After=network-online.target em-tools-inventory-sync.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sky
+Group=sky
+WorkingDirectory=/home/sky/src/em-tools
+
+EnvironmentFile=-/home/sky/src/em-tools/.env
+
+# Replace 'us' with the marketplace you want, or remove to use
+# EBAY_LISTINGS_COVERAGE_MARKETPLACE from .env.
+ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay-listings-publish-snapshot us'
+
+TimeoutStartSec=3600
+Nice=10
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

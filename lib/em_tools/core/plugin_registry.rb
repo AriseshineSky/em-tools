@@ -11,40 +11,38 @@ module EmTools
       @plugins = {}
       @mutex = Mutex.new
 
-      class << self
-        def register(name, plugin_class)
-          @mutex.synchronize { @plugins[name.to_sym] = plugin_class }
-          plugin_class
-        end
+      def self.register(name, plugin_class)
+        @mutex.synchronize { @plugins[name.to_sym] = plugin_class }
+        plugin_class
+      end
 
-        def fetch(name)
-          klass = @plugins[name.to_sym]
-          raise UnknownPluginError, "unknown plugin: #{name.inspect} (registered: #{names.inspect})" unless klass
+      def self.fetch(name)
+        klass = @plugins[name.to_sym]
+        raise UnknownPluginError, "unknown plugin: #{name.inspect} (registered: #{names.inspect})" unless klass
 
-          klass.new
-        end
+        klass.new
+      end
 
-        def fetch_class(name)
-          klass = @plugins[name.to_sym]
-          raise UnknownPluginError, "unknown plugin: #{name.inspect} (registered: #{names.inspect})" unless klass
+      def self.fetch_class(name)
+        klass = @plugins[name.to_sym]
+        raise UnknownPluginError, "unknown plugin: #{name.inspect} (registered: #{names.inspect})" unless klass
 
-          klass
-        end
+        klass
+      end
 
-        def names
-          @plugins.keys
-        end
+      def self.names
+        @plugins.keys
+      end
 
-        def each_plugin
-          return enum_for(:each_plugin) unless block_given?
+      def self.each_plugin
+        return enum_for(:each_plugin) unless block_given?
 
-          @plugins.each_value { |klass| yield klass.new }
-        end
+        @plugins.each_value { |klass| yield klass.new }
+      end
 
-        # Test-only: clear the registry. Production code must not call this.
-        def reset!
-          @mutex.synchronize { @plugins.clear }
-        end
+      # Test-only: clear the registry. Production code must not call this.
+      def self.reset!
+        @mutex.synchronize { @plugins.clear }
       end
     end
   end

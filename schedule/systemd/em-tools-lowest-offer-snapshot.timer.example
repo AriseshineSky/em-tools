@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule em-tools Amazon lowest-offer coverage snapshot
+
+[Timer]
+# Daily at 04:00 (after the inventory sync completes).
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

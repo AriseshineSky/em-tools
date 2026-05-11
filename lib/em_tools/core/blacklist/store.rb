@@ -15,7 +15,7 @@ module EmTools
         end
 
         def self.filter
-          raise 'Blacklist not loaded' unless @instance
+          raise "Blacklist not loaded" unless @instance
 
           @instnance
         end

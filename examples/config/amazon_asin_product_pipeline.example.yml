@@ -1,0 +1,8 @@
+# Optional: merge into ASIN stream resolution for `em-tools asin-products-to-es --config ...`
+# (same block as uploadable-product-filter).
+
+amz.uploadable_filter.asin_stream:
+  time_field: auto
+  cutoff: null
+  label: null
+  label_field: label

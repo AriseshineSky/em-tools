@@ -11,9 +11,9 @@ module EmTools
 
         def cli_commands
           {
-            'import-products' => Cli::ImportProducts,
-            'storefront-sync-inventory' => Cli::SyncInventory,
-            'storefront-unpublish-candidates' => Cli::UnpublishCandidates
+            "import-products" => Cli::ImportProducts,
+            "storefront-sync-inventory" => Cli::SyncInventory,
+            "storefront-unpublish-candidates" => Cli::UnpublishCandidates,
           }
         end
 

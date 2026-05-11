@@ -8,7 +8,7 @@ module EmTools
         module AsinPattern
           RE = /\A(?:B[0-9A-Z]{9}|[0-9]{9}[0-9X])\z/
 
-          module_function
+          extend self
 
           def match?(str)
             u = str.to_s.strip.upcase

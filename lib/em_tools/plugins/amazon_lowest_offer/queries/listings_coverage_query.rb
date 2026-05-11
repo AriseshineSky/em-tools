@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'fileutils'
-require 'json'
+require "fileutils"
+require "json"
 
 module EmTools
   module Plugins
@@ -30,7 +30,7 @@ module EmTools
         # Missing seed ASINs (not in index): written under +LOWEST_OFFER_MISSING_ASINS_DIR+ (default
         # +./tmp/lowest_offer_missing_asins+), file +missing_asins_<mp>.txt+. Set +LOWEST_OFFER_WRITE_MISSING_ASINS=false+ to disable.
         class ListingsCoverageQuery
-          DEFAULT_MARKETPLACES = %w[in it ae ca mx de jp uk us].freeze
+          DEFAULT_MARKETPLACES = ["in", "it", "ae", "ca", "mx", "de", "jp", "uk", "us"].freeze
 
           TERMS_BATCH_SIZE_MIN = 200
           TERMS_BATCH_SIZE_MAX = 5000
@@ -40,57 +40,57 @@ module EmTools
           SOURCE_PRODUCT_ID_JSON_RE = /"source_product_id"\s*:\s*"([^"\\\s]+)"/
 
           # Doc-count fields for the seed +terms+ query; +time_other_window+ is ES +filters+ +other_bucket+ (see +activity_aggs+).
-          TIME_ACTIVITY_DOC_BUCKET_KEYS = %i[
-            time_last_24h
-            time_24_to_48h_ago
-            time_48_to_72h_ago
-            time_older_than_72h
-            time_at_or_after_now
-            time_other_window
-            docs_missing_time
+          TIME_ACTIVITY_DOC_BUCKET_KEYS = [
+            :time_last_24h,
+            :time_24_to_48h_ago,
+            :time_48_to_72h_ago,
+            :time_older_than_72h,
+            :time_at_or_after_now,
+            :time_other_window,
+            :docs_missing_time,
           ].freeze
 
           # +seed_text_fetcher+ — optional Proc (marketplace lowercase String) -> seed file String (in-memory).
           # +seed_dir+ — optional directory with +amz_<mp>.txt+ ; used when set before +seed_text_fetcher+.
           # +id_source+ — +seed+ (default) or +inventory+ (+LOWEST_OFFER_ID_SOURCE+).
           def initialize(es_client:, marketplaces: nil, time_field: nil, asin_field: nil, seed_dir: nil,
-                         seed_text_fetcher: nil, snapshot_time: nil, id_source: nil,
-                         inventory_index: nil, inventory_source_field: nil, inventory_source_terms: nil,
-                         inventory_product_id_field: nil, inventory_marketplace_field: nil,
-                         inventory_max_hits: nil)
+            seed_text_fetcher: nil, snapshot_time: nil, id_source: nil,
+            inventory_index: nil, inventory_source_field: nil, inventory_source_terms: nil,
+            inventory_product_id_field: nil, inventory_marketplace_field: nil,
+            inventory_max_hits: nil)
             @es_client = es_client
-            @seed_dir = (seed_dir || ENV['LOWEST_OFFER_SEED_DIR']).to_s.strip
+            @seed_dir = (seed_dir || ENV["LOWEST_OFFER_SEED_DIR"]).to_s.strip
             @seed_text_fetcher = seed_text_fetcher
             @snapshot_time = snapshot_time&.utc
-            @id_source = (id_source || ENV['LOWEST_OFFER_ID_SOURCE'] || 'seed').to_s.strip.downcase
+            @id_source = (id_source || ENV["LOWEST_OFFER_ID_SOURCE"] || "seed").to_s.strip.downcase
             configure_inventory_options!(
               inventory_index: inventory_index,
               inventory_source_field: inventory_source_field,
               inventory_source_terms: inventory_source_terms,
               inventory_product_id_field: inventory_product_id_field,
               inventory_marketplace_field: inventory_marketplace_field,
-              inventory_max_hits: inventory_max_hits
+              inventory_max_hits: inventory_max_hits,
             )
             @marketplaces = if marketplaces&.any?
-                              marketplaces.map { |m| m.to_s.downcase }
-                            else
-                              env_list = parse_marketplace_list(ENV['LOWEST_OFFER_MARKETPLACES'])
-                              env_list.empty? ? DEFAULT_MARKETPLACES : env_list
-                            end
+              marketplaces.map { |m| m.to_s.downcase }
+            else
+              env_list = parse_marketplace_list(ENV["LOWEST_OFFER_MARKETPLACES"])
+              env_list.empty? ? DEFAULT_MARKETPLACES : env_list
+            end
             tf = time_field.to_s.strip
-            @time_field = tf.empty? ? ENV.fetch('LOWEST_OFFER_TIME_FIELD', 'time') : tf
+            @time_field = tf.empty? ? ENV.fetch("LOWEST_OFFER_TIME_FIELD", "time") : tf
             af = asin_field.to_s.strip
-            @asin_field = af.empty? ? ENV.fetch('LOWEST_OFFER_ASIN_FIELD', 'asin.keyword') : af
-            raw_bs = ENV.fetch('LOWEST_OFFER_TERMS_BATCH_SIZE', TERMS_BATCH_SIZE_DEFAULT.to_s).to_i
+            @asin_field = af.empty? ? ENV.fetch("LOWEST_OFFER_ASIN_FIELD", "asin.keyword") : af
+            raw_bs = ENV.fetch("LOWEST_OFFER_TERMS_BATCH_SIZE", TERMS_BATCH_SIZE_DEFAULT.to_s).to_i
             @terms_batch_size = raw_bs.clamp(TERMS_BATCH_SIZE_MIN, TERMS_BATCH_SIZE_MAX)
 
-            @write_missing_asins = ENV['LOWEST_OFFER_WRITE_MISSING_ASINS'] != 'false'
-            dir_raw = ENV['LOWEST_OFFER_MISSING_ASINS_DIR'].to_s.strip
+            @write_missing_asins = ENV["LOWEST_OFFER_WRITE_MISSING_ASINS"] != "false"
+            dir_raw = ENV["LOWEST_OFFER_MISSING_ASINS_DIR"].to_s.strip
             @missing_asins_dir =
-              if !@write_missing_asins || dir_raw == '-'
+              if !@write_missing_asins || dir_raw == "-"
                 nil
               elsif dir_raw.empty?
-                File.expand_path('tmp/lowest_offer_missing_asins', Dir.pwd)
+                File.expand_path("tmp/lowest_offer_missing_asins", Dir.pwd)
               else
                 File.expand_path(dir_raw)
               end
@@ -110,10 +110,22 @@ module EmTools
             row.merge!(coverage || empty_coverage)
             row
           rescue StandardError => e
-            warn "ListingsCoverageQuery failed for #{index}: #{e.class} #{e.message}"
+            warn("ListingsCoverageQuery failed for #{index}: #{e.class} #{e.message}")
             seeds = load_seed_asins(mp)
             base_row(mp, index, seeds).merge(empty_activity).merge(empty_coverage)
-                                      .merge(error: e.message.to_s.byteslice(0, 200))
+              .merge(error: e.message.to_s.byteslice(0, 200))
+          end
+
+          # Same marketplace resolution as +initialize+ (CLI +publish-snapshot+ args first, then
+          # +LOWEST_OFFER_MARKETPLACES+, finally the nine defaults).
+          def self.marketplaces_for_publish(cli_marketplaces_csv)
+            list = cli_marketplaces_csv.to_s.split(",").map(&:strip).reject(&:empty?).map(&:downcase)
+            return list if list.any?
+
+            env_list = ENV["LOWEST_OFFER_MARKETPLACES"].to_s.split(",").map(&:strip).reject(&:empty?).map(&:downcase)
+            return env_list if env_list.any?
+
+            DEFAULT_MARKETPLACES.dup
           end
 
           private
@@ -121,7 +133,7 @@ module EmTools
           def parse_marketplace_list(raw)
             return DEFAULT_MARKETPLACES if raw.nil? || raw.to_s.strip.empty?
 
-            raw.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
+            raw.split(",").map(&:strip).reject(&:empty?).map(&:downcase)
           end
 
           def base_row(mp, index, seeds)
@@ -129,23 +141,23 @@ module EmTools
               marketplace: mp.upcase,
               index_name: index,
               id_source: @id_source,
-              inventory_index: (@id_source == 'inventory' ? @inventory_index : nil),
+              inventory_index: (@id_source == "inventory" ? @inventory_index : nil),
               seed_asins_loaded: seeds.length,
               seed_asins_unique: seeds.uniq.length,
-              seed_file_present: seed_file_present_for_marketplace?(mp)
+              seed_file_present: seed_file_present_for_marketplace?(mp),
             }
           end
 
           # When +@seed_dir+ is set: whether +amz_<mp>.txt+ or +ebay_<mp>.txt+ exists (before parsing). +nil+ if seeds come only from +seed_text_fetcher+ (e.g. GCS).
           def seed_file_present_for_marketplace?(mp)
-            return nil if @id_source == 'inventory'
-            return nil if @seed_dir.empty?
+            return false if @id_source == "inventory"
+            return false if @seed_dir.empty?
 
-            %W[amz_#{mp}.txt ebay_#{mp}.txt].any? { |name| File.file?(File.join(@seed_dir, name)) }
+            ["amz_#{mp}.txt", "ebay_#{mp}.txt"].any? { |name| File.file?(File.join(@seed_dir, name)) }
           end
 
           def load_seed_asins(mp)
-            return load_asins_from_inventory(mp) if @id_source == 'inventory'
+            return load_asins_from_inventory(mp) if @id_source == "inventory"
 
             text =
               if !@seed_dir.empty?
@@ -157,29 +169,27 @@ module EmTools
 
             extract_source_product_ids_from_seed_text(text.to_s)
           rescue StandardError => e
-            warn "ListingsCoverageQuery seed load failed for #{mp}: #{e.message}"
+            warn("ListingsCoverageQuery seed load failed for #{mp}: #{e.message}")
             []
           end
 
-          # rubocop:disable Metrics/ParameterLists
           def configure_inventory_options!(inventory_index:, inventory_source_field:, inventory_source_terms:,
-                                           inventory_product_id_field:, inventory_marketplace_field:, inventory_max_hits:)
-            @inventory_index = (inventory_index || ENV['LOWEST_OFFER_INVENTORY_INDEX']).to_s.strip
-            @inventory_index = 'em_inventory' if @inventory_index.empty?
-            sf = (inventory_source_field || ENV['LOWEST_OFFER_INVENTORY_SOURCE_FIELD']).to_s.strip
-            @inventory_source_field = sf.empty? ? 'source.keyword' : sf
-            terms = inventory_source_terms || parse_csv_env('LOWEST_OFFER_INVENTORY_AMAZON_SOURCES')
+            inventory_product_id_field:, inventory_marketplace_field:, inventory_max_hits:)
+            @inventory_index = (inventory_index || ENV["LOWEST_OFFER_INVENTORY_INDEX"]).to_s.strip
+            @inventory_index = "em_inventory" if @inventory_index.empty?
+            sf = (inventory_source_field || ENV["LOWEST_OFFER_INVENTORY_SOURCE_FIELD"]).to_s.strip
+            @inventory_source_field = sf.empty? ? "source.keyword" : sf
+            terms = inventory_source_terms || parse_csv_env("LOWEST_OFFER_INVENTORY_AMAZON_SOURCES")
             @inventory_source_terms = terms
-            pf = (inventory_product_id_field || ENV['LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD']).to_s.strip
-            @inventory_product_id_field = pf.empty? ? 'source_product_id' : pf
-            mf = (inventory_marketplace_field || ENV['LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD']).to_s.strip
+            pf = (inventory_product_id_field || ENV["LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD"]).to_s.strip
+            @inventory_product_id_field = pf.empty? ? "source_product_id" : pf
+            mf = (inventory_marketplace_field || ENV["LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD"]).to_s.strip
             @inventory_marketplace_field = mf.empty? ? nil : mf
             @inventory_max_hits = inventory_max_hits
           end
-          # rubocop:enable Metrics/ParameterLists
 
           def parse_csv_env(key)
-            ENV[key].to_s.split(',').map(&:strip).reject(&:empty?)
+            ENV[key].to_s.split(",").map(&:strip).reject(&:empty?)
           end
 
           def load_asins_from_inventory(mp)
@@ -190,11 +200,11 @@ module EmTools
               source_terms: @inventory_source_terms,
               product_id_field: @inventory_product_id_field,
               marketplace_field: @inventory_marketplace_field,
-              max_hits: @inventory_max_hits
+              max_hits: @inventory_max_hits,
             )
             loader.load(mp)
           rescue StandardError => e
-            warn "ListingsCoverageQuery inventory load failed for #{mp}: #{e.message}"
+            warn("ListingsCoverageQuery inventory load failed for #{mp}: #{e.message}")
             []
           end
 
@@ -212,7 +222,7 @@ module EmTools
               next if json_str.empty?
 
               obj = JSON.parse(json_str)
-              id = obj['source_product_id']
+              id = obj["source_product_id"]
               next if id.nil?
 
               s = id.to_s.strip
@@ -223,20 +233,20 @@ module EmTools
               fb = source_product_id_fallback_from_json(json_str)
               if fb
                 ids << fb.upcase
-                warn "ListingsCoverageQuery seed line #{lineno}: invalid JSON, recovered source_product_id " \
-                     "(#{e.message.to_s.byteslice(0, 120)})"
+                warn("ListingsCoverageQuery seed line #{lineno}: invalid JSON, recovered source_product_id " \
+                  "(#{e.message.to_s.byteslice(0, 120)})")
               else
-                warn "ListingsCoverageQuery seed line #{lineno}: invalid JSON in column 2 (#{e.message})"
+                warn("ListingsCoverageQuery seed line #{lineno}: invalid JSON in column 2 (#{e.message})")
               end
             rescue StandardError => e
-              warn "ListingsCoverageQuery seed line #{lineno}: #{e.class} #{e.message}"
+              warn("ListingsCoverageQuery seed line #{lineno}: #{e.class} #{e.message}")
             end
             ids.uniq.sort
           end
 
           def source_product_id_fallback_from_json(json_str)
             m = json_str.to_s.match(SOURCE_PRODUCT_ID_JSON_RE)
-            return nil unless m
+            return unless m
 
             s = m[1].to_s.strip
             EmTools::Plugins::AmazonLowestOffer::Patterns::AsinPattern.match?(s) ? s : nil
@@ -247,14 +257,14 @@ module EmTools
           end
 
           def read_seed_text_from_dir(mp)
-            %W[amz_#{mp}.txt ebay_#{mp}.txt].each do |name|
+            ["amz_#{mp}.txt", "ebay_#{mp}.txt"].each do |name|
               path = File.join(@seed_dir, name)
               next unless File.file?(path)
 
-              return File.read(path, encoding: 'UTF-8')
+              return File.read(path, encoding: "UTF-8")
             end
-            warn "ListingsCoverageQuery: no seed file for #{mp} under #{@seed_dir} " \
-                 '(expected amz_<mp>.txt or ebay_<mp>.txt)'
+            warn("ListingsCoverageQuery: no seed file for #{mp} under #{@seed_dir} " \
+              "(expected amz_<mp>.txt or ebay_<mp>.txt)")
             nil
           end
 
@@ -267,11 +277,11 @@ module EmTools
             batches.each do |raw_batch|
               batch = asin_terms_values(raw_batch)
               body = {
-                timeout: '120s',
+                timeout: "120s",
                 size: 0,
                 track_total_hits: true,
                 query: seed_terms_filter_query(batch),
-                aggs: activity_aggs
+                aggs: activity_aggs,
               }
               response = @es_client.search(index: index, body: body)
               partial = parse_activity(response)
@@ -301,40 +311,40 @@ module EmTools
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { lt: iso8601_z(clock - 259_200) } } }
-                      ]
-                    }
+                        { range: { @time_field => { lt: iso8601_z(clock - 259_200) } } },
+                      ],
+                    },
                   },
                   at_or_after_now: {
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { gte: iso8601_z(clock) } } }
-                      ]
-                    }
-                  }
+                        { range: { @time_field => { gte: iso8601_z(clock) } } },
+                      ],
+                    },
+                  },
                 }
               else
                 {
-                  last_24h: time_range('now-24h', 'now'),
-                  hours_24_to_48_ago: time_range('now-48h', 'now-24h'),
-                  hours_48_to_72h_ago: time_range('now-72h', 'now-48h'),
+                  last_24h: time_range("now-24h", "now"),
+                  hours_24_to_48_ago: time_range("now-48h", "now-24h"),
+                  hours_48_to_72h_ago: time_range("now-72h", "now-48h"),
                   older_than_72h: {
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { lt: 'now-72h' } } }
-                      ]
-                    }
+                        { range: { @time_field => { lt: "now-72h" } } },
+                      ],
+                    },
                   },
                   at_or_after_now: {
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { gte: 'now' } } }
-                      ]
-                    }
-                  }
+                        { range: { @time_field => { gte: "now" } } },
+                      ],
+                    },
+                  },
                 }
               end
 
@@ -342,9 +352,9 @@ module EmTools
               missing_time: {
                 filter: {
                   bool: {
-                    must_not: { exists: { field: @time_field } }
-                  }
-                }
+                    must_not: { exists: { field: @time_field } },
+                  },
+                },
               },
               with_time: {
                 filter: { exists: { field: @time_field } },
@@ -352,12 +362,12 @@ module EmTools
                   windows: {
                     filters: {
                       other_bucket: true,
-                      other_bucket_key: 'other_time_window',
-                      filters: window_filters
-                    }
-                  }
-                }
-              }
+                      other_bucket_key: "other_time_window",
+                      filters: window_filters,
+                    },
+                  },
+                },
+              },
             }
           end
 
@@ -366,14 +376,14 @@ module EmTools
             {
               bool: {
                 filter: [
-                  { terms: { @asin_field => batch } }
-                ]
-              }
+                  { terms: { @asin_field => batch } },
+                ],
+              },
             }
           end
 
           def iso8601_z(time)
-            time.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+            time.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
           end
 
           def time_range_absolute(t_gte, t_lt)
@@ -381,9 +391,9 @@ module EmTools
               bool: {
                 must: [
                   { exists: { field: @time_field } },
-                  { range: { @time_field => { gte: iso8601_z(t_gte), lt: iso8601_z(t_lt) } } }
-                ]
-              }
+                  { range: { @time_field => { gte: iso8601_z(t_gte), lt: iso8601_z(t_lt) } } },
+                ],
+              },
             }
           end
 
@@ -392,35 +402,35 @@ module EmTools
               bool: {
                 must: [
                   { exists: { field: @time_field } },
-                  { range: { @time_field => { gte: gte, lt: lt } } }
-                ]
-              }
+                  { range: { @time_field => { gte: gte, lt: lt } } },
+                ],
+              },
             }
           end
 
           def parse_activity(response)
             buckets =
               normalize_filter_agg_buckets(
-                response.dig('aggregations', 'with_time', 'windows', 'buckets')
+                response.dig("aggregations", "with_time", "windows", "buckets"),
               )
-            missing = response.dig('aggregations', 'missing_time', 'doc_count').to_i
+            missing = response.dig("aggregations", "missing_time", "doc_count").to_i
 
             {
-              time_last_24h: bucket_count(buckets, 'last_24h'),
-              time_24_to_48h_ago: bucket_count(buckets, 'hours_24_to_48_ago'),
-              time_48_to_72h_ago: bucket_count(buckets, 'hours_48_to_72h_ago'),
-              time_older_than_72h: bucket_count(buckets, 'older_than_72h'),
-              time_at_or_after_now: bucket_count(buckets, 'at_or_after_now'),
-              time_other_window: bucket_count(buckets, 'other_time_window'),
-              docs_missing_time: missing
+              time_last_24h: bucket_count(buckets, "last_24h"),
+              time_24_to_48h_ago: bucket_count(buckets, "hours_24_to_48_ago"),
+              time_48_to_72h_ago: bucket_count(buckets, "hours_48_to_72h_ago"),
+              time_older_than_72h: bucket_count(buckets, "older_than_72h"),
+              time_at_or_after_now: bucket_count(buckets, "at_or_after_now"),
+              time_other_window: bucket_count(buckets, "other_time_window"),
+              docs_missing_time: missing,
             }
           end
 
           def extract_total_hits(response)
-            raw = response.dig('hits', 'total')
+            raw = response.dig("hits", "total")
             return raw.to_i if raw.is_a?(Numeric)
             return raw.to_i if raw.is_a?(String)
-            return raw['value'].to_i if raw.is_a?(Hash)
+            return raw["value"].to_i if raw.is_a?(Hash)
 
             0
           end
@@ -438,7 +448,7 @@ module EmTools
               raw.each_with_object({}) do |b, h|
                 next unless b.is_a?(Hash)
 
-                name = b['key'] || b[:key]
+                name = b["key"] || b[:key]
                 next if name.nil?
 
                 h[name.to_s] = b
@@ -458,7 +468,7 @@ module EmTools
           def bucket_doc_count(bucket)
             return 0 unless bucket.is_a?(Hash)
 
-            (bucket['doc_count'] || bucket[:doc_count]).to_i
+            (bucket["doc_count"] || bucket[:doc_count]).to_i
           end
 
           def search_seed_coverage(index, seeds, marketplace:)
@@ -470,7 +480,7 @@ module EmTools
             batches.each do |raw_batch|
               batch = asin_terms_values(raw_batch)
               body = {
-                timeout: '120s',
+                timeout: "120s",
                 size: 0,
                 query: seed_terms_filter_query(batch),
                 aggs: {
@@ -479,14 +489,14 @@ module EmTools
                     terms: {
                       field: @asin_field,
                       size: @terms_batch_size,
-                      min_doc_count: 1
-                    }
-                  }
-                }
+                      min_doc_count: 1,
+                    },
+                  },
+                },
               }
               response = @es_client.search(index: index, body: body)
-              buckets = response.dig('aggregations', 'seed_asins_present', 'buckets') || []
-              buckets.each { |b| found_keys << b['key'].to_s.upcase }
+              buckets = response.dig("aggregations", "seed_asins_present", "buckets") || []
+              buckets.each { |b| found_keys << b["key"].to_s.upcase }
             end
 
             seed_count = unique.length
@@ -497,7 +507,7 @@ module EmTools
             {
               seed_asins_found_in_index: found_count,
               seed_asins_missing_from_index: missing,
-              missing_asins_file: persist_missing_asins_file(marketplace, index, missing_list)
+              missing_asins_file: persist_missing_asins_file(marketplace, index, missing_list),
             }
           end
 
@@ -511,7 +521,7 @@ module EmTools
               time_other_window: 0,
               docs_missing_time: 0,
               seed_listing_docs_total: 0,
-              time_activity_docs_sum: 0
+              time_activity_docs_sum: 0,
             }
           end
 
@@ -519,13 +529,13 @@ module EmTools
             {
               seed_asins_found_in_index: nil,
               seed_asins_missing_from_index: nil,
-              missing_asins_file: nil
+              missing_asins_file: nil,
             }
           end
 
           def persist_missing_asins_file(marketplace, index, missing_asins)
-            return nil if @missing_asins_dir.nil?
-            return nil if missing_asins.empty?
+            return if @missing_asins_dir.nil?
+            return if missing_asins.empty?
 
             FileUtils.mkdir_p(@missing_asins_dir)
             mkt = marketplace.to_s.downcase
@@ -533,11 +543,11 @@ module EmTools
             File.write(
               path,
               missing_asins_file_body(mkt, index, missing_asins),
-              encoding: 'UTF-8'
+              encoding: "UTF-8",
             )
             path
           rescue StandardError => e
-            warn "ListingsCoverageQuery: could not write missing ASINs file: #{e.message}"
+            warn("ListingsCoverageQuery: could not write missing ASINs file: #{e.message}")
             nil
           end
 
@@ -547,29 +557,14 @@ module EmTools
             lines << "# index: #{index}"
             lines << "# asin_field: #{@asin_field}"
             lines << "# missing_count: #{missing_asins.size}"
-            lines << '# one ASIN per line (same values as used in Elasticsearch terms query)'
-            lines << ''
+            lines << "# one ASIN per line (same values as used in Elasticsearch terms query)"
+            lines << ""
             missing_asins.map { |asin| asin.to_s.upcase }.sort.uniq.each { |asin| lines << asin }
             lines.join("\n")
           end
 
           def asin_terms_values(raw_asins)
             raw_asins.map { |asin| asin.to_s.upcase }
-          end
-
-          class << self
-            # Same marketplace resolution as +initialize+ (rake + publish_snapshot+ args first).
-            # rubocop:disable Metrics/PerceivedComplexity
-            def marketplaces_for_publish(cli_marketplaces_csv)
-              list = cli_marketplaces_csv.to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
-              return list if list.any?
-
-              env_list = ENV['LOWEST_OFFER_MARKETPLACES'].to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
-              return env_list if env_list.any?
-
-              DEFAULT_MARKETPLACES.dup
-            end
-            # rubocop:enable Metrics/PerceivedComplexity
           end
         end
       end

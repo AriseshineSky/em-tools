@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'ahocorasick-rust'
+require "ahocorasick-rust"
 
 module EmTools
   module Core

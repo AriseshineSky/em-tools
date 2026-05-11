@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
-require 'cgi'
-require 'fileutils'
-require 'json'
-require 'net/http'
-require 'uri'
+require "cgi"
+require "fileutils"
+require "json"
+require "net/http"
+require "uri"
 
 module EmTools
   module Clients
-    # rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/ParameterLists, Naming/AccessorMethodName -- preserve the external API shape from the Python client.
+    # rubocop:disable Naming/AccessorMethodName -- preserve the external API shape from the Python client.
     class SpreeClient
       RETRY_STATUSES = [429, 500, 502, 503, 504].freeze
-      JSON_CONTENT_TYPE = 'application/json'
+      JSON_CONTENT_TYPE = "application/json"
 
       attr_reader :endpoint, :api_key, :api_version
 
-      def initialize(endpoint, api_key, api_version: 'v1', logger: nil, transport: nil,
-                     retries: 7, backoff_factor: 0.1, open_timeout: 60, read_timeout: 60)
-        @endpoint = endpoint.to_s.sub(%r{/+\z}, '')
+      def initialize(endpoint, api_key, api_version: "v1", logger: nil, transport: nil,
+        retries: 7, backoff_factor: 0.1, open_timeout: 60, read_timeout: 60)
+        @endpoint = endpoint.to_s.sub(%r{/+\z}, "")
         @api_key = api_key
         @api_version = api_version
-        @logger = logger || EmTools::Core::Logger.for(progname: 'spree-client')
+        @logger = logger || EmTools::Core::Logger.for(progname: "spree-client")
         @transport = transport || NetHttpTransport.new
         @retries = retries.to_i
         @backoff_factor = backoff_factor.to_f
@@ -30,27 +30,27 @@ module EmTools
 
       def list_orders(params = {})
         payload = {
-          'token' => api_key,
-          'q[completed_at_not_null]' => 1,
-          'q[s]' => 'completed_at:asc',
-          'page' => 1,
-          'per_page' => 50
+          "token" => api_key,
+          "q[completed_at_not_null]" => 1,
+          "q[s]" => "completed_at:asc",
+          "page" => 1,
+          "per_page" => 50,
         }.merge(stringify_keys(params))
 
-        json_request(:get, api_path('orders'), query: payload)
+        json_request(:get, api_path("orders"), query: payload)
       end
 
       def get_orders(order_ids)
         json_request(
           :get,
-          api_path('orders'),
+          api_path("orders"),
           query: {
-            'token' => api_key,
-            'q[id_in][]' => order_ids,
-            'q[s]' => 'completed_at:asc',
-            'page' => 1,
-            'per_page' => order_ids.length
-          }
+            "token" => api_key,
+            "q[id_in][]" => order_ids,
+            "q[s]" => "completed_at:asc",
+            "page" => 1,
+            "per_page" => order_ids.length,
+          },
         )
       end
 
@@ -64,18 +64,18 @@ module EmTools
 
       def add_shipment_tracking(shipment_id, carrier, tracking, cost = nil)
         payload = {
-          'shipment' => {
-            'tracking' => tracking,
-            'carrier' => carrier
-          }
+          "shipment" => {
+            "tracking" => tracking,
+            "carrier" => carrier,
+          },
         }
-        payload['shipment']['actual_cost'] = cost if cost
+        payload["shipment"]["actual_cost"] = cost if cost
 
         json_request(
           :put,
           api_path("shipments/#{escape_path(shipment_id)}/ship"),
           query: token_query,
-          json: payload
+          json: payload,
         )
       end
 
@@ -85,12 +85,12 @@ module EmTools
           api_path("stock_locations/#{escape_path(stock_location_id)}/stock_items/#{escape_path(stock_item_id)}"),
           query: token_query,
           json: {
-            'stock_item' => {
-              'count_on_hand' => qty,
-              'force' => force,
-              'backorderable' => backorderable
-            }
-          }
+            "stock_item" => {
+              "count_on_hand" => qty,
+              "force" => force,
+              "backorderable" => backorderable,
+            },
+          },
         )
       end
 
@@ -99,7 +99,7 @@ module EmTools
           :put,
           api_path("products/#{escape_path(product_id)}/variants/#{escape_path(variant_id)}"),
           query: token_query,
-          json: { 'variant' => stringify_keys(params) }
+          json: { "variant" => stringify_keys(params) },
         )
       end
 
@@ -107,7 +107,7 @@ module EmTools
         return if output_path.to_s.empty?
 
         prepare_output_path(output_path)
-        uri = build_uri(api_path('inventory_reports/download'), token_query.merge('source' => source))
+        uri = build_uri(api_path("inventory_reports/download"), token_query.merge("source" => source))
         http_request = build_request(:get, uri, nil)
         log_request(uri)
         response = perform_download_with_retries(uri, http_request, output_path)
@@ -119,49 +119,49 @@ module EmTools
       def get_multi_source_products(source, page, per_page)
         json_request(
           :get,
-          api_path('products/get_multi_sources'),
-          query: token_query.merge('source' => source, 'page' => page, 'per_page' => per_page)
+          api_path("products/get_multi_sources"),
+          query: token_query.merge("source" => source, "page" => page, "per_page" => per_page),
         )
       end
 
       def get_manual_products
-        json_request(:get, api_path('inventory_reports/download_manual_products'), query: token_query)
+        json_request(:get, api_path("inventory_reports/download_manual_products"), query: token_query)
       end
 
       def set_offers(product_offers)
         json_request(
           :post,
-          api_path('products/set_offers'),
+          api_path("products/set_offers"),
           query: token_query,
-          json: { 'offers' => product_offers }
+          json: { "offers" => product_offers },
         )
       end
 
       def add_fulfill_orders(fulfill_orders)
         json_request(
           :post,
-          api_path('fulfill_orders'),
+          api_path("fulfill_orders"),
           query: token_query,
-          json: { 'fulfill_orders' => fulfill_orders }
+          json: { "fulfill_orders" => fulfill_orders },
         )
       end
 
       def import_products(products, stock_location_id, shipping_category_id, vendor_id, merchant_id,
-                          min_shipping_days: 7, taxonomy_name: 'Categories', tax_category_id: 1)
+        min_shipping_days: 7, taxonomy_name: "Categories", tax_category_id: 1)
         json_request(
           :post,
-          api_path('products/import'),
+          api_path("products/import"),
           query: token_query,
           json: {
-            'products' => products,
-            'min_shipping_days' => min_shipping_days,
-            'taxonomy_name' => taxonomy_name,
-            'merchant_id' => merchant_id,
-            'vendor_id' => vendor_id,
-            'tax_category_id' => tax_category_id,
-            'stock_location_id' => stock_location_id,
-            'shipping_category_id' => shipping_category_id
-          }
+            "products" => products,
+            "min_shipping_days" => min_shipping_days,
+            "taxonomy_name" => taxonomy_name,
+            "merchant_id" => merchant_id,
+            "vendor_id" => vendor_id,
+            "tax_category_id" => tax_category_id,
+            "stock_location_id" => stock_location_id,
+            "shipping_category_id" => shipping_category_id,
+          },
         )
       end
 
@@ -170,33 +170,33 @@ module EmTools
           :put,
           api_path("products/#{escape_path(product_id)}"),
           query: token_query,
-          json: { 'product' => product }
+          json: { "product" => product },
         )
       end
 
       def delete_products(product_ids)
         json_request(
           :post,
-          api_path('products/batch_delete'),
+          api_path("products/batch_delete"),
           query: token_query,
-          json: { 'product_ids' => product_ids.map(&:to_s).join(',') }
+          json: { "product_ids" => product_ids.join(",") },
         )
       end
 
       def list_inventories(page: 1, per_page: 250, since_id: nil, **kwargs)
         payload = {
-          'token' => api_key,
-          'per_page' => per_page,
-          'q[s]' => 'id:asc'
+          "token" => api_key,
+          "per_page" => per_page,
+          "q[s]" => "id:asc",
         }
         if since_id
-          payload['q[id_gt]'] = since_id
+          payload["q[id_gt]"] = since_id
         else
-          payload['page'] = page
+          payload["page"] = page
         end
         payload.merge!(stringify_keys(kwargs))
 
-        response = request(:get, api_path('inventories'), query: payload)
+        response = request(:get, api_path("inventories"), query: payload)
         parse_json(response.body)
       rescue JSON::ParserError
         response.body
@@ -205,27 +205,27 @@ module EmTools
       def set_gmc_custom_labels(merchant_id, items)
         entries = Array(items).filter_map do |item|
           entry = stringify_keys(item)
-          next unless entry.key?('item_id')
+          next unless entry.key?("item_id")
 
-          entry['merchant_id'] = merchant_id unless entry.key?('merchant_id')
+          entry["merchant_id"] = merchant_id unless entry.key?("merchant_id")
           entry
         end
-        return nil if entries.empty?
+        return if entries.empty?
 
         json_request(
           :post,
-          api_path('gmc/set-custom-labels'),
+          api_path("gmc/set-custom-labels"),
           query: token_query,
-          json: { 'entries' => entries }
+          json: { "entries" => entries },
         )
       end
 
       def get_shop
-        resp = json_request(:get, '/api/v1/stores', query: token_query)
-        stores = Array(resp['stores'])
-        return nil if stores.empty?
+        resp = json_request(:get, "/api/v1/stores", query: token_query)
+        stores = Array(resp["stores"])
+        return if stores.empty?
 
-        stores.find { |store| store['default'] } || stores.first
+        stores.find { |store| store["default"] } || stores.first
       end
 
       private
@@ -252,7 +252,7 @@ module EmTools
         req = klass.new(uri)
         return req if json.nil?
 
-        req['Content-Type'] = JSON_CONTENT_TYPE
+        req["Content-Type"] = JSON_CONTENT_TYPE
         req.body = JSON.generate(json)
         req
       end
@@ -266,7 +266,7 @@ module EmTools
             uri,
             http_request,
             open_timeout: @open_timeout,
-            read_timeout: @read_timeout
+            read_timeout: @read_timeout,
           )
           return response unless retry_response?(response) && attempts <= @retries
 
@@ -291,7 +291,7 @@ module EmTools
             http_request,
             output_path,
             open_timeout: @open_timeout,
-            read_timeout: @read_timeout
+            read_timeout: @read_timeout,
           )
           return response unless retry_response?(response) && attempts <= @retries
 
@@ -312,7 +312,7 @@ module EmTools
           get: Net::HTTP::Get,
           post: Net::HTTP::Post,
           put: Net::HTTP::Put,
-          delete: Net::HTTP::Delete
+          delete: Net::HTTP::Delete,
         }.fetch(method.to_sym)
       end
 
@@ -341,7 +341,7 @@ module EmTools
       end
 
       def token_query
-        { 'token' => api_key }
+        { "token" => api_key }
       end
 
       def api_path(path)
@@ -369,9 +369,9 @@ module EmTools
           Net::HTTP.start(
             uri.hostname,
             uri.port,
-            use_ssl: uri.scheme == 'https',
+            use_ssl: uri.scheme == "https",
             open_timeout: open_timeout,
-            read_timeout: read_timeout
+            read_timeout: read_timeout,
           ) { |http| http.request(request) }
         end
 
@@ -379,13 +379,13 @@ module EmTools
           Net::HTTP.start(
             uri.hostname,
             uri.port,
-            use_ssl: uri.scheme == 'https',
+            use_ssl: uri.scheme == "https",
             open_timeout: open_timeout,
-            read_timeout: read_timeout
+            read_timeout: read_timeout,
           ) do |http|
             http.request(request) do |response|
               if response.code.to_i.between?(200, 299)
-                File.open(output_path, 'wb') { |file| response.read_body { |chunk| file.write(chunk) } }
+                File.open(output_path, "wb") { |file| response.read_body { |chunk| file.write(chunk) } }
               else
                 response.read_body { |_chunk| }
               end
@@ -395,6 +395,6 @@ module EmTools
         end
       end
     end
-    # rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Metrics/ParameterLists, Naming/AccessorMethodName
+    # rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Naming/AccessorMethodName
   end
 end

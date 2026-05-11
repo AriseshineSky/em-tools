@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'optparse'
+require "json"
+require "optparse"
 
 module EmTools
   module Plugins
@@ -10,7 +10,7 @@ module EmTools
         class UploadableProductFilter
           def run(argv)
             options = {
-              marketplace: 'us',
+              marketplace: "us",
               ttl: 30,
               asin_since_days: 7,
               asin_time_field: nil,
@@ -23,10 +23,10 @@ module EmTools
               to_es: false,
               sink_index: nil,
               bulk_chunk: EmTools::Plugins::AmazonUploadable::Filters::UploadableProductFilter::DEFAULT_BULK_CHUNK_LINES,
-              refresh: false
+              refresh: false,
             }
 
-            # rubocop:disable Metrics/BlockLength -- mirrors many Python CLI flags
+            # -- mirrors many Python CLI flags
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
                 Usage: em-tools uploadable-product-filter [options]
@@ -46,49 +46,52 @@ module EmTools
                     --sink-index amz_uploadable_asins_de --bulk-chunk 1000 --refresh
               BANNER
 
-              opts.on('-m', '--marketplace CODE', String, 'Amazon marketplace (default us).') do |v|
+              opts.on("-m", "--marketplace CODE", String, "Amazon marketplace (default us).") do |v|
                 options[:marketplace] = v
               end
-              opts.on('-t', '--ttl N', Integer, 'Offer TTL days (informational; default 30).') { |v| options[:ttl] = v }
-              opts.on('--asin-since-days N', Integer, 'Relative window when no absolute cutoff (default 7).') do |v|
+              opts.on("-t", "--ttl N", Integer, "Offer TTL days (informational; default 30).") { |v| options[:ttl] = v }
+              opts.on("--asin-since-days N", Integer, "Relative window when no absolute cutoff (default 7).") do |v|
                 options[:asin_since_days] = v
               end
-              opts.on('--asin-time-field FIELD', String, 'auto|timestamp|created_at|time') do |v|
+              opts.on("--asin-time-field FIELD", String, "auto|timestamp|created_at|time") do |v|
                 options[:asin_time_field] = v
               end
-              opts.on('--asin-cutoff ISO8601', String, 'Absolute cutoff (time_field > cutoff).') do |v|
+              opts.on("--asin-cutoff ISO8601", String, "Absolute cutoff (time_field > cutoff).") do |v|
                 options[:asin_cutoff] = v
               end
-              opts.on('--asin-label VALUE', String, 'Optional term filter on label field.') do |v|
+              opts.on("--asin-label VALUE", String, "Optional term filter on label field.") do |v|
                 options[:asin_label] = v
               end
-              opts.on('--asin-label-field FIELD', String, 'ES field for label term (default label).') do |v|
+              opts.on("--asin-label-field FIELD", String, "ES field for label term (default label).") do |v|
                 options[:asin_label_field] = v
               end
-              opts.on('--config PATH', String, 'YAML file merged into stream option resolution.') do |v|
+              opts.on("--config PATH", String, "YAML file merged into stream option resolution.") do |v|
                 options[:config_path] = v
               end
-              opts.on('--dry-run', 'Skip side effects: stdout mode prints resolved config; --to-es skips bulk.') do
+              opts.on("--dry-run", "Skip side effects: stdout mode prints resolved config; --to-es skips bulk.") do
                 options[:dry_run] = true
               end
-              opts.on('--max-asins N', Integer, 'Stop after N documents (testing).') { |v| options[:max_asins] = v }
-              opts.on('--to-es', 'Write matched ASINs into Elasticsearch instead of stdout.') do
+              opts.on("--max-asins N", Integer, "Stop after N documents (testing).") { |v| options[:max_asins] = v }
+              opts.on("--to-es", "Write matched ASINs into Elasticsearch instead of stdout.") do
                 options[:to_es] = true
               end
-              opts.on('--sink-index NAME', String,
-                      'Destination ES index for --to-es (default amz_uploadable_asins_<mp>).') do |v|
+              opts.on(
+                "--sink-index NAME",
+                String,
+                "Destination ES index for --to-es (default amz_uploadable_asins_<mp>).",
+              ) do |v|
                 options[:sink_index] = v
               end
-              opts.on('--bulk-chunk N', Integer, 'Documents per bulk request (default 500).') do |v|
+              opts.on("--bulk-chunk N", Integer, "Documents per bulk request (default 500).") do |v|
                 options[:bulk_chunk] = v
               end
-              opts.on('--refresh', 'Refresh sink index after run (--to-es only).') { options[:refresh] = true }
+              opts.on("--refresh", "Refresh sink index after run (--to-es only).") { options[:refresh] = true }
             end
             # rubocop:enable Metrics/BlockLength
 
             parser.parse!(argv)
             unless argv.empty?
-              warn "error: unexpected arguments: #{argv.join(' ')}"
+              warn("error: unexpected arguments: #{argv.join(" ")}")
               usage!(parser)
             end
 
@@ -102,8 +105,13 @@ module EmTools
               end
 
             filter_opts = options.slice(
-              :marketplace, :ttl, :asin_since_days, :asin_time_field,
-              :asin_cutoff, :asin_label, :asin_label_field
+              :marketplace,
+              :ttl,
+              :asin_since_days,
+              :asin_time_field,
+              :asin_cutoff,
+              :asin_label,
+              :asin_label_field,
             ).merge(config: cfg)
             filter = EmTools::Plugins::AmazonUploadable::Filters::UploadableProductFilter.new(**filter_opts)
 
@@ -121,7 +129,7 @@ module EmTools
                 max_asins: options[:max_asins],
                 bulk_chunk_lines: options[:bulk_chunk],
                 dry_run: options[:dry_run],
-                refresh: options[:refresh]
+                refresh: options[:refresh],
               )
               resolved_sink = options[:sink_index].to_s.strip
               resolved_sink = filter.default_sink_index if resolved_sink.empty?
@@ -135,8 +143,8 @@ module EmTools
           private
 
           def usage!(parser)
-            warn parser.help
-            exit 1
+            warn(parser.help)
+            exit(1)
           end
         end
       end

@@ -7,10 +7,6 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:ebay, self)
 
-        def rake_load_paths
-          [File.expand_path('rakelib', __dir__)]
-        end
-
         def listings_coverage_query(**opts)
           Queries::ListingsCoverageQuery.new(**opts)
         end

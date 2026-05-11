@@ -1,132 +1,271 @@
-# em-tools 架构约定（mono repo，功能清晰）
+# Architecture
 
-与 **DDD / 业务语言** 相关的补充说明见 [`docs/DDD_AND_UBIQUITOUS_LANGUAGE.md`](./DDD_AND_UBIQUITOUS_LANGUAGE.md)（限界上下文、通用语言表、分层与渐进迁移）。
-
----
-
-
-目标：在**一个仓库**里集中工具代码，同时让每个能力边界清楚、**加功能成本低**、改代码时能快速定位。风格上借鉴 GitLab 类项目常见做法：**分层、小对象、可测试、CLI 只做编排**。
-
----
-
-## 1. 分层心智模型（数据怎么流动）
-
-把大多数功能看成一条**有向流水线**（不必每处都用 `Processing::Pipeline`，但思维一致）：
-
-| 层 | 职责 | 本仓库中的落点（现状 / 建议） |
-|----|------|--------------------------------|
-| **Sources 读入** | 从文件、ES、GCS 等拉原始记录或字节流 | `scanners/*`、`clients/elasticsearch_client`、`gcs_blob_fetcher`；新增源放在 `scanners/` 或未来的 `sources/` |
-| **Decoding 解码** | 解析 NDJSON/CSV、校验最小结构 → 统一成 `Hash` 等内存结构 | `importers/product_importer#parse_product` 这类方法；复杂时可抽到 `decoding/` |
-| **Transform 格式转换 / 清洗** | 字段改名、类型规范化、补默认值、去噪 | 独立小类或 `proc`；与业务规则分离 |
-| **Filter 筛选** | 保留 / 丢弃 / 分流（黑名单、价格、类目等） | `filters/*`、`blacklist/*` |
-| **Sink 写出** | 写 NDJSON、ES bulk、stdout | `exporters/*`、`elasticsearch_bulk_sink` |
-
-**原则**：I/O 与「业务判断」不要揉在一个大类里；判断逻辑尽量**纯函数化**（输入 hash → 输出 hash 或 `:drop`），方便单测。
+Reference for contributors who want to understand the codebase down to the
+file level. For the high-level platform picture, start with
+[`OVERVIEW.md`](OVERVIEW.md). For the public extension contract, see
+[`PLUGINS.md`](PLUGINS.md). For the bounded-context / domain language view,
+see [`DDD_AND_UBIQUITOUS_LANGUAGE.md`](DDD_AND_UBIQUITOUS_LANGUAGE.md).
 
 ---
 
-## 2. 目录与命名空间（Zeitwerk）
+## 1. Layers
 
-入口文件 `lib/em_tools.rb` 用 `Zeitwerk::Loader.for_gem` 装载 `lib/em_tools/`，与顶层模块 `EmTools` 对齐。当前及推荐扩展方向：
+We treat almost every workflow as a small ETL pipeline:
+
+| Layer | Responsibility | Lives in |
+|---|---|---|
+| **Source** | Pull raw bytes / records (GCS, Spree, ES, HTTP, file) | `core/sinks/index_dumper` (read side), `clients/*`, plugin-specific `sources/` |
+| **Decoding** | Parse NDJSON / CSV / JSON, validate minimal shape | `clients/*`, `plugins/*/queries/`, ad-hoc decoders |
+| **Transform** | Field rename, currency normalisation, default-fill | plugin `transforms/` (e.g. `amazon_uploadable/transforms/price_calculator`) |
+| **Filter** | Keep / drop / branch (blacklist, eligibility, price floors, category) | `core/rules/`, `core/blacklist/`, plugin `filters/` |
+| **Sink** | Bulk-index to ES, write NDJSON | `core/sinks/elasticsearch_bulk_sink`, plugin `sinks/` |
+
+I/O is kept at the edges (clients + sources + sinks). Business judgements
+(filters, transforms) are pure functions of records, which keeps them
+trivially testable.
+
+---
+
+## 2. Directory layout & namespaces
+
+`lib/em_tools.rb` boots the project with an explicit
+`Zeitwerk::Loader.new + push_dir("lib")`. The namespace exactly mirrors the
+directory layout:
 
 ```
 lib/em_tools/
-  core/             # 引擎与基础设施（与具体业务无关）
-    cli/            # 通用 CLI 调度器与跨插件命令
-    blacklist/      # 黑名单引擎与加载
-    inventory/      # 库存同步通用流程
-    rules/          # 通用规则策略 + 注册表
-    sinks/          # 通用 sink（Elasticsearch bulk 等）
-    pipeline.rb     # 通用流水线契约
-    pipeline_engine.rb / plugin_registry.rb / plugin/  # 插件接口
-  plugins/          # 业务插件，每个一个目录，自己 plugin.rb 注册
-    amazon_uploadable/  amazon_lowest_offer/  ebay/
-    storefront/         lotteon/              ssg/
-  clients/          # 对接外部服务的 HTTP 客户端（ES / GCS / Spree 等）
+  error.rb                                  EmTools::Error
+  version.rb                                EmTools::VERSION
+
+  core/                                     EmTools::Core
+    cli/
+      app.rb                                EmTools::Core::Cli::App
+      runner.rb                             EmTools::Core::Cli::Runner
+      commands/*.rb                         EmTools::Core::Cli::Commands::*
+    plugin/
+      base.rb                               EmTools::Core::Plugin::Base
+    plugin_registry.rb                      EmTools::Core::PluginRegistry
+    pipeline.rb                             EmTools::Core::Pipeline
+    pipeline_engine.rb                      EmTools::Core::PipelineEngine
+    config.rb                               EmTools::Core::Config
+    errors.rb                               EmTools::Core::Errors::{ConfigurationError, EmptyResultError}
+    logger.rb                               EmTools::Core::Logger
+    settings_loader.rb / settings_hydrator  EmTools::Core::SettingsLoader / SettingsHydrator
+    inventory/                              EmTools::Core::Inventory::*
+    sinks/                                  EmTools::Core::Sinks::*
+    rules/                                  EmTools::Core::Rules::*
+    blacklist/                              EmTools::Core::Blacklist::*
+
+bin/                                        project executables
+  em-tools                                  the CLI (bundle exec bin/em-tools)
+  console                                   IRB with em-tools loaded
+  setup                                     bundle install + .env scaffold
+
+  clients/                                  EmTools::Clients
+    elasticsearch_client.rb                 EmTools::Clients::ElasticsearchClient
+    spree_client.rb                         EmTools::Clients::SpreeClient
+    gcs_blob_fetcher.rb                     EmTools::Clients::GcsBlobFetcher
+    gcs_service_account_path.rb             EmTools::Clients::GcsServiceAccountPath
+    exchange_rate.rb                        EmTools::Clients::ExchangeRate
+
+  plugins/                                  EmTools::Plugins
+    amazon_uploadable/                      EmTools::Plugins::AmazonUploadable
+    amazon_lowest_offer/                    EmTools::Plugins::AmazonLowestOffer
+    ebay/                                   EmTools::Plugins::Ebay
+    storefront/                             EmTools::Plugins::Storefront
+    lotteon/                                EmTools::Plugins::Lotteon
+    ssg/                                    EmTools::Plugins::Ssg
 ```
 
-新增一个能力时的**决策树**：
+A single Zeitwerk inflection is configured in `lib/em_tools.rb`:
 
-1. 只多一种**读入**？→ 在对应 plugin 下加 Scanner / Source + 必要时 small client（client 进 `lib/em_tools/clients/`）。
-2. 只多一种**规则或筛选项**？→ 跨业务的进 `core/rules/` 或 `core/blacklist/`，业务专属的进对应 plugin 的 `filters/`，由 plugin 在 `filters` 中暴露给 PipelineEngine。
-3. 只多一条**CLI 命令**？→ 在对应 plugin 的 `cli/` 下新类（或核心通用命令进 `core/cli/commands/`），**不写业务**，只组依赖并调用领域对象，再通过 `plugin.rb#cli_commands` 暴露。
-4. 跨多源多筛的**新业务线**？→ 新建 plugin 目录 `lib/em_tools/plugins/<new>/`，写 `plugin.rb` 自注册，并在该目录下组织 sources/filters/transforms/sinks。
+- `version` → `VERSION` (so `lib/em_tools/version.rb` resolves to the
+  constant `VERSION`, not `Version`).
 
----
+The rest of the tree follows Zeitwerk's stock snake_case → CamelCase rule.
 
-## 3. 组合根（Runner）与 CLI
-
-- **Runner / Service**：进程内入口，负责拼配置、拼依赖、跑主流程（例：`Amazon::UploadProductsFromEs::Runner`）。
-- **CLI**：解析参数、检查 `ENV`、加载 YAML，然后 `Runner.new(...).run!`。
-
-这样 mono repo 里「命令行」与「可复用的库 API」分离，以后 Sidekiq、rake、别的 gem 引用同一套类。
+`bin/em-tools` adds `lib/` to `$LOAD_PATH` and `require`s `em_tools` directly
+— there is no gemspec auto-magic; the executable is just a regular Ruby
+script in the repo.
 
 ---
 
-## 4. 配置变多时的原则（简要）
+## 3. Boot sequence
 
-- **集中合并**：默认值 → YAML → `ENV` → CLI（你们已在部分命令里实践）。
-- **配置**：合并为单一 settings YAML（`gcs` + `inventory_sync` + 连接串）；仅在确有必要时再拆专用 YAML。
-- **在边界校验**：进入 Runner 前就把类型与必填项搞清楚。
+```mermaid
+sequenceDiagram
+    participant Bin as bin/em-tools
+    participant Boot as lib/em_tools.rb
+    participant ZW as Zeitwerk
+    participant Hyd as Core::SettingsHydrator
+    participant Reg as Core::PluginRegistry
+    participant Plugins as plugins/*/plugin.rb
 
-详见 `docs/LEARNING_SUMMARY.md` 中配置相关小节。
-
----
-
-## 5. 可组合的处理链：`EmTools::Core::Pipeline`
-
-对「多步转换 + 清洗 + 可插拔」的场景，使用统一契约：
-
-- 每个阶段实现 `call(record, context)`，返回**下一个** `record`（一般为 `Hash`）。
-- `context` 用于共享只读配置、logger、计数器对象等；阶段内应**避免**偷偷改全局单例。
-
-示例：
-
-```ruby
-pipeline = EmTools::Core::Pipeline.new([
-  ->(row, _ctx) { row.transform_values { |v| v.is_a?(String) ? v.strip : v } },
-  ->(row, ctx)   { ctx[:blacklist].blocked?(row['title']) ? :drop : row }
-])
-out = pipeline.call({ 'title' => '  x  ' }, { blacklist: engine })
+    Bin->>Bin: bundler/setup + dotenv/load + LOAD_PATH << lib
+    Bin->>Boot: require "em_tools"
+    Boot->>ZW: Loader.new + push_dir(lib) + inflect("version" => "VERSION") + setup
+    Boot->>Hyd: SettingsHydrator.apply_if_blank!
+    Boot->>Plugins: Dir glob + require each plugin.rb
+    Plugins->>Reg: PluginRegistry.register(:name, klass)
+    Bin->>Boot: Core::Cli::App.start(ARGV)
 ```
 
-`Pipeline` 在遇到 `:drop` 时可选择短路（当前实现见类注释）；未使用 pipeline 的代码可继续用现有 Importer 风格，**渐进迁移**即可。
+`SettingsHydrator.apply_if_blank!` reads `config/settings.yml` and copies
+**non-secret** structural defaults into ENV when the corresponding ENV var
+is unset (currently `ELASTICSEARCH_URL` and `REDIS_URL`).
 
 ---
 
-## 6. 质量与「像 GitLab 一样好维护」的实践清单
+## 4. Plugin engine
 
-| 实践 | 说明 |
-|------|------|
-| 小 PR / 小提交 | 单 PR 只做一条业务线或一层重构 |
-| 每个公共类有 spec | 尤其是过滤器、解码、价格规则 |
-| 不藏副作用 | ES 写入、文件写、网络请求集中在 clients / sinks |
-| 文档与代码同版本 | 本文件 + `docs/LEARNING_SUMMARY.md` + `config/*.example.yml` |
-| RuboCop | CLI 目录已适度放宽 Metrics；**领域类**尽量保持严格 |
+```mermaid
+classDiagram
+    class Plugin_Base {
+      +filters() : Array
+      +transforms() : Array
+      +source(opts) : Object
+      +sink(opts) : Object
+      +cli_commands() : Hash
+    }
+
+    class PluginRegistry {
+      <<singleton>>
+      +register(name, klass)
+      +fetch(name)
+      +each_plugin()
+    }
+
+    class PipelineEngine {
+      -plugin : Plugin_Base
+      +call(record)
+    }
+
+    class CliApp {
+      +start(argv)
+    }
+
+    class CommandRegistry {
+      +default()
+      +fetch(name)
+      +sections()
+      +command_table()
+    }
+
+    class HelpRenderer {
+      +render()
+    }
+
+    PluginRegistry o-- Plugin_Base
+    PipelineEngine --> Plugin_Base
+    CommandRegistry --> PluginRegistry : scan once
+    CliApp --> CommandRegistry : lookup command
+    HelpRenderer --> CommandRegistry : render sections
+```
+
+- `Core::Plugin::Base` defines the contract; plugins inherit and override.
+- `Core::PluginRegistry` is a process-global registry populated at load time.
+- `Core::PipelineEngine` chains a plugin's filters and transforms over a
+  record stream and writes to the plugin's sink. Used by the simpler
+  per-record plugins; multi-stage workflows skip it and use a dedicated
+  pipeline class instead.
+- `Core::Cli::CommandRegistry` owns core command definitions, scans plugin
+  `cli_commands` once, caches the resulting dispatch table, and resolves
+  namespace-style aliases such as `inventory:sync`.
+- `Core::Cli::HelpRenderer` renders usage text from the registry; `App` no
+  longer owns presentation concerns.
+- `Core::Cli::App` is now a thin lifecycle wrapper: detect help, validate the
+  first argument, fetch a command definition from the registry, and dispatch.
+
+See [`PLUGINS.md`](PLUGINS.md) for the contributor-facing contract.
 
 ---
 
-## 7. Lowest offer 覆盖率：`seed` 与 `em_inventory` 两种 ID 来源
+## 5. CLI and error handling
 
-`LowestOfferListingsCoverageQuery` 对 `lowest_offer_listings_<mp>_new` 做时间桶统计时，需要一个 **ASIN 集合** 作为 `terms` 过滤条件。
+```mermaid
+flowchart LR
+    Argv[ARGV] --> App[Core::Cli::App]
+    App -->|fetch command| Registry[Core::Cli::CommandRegistry]
+    App -->|help| Help[Core::Cli::HelpRenderer]
+    Registry -->|dispatch| Cmd[Cli::Commands::* / Plugins::*::Cli::*]
+    Cmd --> Runner[Cli::Runner.run { ... }]
+    Runner -->|ConfigurationError, EmptyResultError| Warn[warn 'error: ...' + exit 1]
+    Runner -->|Result.summary| Stdout[puts result.summary]
+    Runner -->|other StandardError| Bug[propagate / stack trace]
+```
 
-| 模式 | 环境变量 | 行为 |
-|------|------------|------|
-| **seed**（默认） | `LOWEST_OFFER_ID_SOURCE` 未设置或 `seed` | 从 `LOWEST_OFFER_SEED_DIR` 或 GCS 读 `amz_<mp>.txt` / `ebay_<mp>.txt`，解析 JSON 列里的 `source_product_id`。 |
-| **inventory** | `LOWEST_OFFER_ID_SOURCE=inventory` | 从 ES 索引 `em_inventory`（可改 `LOWEST_OFFER_INVENTORY_INDEX`）扫描文档：`terms` 过滤 `source`（默认字段 `source.keyword`，值见 `LOWEST_OFFER_INVENTORY_AMAZON_SOURCES`，默认 `amazon,amz`），读取 `source_product_id` 并只保留 ASIN 形态；再对 offer 索引用 **同一套** `search_activity` / `search_seed_coverage` 逻辑。 |
+Every CLI command body is wrapped in `Core::Cli::Runner.run`, which:
 
-可选：`LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD`（如 `marketplace.keyword`）按当前 `mp` 再收窄一行库存；`LOWEST_OFFER_INVENTORY_MARKETPLACE_VALUE_MODE` 为 `downcase`（默认）或 `upcase`。大批量时可设 `LOWEST_OFFER_INVENTORY_MAX_HITS` 限制扫描条数。
+- Catches the gem's typed errors ({EmTools::Core::Errors::ConfigurationError},
+  {EmTools::Core::Errors::EmptyResultError}) and emits a single-line
+  `error: <msg>` + `exit 1`.
+- Lets every other exception propagate so real bugs produce real stack
+  traces.
+- Prints `result.summary` if the block returned a `Cli::Runner::Result` (or
+  any object responding to `#summary`).
 
-Rake：`rake lowest_offer:publish_snapshot` 在 `inventory` 模式下不再要求本地 seed 目录或 GCS seed，但仍需能访问 ES（含 `em_inventory` 与 `lowest_offer_listings_*`）。
+This keeps each CLI command class to two responsibilities: argument parsing,
+and "delegate to a pipeline / runner". The actual work always lives in a
+pipeline / runner class under `lib/em_tools/<plugin>/pipelines/` (or
+`runners/`).
 
 ---
 
-## 8. 扩展示例：我要加「某格式 → 清洗 → 黑名单 → NDJSON」
+## 6. Inventory sync (core, shared by every plugin)
 
-1. 在 `scanners/`（或 `decoding/`）增加 reader，输出 `Enumerator` of `Hash`。
-2. 在 `filters/` 增加纯逻辑过滤（或复用 `Blacklist::Engine`）。
-3. 用 `Processing::Pipeline` 串 strip、字段映射、黑名单等步骤。
-4. 在 `exporters/` 或 CLI 里写 NDJSON 行。
-5. 在 `cli/commands/` 增加命令，只做 wiring。
+```mermaid
+sequenceDiagram
+    participant CLI as em-tools inventory-sync
+    participant SS as SyncSources
+    participant SR as SyncRunner
+    participant GCS as GcsBlobFetcher
+    participant Sync as Inventory::Sync
+    participant ES as ElasticsearchBulkSink
 
-这样**读 / 转 / 滤 / 写**四处都有固定归宿，后续改代码时按层找即可。
+    CLI->>SS: load!(config_path)
+    SS-->>CLI: Array<Source>
+    loop each source
+        CLI->>SR: run_one!(source)
+        SR->>GCS: with_downloaded(gs_uri) { |path| ... }
+        GCS->>Sync: sync_from_path(path, refresh:)
+        Sync->>ES: bulk index batches
+    end
+    SR-->>CLI: Cli::Runner::Result(summary)
+```
+
+Inventory sync is **core**, not a plugin: every plugin queries the same
+`em_inventory` index. Source values (`AMZ_US`, `AMZ_CA`, `Boyner`, etc.)
+identify per-marketplace inventory feeds and are also used for delisting
+candidate generation.
+
+`Core::Inventory::Sync` enforces that one CSV cannot mix multiple `Source`
+values. `prune_obsolete: true` deletes documents in ES that were not seen in
+the latest batch with the same `inventory_feed` — that is how inventory
+goes from "rows in CSV" to "what's currently live".
+
+---
+
+## 7. When in doubt: where do I add this?
+
+1. **A new external service** → `clients/<service>.rb`. Stay focused on
+   transport (HTTP / GCS / ES wrapper). Logging via
+   `EmTools::Core::Logger.for(progname: "<service>-client")`.
+
+2. **A new core / shared concept** → `core/<topic>/`. Only justified if
+   *every* plugin needs it (inventory, blacklist, rules, sinks).
+
+3. **A new business workflow** → it's a plugin. Pick or create a
+   `plugins/<scope>/`, drop your pipelines / runners / filters / transforms
+   there, and expose a CLI command via `cli_commands`.
+
+4. **A new variation of an existing workflow** → an additional CLI command
+   (and possibly pipeline class) inside the existing plugin, **not** a new
+   top-level rake-style entrypoint.
+
+5. **A reusable record-level filter / transform** → `core/rules/` if it's
+   genuinely cross-plugin, otherwise inside the relevant plugin's `filters/`
+   or `transforms/`.
+
+When tempted to put work directly inside a CLI command file, stop and ask
+"is this two methods deep?" If yes, lift it to a `pipelines/` or `runners/`
+class — keeps the CLI thin and the logic testable in isolation.

@@ -1,0 +1,58 @@
+# Copy to config/settings.yml when you need committed structural defaults beyond .env
+# (e.g. inventory_sync.sources, exporters routing). EM_TOOLS_SETTINGS_PATH overrides location.
+#
+# Project structure / routing only — secrets and connection URLs belong in .env.
+# See README "Configuration" for the full ENV var list.
+
+default: &default
+  elasticsearch:
+    url: http://localhost:9200       # local fallback; .env ELASTICSEARCH_URL wins
+
+  elasticsearch_clusters:
+    primary:
+      url: http://localhost:9200
+    analytics:
+      url: http://localhost:9200     # .env DATA_ELASTICSEARCH_URL or ELASTICSEARCH_CLUSTER_ANALYTICS_URL wins
+
+  exporters:
+    ssg_products:
+      cluster: primary
+      index: ssg_products
+    lotteon_products:
+      cluster: analytics
+      index: user1_lotteon_products
+
+  redis:
+    url: redis://localhost:6379/0    # local fallback; .env REDIS_URL wins
+
+  gcs:
+    buckets:
+      inventory: em-bucket
+
+  sites:
+    example_partner:
+      base_url: https://partner.example.com
+      endpoint: https://partner.example.com/api/v1
+
+  inventory_sync:
+    index: em_inventory
+    refresh: false
+    prune_obsolete: false
+    sources: []
+
+development:
+  <<: *default
+  inventory_sync:
+    sources:
+      - gs://em-bucket/AMZ_AE-Inv.csv
+      - gs://em-bucket/AMZ_CA-Inv.csv
+
+test:
+  elasticsearch:
+    url: http://127.0.0.1:9200
+
+production:
+  <<: *default
+  inventory_sync:
+    sources:
+      - gs://em-bucket/boyner-Inv.csv

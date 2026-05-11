@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-require 'elasticsearch'
+require "elasticsearch"
 
 module EmTools
   module Clients
-    # rubocop:disable Metrics/ClassLength
     class ElasticsearchClient
       attr_reader :client
 
@@ -15,7 +14,7 @@ module EmTools
         resolved = EmTools::Core::Config.elasticsearch_url if resolved.empty?
         args = EmTools::Core::Config.elasticsearch_client_arguments(url: resolved).merge(url: resolved)
         @client = ::Elasticsearch::Client.new(args)
-        @logger = logger || EmTools::Core::Logger.for(progname: 'es-client')
+        @logger = logger || EmTools::Core::Logger.for(progname: "es-client")
         @url = resolved
       end
 
@@ -26,23 +25,22 @@ module EmTools
         client.indices.create(index: index, body: body, **sanitize_api_options(options))
       end
 
-      # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
       def iterate_all(index:, batch_size: 1000, &block)
         pit_id = nil
-        pit = client.open_point_in_time(index: index, keep_alive: '1m')
-        pit_id = pit['id']
+        pit = client.open_point_in_time(index: index, keep_alive: "1m")
+        pit_id = pit["id"]
 
         response = client.search(
           body: {
             size: batch_size,
-            pit: { id: pit_id, keep_alive: '1m' },
-            sort: [{ _shard_doc: 'asc' }],
-            query: { match_all: {} }
-          }
+            pit: { id: pit_id, keep_alive: "1m" },
+            sort: [{ _shard_doc: "asc" }],
+            query: { match_all: {} },
+          },
         )
 
         loop do
-          hits = response['hits']['hits']
+          hits = response["hits"]["hits"]
           break if hits.empty?
 
           hits.each(&block)
@@ -50,11 +48,11 @@ module EmTools
           response = client.search(
             body: {
               size: batch_size,
-              pit: { id: pit_id, keep_alive: '1m' },
-              sort: [{ _shard_doc: 'asc' }],
-              search_after: hits.last['sort'],
-              query: { match_all: {} }
-            }
+              pit: { id: pit_id, keep_alive: "1m" },
+              sort: [{ _shard_doc: "asc" }],
+              search_after: hits.last["sort"],
+              query: { match_all: {} },
+            },
           )
         end
       ensure
@@ -65,23 +63,23 @@ module EmTools
       # Point-in-time scan with a custom +query+ (same transport pattern as +iterate_all+).
       # Optional +max_hits+ stops after that many documents yielded.
       # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
-      def iterate_query(index:, query:, batch_size: 1000, sort: [{ _shard_doc: 'asc' }], max_hits: nil, &block)
+      def iterate_query(index:, query:, batch_size: 1000, sort: [{ _shard_doc: "asc" }], max_hits: nil, &block)
         pit_id = nil
         yielded = 0
-        pit = client.open_point_in_time(index: index, keep_alive: '1m')
-        pit_id = pit['id']
+        pit = client.open_point_in_time(index: index, keep_alive: "1m")
+        pit_id = pit["id"]
 
         response = client.search(
           body: {
             size: batch_size,
-            pit: { id: pit_id, keep_alive: '1m' },
+            pit: { id: pit_id, keep_alive: "1m" },
             sort: sort,
-            query: query
-          }
+            query: query,
+          },
         )
 
         loop do
-          hits = response['hits']['hits']
+          hits = response["hits"]["hits"]
           break if hits.empty?
 
           hits.each do |hit|
@@ -93,11 +91,11 @@ module EmTools
           response = client.search(
             body: {
               size: batch_size,
-              pit: { id: pit_id, keep_alive: '1m' },
+              pit: { id: pit_id, keep_alive: "1m" },
               sort: sort,
-              search_after: hits.last['sort'],
-              query: query
-            }
+              search_after: hits.last["sort"],
+              query: query,
+            },
           )
         end
         yielded
@@ -132,7 +130,7 @@ module EmTools
       end
 
       # Refresh one or more indices
-      def refresh(index = '_all', **options)
+      def refresh(index = "_all", **options)
         client.indices.refresh(index: index, **sanitize_api_options(options))
       end
 
@@ -163,7 +161,7 @@ module EmTools
       # raise.
       def bulk(body:, **options)
         response = client.bulk(body: body, **sanitize_api_options(options))
-        log_bulk_errors!(response, body) if response.is_a?(Hash) && response['errors']
+        log_bulk_errors!(response, body) if response.is_a?(Hash) && response["errors"]
         response
       end
 
@@ -186,7 +184,7 @@ module EmTools
       # Multi-get documents by +_id+ from a single index (batch product lookup by ASIN).
       def mget(index:, ids:, **options)
         id_list = Array(ids).map(&:to_s).map(&:strip).reject(&:empty?)
-        return { 'docs' => [] } if id_list.empty?
+        return { "docs" => [] } if id_list.empty?
 
         client.mget(index: index, body: { ids: id_list }, **sanitize_api_options(options))
       end
@@ -220,7 +218,7 @@ module EmTools
       # ---- Scroll APIs ----
 
       # Open a scroll search
-      def scroll(scroll_id:, scroll: '1m', **options)
+      def scroll(scroll_id:, scroll: "1m", **options)
         client.scroll(scroll_id: scroll_id, scroll: scroll, **sanitize_api_options(options))
       end
 
@@ -250,13 +248,13 @@ module EmTools
 
       # rubocop:disable Metrics/AbcSize -- response shape forces multi-step extraction
       def log_bulk_errors!(response, body)
-        items = Array(response['items'])
-        bad = items.filter_map { |item| item.values.first if item.values.first['error'] }
+        items = Array(response["items"])
+        bad = items.filter_map { |item| item.values.first if item.values.first["error"] }
         return if bad.empty?
 
         sample = bad.first(3).map do |item|
-          err = item['error'] || {}
-          "_id=#{item['_id']} status=#{item['status']} type=#{err['type']} reason=#{err['reason']}"
+          err = item["error"] || {}
+          "_id=#{item["_id"]} status=#{item["status"]} type=#{err["type"]} reason=#{err["reason"]}"
         end
         @logger&.warn do
           "[BulkErrors] failed=#{bad.size}/#{items.size} actions=#{body.size} sample=#{sample.inspect}"

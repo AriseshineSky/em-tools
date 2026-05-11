@@ -1,0 +1,8 @@
+# Example YAML for: em-tools uploadable-product-filter --config config/amz_uploadable_filter.example.yml
+# Same keys as em-tasks +asin_stream_options+ (flat keys also supported).
+
+amz.uploadable_filter.asin_stream:
+  time_field: auto
+  cutoff: null
+  label: null
+  label_field: label

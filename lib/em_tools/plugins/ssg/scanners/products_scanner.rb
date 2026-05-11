@@ -5,13 +5,13 @@ module EmTools
     module Ssg
       module Scanners
         class ProductsScanner
-          EXPORTER_KEY = 'ssg_products'
+          EXPORTER_KEY = "ssg_products"
 
           def initialize(client = nil)
             @client = client || EmTools::Clients::ElasticsearchClient.new(
-              url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY)
+              url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY),
             )
-            @index = EmTools::Core::Config.exporter_index(EXPORTER_KEY, 'ssg_products')
+            @index = EmTools::Core::Config.exporter_index(EXPORTER_KEY, "ssg_products")
           end
 
           def each(&block)

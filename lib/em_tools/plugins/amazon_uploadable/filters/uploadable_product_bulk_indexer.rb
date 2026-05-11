@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'json'
+require "json"
 
 module EmTools
   module Plugins
@@ -12,7 +12,6 @@ module EmTools
         class UploadableProductBulkIndexer
           attr_reader :stats
 
-          # rubocop:disable Metrics/ParameterLists, Metrics/MethodLength
           # -- explicit collaborators keep this trivially testable; initialization just wires them up.
           def initialize(client:, sink_index:, chunk_size:, dry_run:, refresh:, extract_asin:, build_document:)
             @client = client
@@ -28,10 +27,10 @@ module EmTools
               asin_hits_seen: 0,
               asin_ids_indexed: 0,
               bulk_requests: 0,
-              bulk_errors: 0
+              bulk_errors: 0,
             )
           end
-          # rubocop:enable Metrics/ParameterLists, Metrics/MethodLength
+          # rubocop:enable Metrics/MethodLength
 
           def process(hit)
             @stats.asin_hits_seen += 1
@@ -71,7 +70,7 @@ module EmTools
           def count_bulk_errors(resp)
             return 0 unless resp.is_a?(Hash)
 
-            Array(resp['items']).count { |item| item.values.first&.dig('error') }
+            Array(resp["items"]).count { |item| item.values.first&.dig("error") }
           end
         end
       end

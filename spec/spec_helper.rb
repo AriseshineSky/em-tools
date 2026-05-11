@@ -15,16 +15,20 @@
 # it.
 #
 # See https://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
-require 'bundler/setup'
+require "bundler/setup"
 
-ENV['EM_TOOLS_SKIP_SETTINGS_HYDRATE'] = '1'
+# em-tools is an app, not a gem, so +bundler/setup+ does not add +lib/+ to
+# the load path on our behalf. Wire it explicitly before booting.
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 
-require 'em_tools'
+ENV["EM_TOOLS_SKIP_SETTINGS_HYDRATE"] = "1"
+
+require "em_tools"
 RSpec.configure do |config|
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
   # assertions if you prefer.
-  config.expect_with :rspec do |expectations|
+  config.expect_with(:rspec) do |expectations|
     # This option will default to `true` in RSpec 4. It makes the `description`
     # and `failure_message` of custom matchers include text for helper methods
     # defined using `chain`, e.g.:
@@ -37,7 +41,7 @@ RSpec.configure do |config|
 
   # rspec-mocks config goes here. You can use an alternate test double
   # library (such as bogus or mocha) by changing the `mock_with` option here.
-  config.mock_with :rspec do |mocks|
+  config.mock_with(:rspec) do |mocks|
     # Prevents you from mocking or stubbing a method that does not exist on
     # a real object. This is generally recommended, and will default to
     # `true` in RSpec 4.

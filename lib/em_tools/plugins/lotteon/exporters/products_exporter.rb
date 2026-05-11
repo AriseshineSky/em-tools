@@ -5,19 +5,19 @@ module EmTools
     module Lotteon
       module Exporters
         class ProductsExporter
-          EXPORTER_KEY = 'lotteon_products'
+          EXPORTER_KEY = "lotteon_products"
 
           def initialize(client = nil)
             @client = client || EmTools::Clients::ElasticsearchClient.new(
-              url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY)
+              url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY),
             )
-            @index = EmTools::Core::Config.exporter_index(EXPORTER_KEY, 'user1_lotteon_products')
+            @index = EmTools::Core::Config.exporter_index(EXPORTER_KEY, "user1_lotteon_products")
           end
 
           def to_jsonl(file_path)
-            File.open(file_path, 'w') do |f|
+            File.open(file_path, "w") do |f|
               each do |doc|
-                f.puts(doc['_source'].to_json)
+                f.puts(doc["_source"].to_json)
               end
             end
           end

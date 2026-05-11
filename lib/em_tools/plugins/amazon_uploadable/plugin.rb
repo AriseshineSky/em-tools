@@ -16,10 +16,10 @@ module EmTools
 
         def cli_commands
           {
-            'uploadable-product-filter' => Cli::UploadableProductFilter,
-            'amz-upload-products-from-es' => Cli::AmzUploadProductsFromEs,
-            'amz-uploadable-products-formatter-from-file' => Cli::AmzUploadableProductsFormatterFromFile,
-            'asin-products-to-es' => Cli::AsinProductsToEs
+            "uploadable-product-filter" => Cli::UploadableProductFilter,
+            "amz-upload-products-from-es" => Cli::AmzUploadProductsFromEs,
+            "amz-uploadable-products-formatter-from-file" => Cli::AmzUploadableProductsFormatterFromFile,
+            "asin-products-to-es" => Cli::AsinProductsToEs,
           }
         end
 

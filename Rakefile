@@ -1,29 +1,13 @@
 # frozen_string_literal: true
 
-# rubocop:disable Lint/SuppressedException
-begin
-  require 'dotenv/load'
-rescue LoadError
-end
-# rubocop:enable Lint/SuppressedException
+# em-tools is driven by the +bin/em-tools+ CLI; this Rakefile only exists to
+# expose +rake spec+ for editor / CI integrations. There is intentionally
+# nothing else here — no gem build / install / release tasks, no business
+# tasks. All operational workflows go through the CLI; recurring jobs are
+# wired up via cron / systemd timers (see +schedule/+).
 
-require 'bundler/gem_tasks'
-require 'rake'
-require 'em_tools'
+require "rspec/core/rake_task"
 
-# Each plugin can opt into adding its own +rakelib/+ to Rake's default load path. We collect every
-# +rake_load_paths+ entry from registered plugins and prepend them to +Rake.application.options.rakelib+.
-# Top-level +rakelib/*.rake+ continues to load by default (Rake convention) for genuinely global tasks
-# like +inventory:sync+ and +es:dump_index+.
-plugin_rakelib_paths = []
-EmTools::Core::PluginRegistry.each_plugin do |plugin|
-  Array(plugin.rake_load_paths).each do |path|
-    plugin_rakelib_paths << path if File.directory?(path)
-  end
-end
+RSpec::Core::RakeTask.new(:spec)
 
-if plugin_rakelib_paths.any?
-  Rake.application.options.rakelib = (Rake.application.options.rakelib + plugin_rakelib_paths).uniq
-end
-
-task default: %i[]
+task default: :spec

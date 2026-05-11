@@ -7,8 +7,7 @@ module EmTools
         # Orchestrates +lowest_offer:publish_snapshot+ end to end so the rake task itself stays a
         # one-liner. Picks the ASIN source mode (ES inventory / GCS in-memory / local seed_dir),
         # runs {Queries::ListingsCoverageQuery}, sanity-checks the rows, and persists the snapshot
-        # via {Sinks::CoverageSnapshot}.
-        # rubocop:disable Metrics/ClassLength -- mirrors the rake task surface end to end.
+        # via {Sinks::CoverageSnapshot}. # -- mirrors the rake task surface end to end.
         class PublishSnapshot
           # @param cli_marketplaces [String, nil] comma-separated marketplaces from rake CLI args
           #   (e.g. +"us,ca"+). Empty / nil means "use the default list".
@@ -20,11 +19,11 @@ module EmTools
             @cli_marketplaces = cli_marketplaces
             @es_client = es_client || EmTools::Clients::ElasticsearchClient.new
             @env = env
-            @logger = logger || EmTools::Core::Logger.for(progname: 'lowest-offer-snapshot')
+            @logger = logger || EmTools::Core::Logger.for(progname: "lowest-offer-snapshot")
             @now = now
           end
 
-          # @return [EmTools::Core::RakeSupport::Result]
+          # @return [EmTools::Core::Cli::Runner::Result]
           def run!
             query_opts = build_query_opts
             apply_cli_marketplaces!(query_opts)
@@ -34,20 +33,20 @@ module EmTools
             validate_rows!(rows, query_opts)
             persist!(rows, snapshot_time)
 
-            EmTools::Core::RakeSupport::Result.new(summary: summary_line(rows, query_opts))
+            EmTools::Core::Cli::Runner::Result.new(summary: summary_line(rows, query_opts))
           end
 
           private
 
           def inventory_mode?
-            @env['LOWEST_OFFER_ID_SOURCE'].to_s.strip.casecmp?('inventory')
+            @env["LOWEST_OFFER_ID_SOURCE"].to_s.strip.casecmp?("inventory")
           end
 
           def build_query_opts
             opts = { es_client: @es_client }
             return opts if inventory_mode?
 
-            seed_dir = @env['LOWEST_OFFER_SEED_DIR'].to_s.strip
+            seed_dir = @env["LOWEST_OFFER_SEED_DIR"].to_s.strip
             seed_dir.empty? ? configure_in_memory_gcs!(opts) : configure_seed_dir!(opts, seed_dir)
             opts
           end
@@ -55,10 +54,10 @@ module EmTools
           # Mode A: no seed dir → stream each marketplace's AMZ_<MP>.txt from GCS in memory.
           def configure_in_memory_gcs!(opts)
             creds_path = EmTools::Clients::GcsServiceAccountPath.require!(
-              env: @env, missing_message: missing_creds_message
+              env: @env, missing_message: missing_creds_message,
             )
-            bucket = @env.fetch('GCS_BUCKET', 'em-bucket')
-            prefix = @env.fetch('GCS_SEEDS_PREFIX', 'em-analytics').sub(%r{/+\z}, '')
+            bucket = @env.fetch("GCS_BUCKET", "em-bucket")
+            prefix = @env.fetch("GCS_SEEDS_PREFIX", "em-analytics").sub(%r{/+\z}, "")
             gcs = EmTools::Clients::GcsHelper.new(creds_path, bucket, prefix)
             opts[:seed_text_fetcher] = ->(mp) { gcs.download_string("#{prefix}/sources/AMZ_#{mp.upcase}.txt") }
           end
@@ -68,7 +67,7 @@ module EmTools
           def configure_seed_dir!(opts, seed_dir)
             seed_dir_expanded = File.expand_path(seed_dir)
             marketplaces = Queries::ListingsCoverageQuery.marketplaces_for_publish(@cli_marketplaces)
-            force = @env['LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD'] == '1'
+            force = @env["LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD"] == "1"
             if needs_seed_sync?(seed_dir_expanded, marketplaces, force)
               sync_missing_seeds!(seed_dir_expanded, marketplaces, force)
             end
@@ -79,38 +78,41 @@ module EmTools
             force || marketplaces.any? { |mp| !Sources::SeedFiles.seed_file_present?(seed_dir, mp) }
           end
 
-          # rubocop:disable Metrics/MethodLength -- 6-arg sync call + creds-resolve are one atomic step.
+          # -- 6-arg sync call + creds-resolve are one atomic step.
           def sync_missing_seeds!(seed_dir, marketplaces, force)
             creds_path = EmTools::Clients::GcsServiceAccountPath.require!(
-              env: @env, missing_message: missing_seeds_message
+              env: @env, missing_message: missing_seeds_message,
             )
-            bucket = @env.fetch('GCS_BUCKET', 'em-bucket')
-            prefix = @env.fetch('GCS_SEEDS_PREFIX', 'em-analytics')
-            @logger.info { "[SeedSync] dir=#{seed_dir} marketplaces=#{marketplaces.join(',')} force=#{force}" }
+            bucket = @env.fetch("GCS_BUCKET", "em-bucket")
+            prefix = @env.fetch("GCS_SEEDS_PREFIX", "em-analytics")
+            @logger.info { "[SeedSync] dir=#{seed_dir} marketplaces=#{marketplaces.join(",")} force=#{force}" }
             Sources::SeedFiles.sync_from_gcs(
               seed_dir,
-              marketplaces: marketplaces, creds_path: creds_path,
-              bucket: bucket, prefix: prefix, force: force
+              marketplaces: marketplaces,
+              creds_path: creds_path,
+              bucket: bucket,
+              prefix: prefix,
+              force: force,
             )
           end
           # rubocop:enable Metrics/MethodLength
 
           def missing_creds_message
             creds_path = EmTools::Clients::GcsServiceAccountPath.resolve
-            'set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or put a GCS JSON key at ' \
+            "set LOWEST_OFFER_SEED_DIR to a directory with amz_<mp>.txt seeds, or put a GCS JSON key at " \
               "#{creds_path}, or set GCS_SERVICE_ACCOUNT_PATH to load AMZ_*.txt from GCS in memory"
           end
 
           def missing_seeds_message
             creds_path = EmTools::Clients::GcsServiceAccountPath.resolve
-            'missing seed files under LOWEST_OFFER_SEED_DIR; place a GCS JSON key at ' \
+            "missing seed files under LOWEST_OFFER_SEED_DIR; place a GCS JSON key at " \
               "#{creds_path} or set GCS_SERVICE_ACCOUNT_PATH to pull AMZ_<MP>.txt from GCS " \
-              '(or unset LOWEST_OFFER_SEED_DIR for in-memory GCS). ' \
-              'LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 overwrites existing amz_<mp>.txt.'
+              "(or unset LOWEST_OFFER_SEED_DIR for in-memory GCS). " \
+              "LOWEST_OFFER_SEEDS_FORCE_DOWNLOAD=1 overwrites existing amz_<mp>.txt."
           end
 
           def apply_cli_marketplaces!(opts)
-            cli_mps = @cli_marketplaces.to_s.split(',').map(&:strip).reject(&:empty?).map(&:downcase)
+            cli_mps = @cli_marketplaces.to_s.split(",").map(&:strip).reject(&:empty?).map(&:downcase)
             opts[:marketplaces] = cli_mps if cli_mps.any?
           end
 
@@ -129,12 +131,12 @@ module EmTools
             rows.each do |row|
               next if row_has_error?(row) || row_loaded(row).positive?
 
-              idx = row_field(row, :inventory_index) || @env['LOWEST_OFFER_INVENTORY_INDEX']
+              idx = row_field(row, :inventory_index) || @env["LOWEST_OFFER_INVENTORY_INDEX"]
               raise EmTools::Core::Errors::EmptyResultError,
-                    "no Amazon ASINs loaded from em_inventory for #{row_field(row, :marketplace)} " \
-                    "(inventory_index=#{idx.inspect}, seed_asins_loaded=#{row_loaded(row)}). " \
-                    'Check LOWEST_OFFER_INVENTORY_AMAZON_SOURCES, LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD, ' \
-                    'and optional LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD.'
+                "no Amazon ASINs loaded from em_inventory for #{row_field(row, :marketplace)} " \
+                  "(inventory_index=#{idx.inspect}, seed_asins_loaded=#{row_loaded(row)}). " \
+                  "Check LOWEST_OFFER_INVENTORY_AMAZON_SOURCES, LOWEST_OFFER_INVENTORY_PRODUCT_ID_FIELD, " \
+                  "and optional LOWEST_OFFER_INVENTORY_MARKETPLACE_FIELD."
             end
           end
 
@@ -144,10 +146,10 @@ module EmTools
 
               mp = row_field(row, :marketplace).to_s.downcase
               raise EmTools::Core::Errors::EmptyResultError,
-                    "no seed ASINs loaded for #{row_field(row, :marketplace)} " \
-                    "(seed_file_present=#{row_field(row, :seed_file_present).inspect}, " \
-                    "seed_asins_loaded=#{row_loaded(row)}). " \
-                    "Check #{seed_dir} contains amz_#{mp}.txt or ebay_<mp>.txt (tab + JSON column 2)."
+                "no seed ASINs loaded for #{row_field(row, :marketplace)} " \
+                  "(seed_file_present=#{row_field(row, :seed_file_present).inspect}, " \
+                  "seed_asins_loaded=#{row_loaded(row)}). " \
+                  "Check #{seed_dir} contains amz_#{mp}.txt or ebay_<mp>.txt (tab + JSON column 2)."
             end
           end
 
@@ -170,12 +172,12 @@ module EmTools
 
           def summary_line(rows, query_opts)
             label = if query_opts[:marketplaces]
-                      query_opts[:marketplaces].join(',')
-                    elsif @env['LOWEST_OFFER_MARKETPLACES'].to_s.strip.empty?
-                      'default list'
-                    else
-                      @env['LOWEST_OFFER_MARKETPLACES'].strip
-                    end
+              query_opts[:marketplaces].join(",")
+            elsif @env["LOWEST_OFFER_MARKETPLACES"].to_s.strip.empty?
+              "default list"
+            else
+              @env["LOWEST_OFFER_MARKETPLACES"].strip
+            end
             "Indexed #{rows.size} marketplace row(s) (#{label}) -> #{Sinks::CoverageSnapshot.index_name}"
           end
         end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'time'
+require "time"
 
 module EmTools
   module Plugins
@@ -14,15 +14,14 @@ module EmTools
         # (see {#stream_asins!}) or bulk-indexed into another ES index (see {#bulk_index_asins!}).
         #
         # The full Python pipeline (offers, price rules, rule engine, metrics index) is not ported yet; use
-        # this for ASIN extraction / parity with CLI flags, or extend this class.
-        # rubocop:disable Metrics/ClassLength -- cohesive: query builder + sink doc builder + bulk orchestrator.
+        # this for ASIN extraction / parity with CLI flags, or extend this class. # -- cohesive: query builder + sink doc builder + bulk orchestrator.
         class UploadableProductFilter
           IndexStats = Struct.new(
             :asin_hits_seen,
             :asin_ids_indexed,
             :bulk_requests,
             :bulk_errors,
-            keyword_init: true
+            keyword_init: true,
           )
 
           DEFAULT_BULK_CHUNK_LINES = 500
@@ -30,10 +29,10 @@ module EmTools
 
           attr_reader :marketplace, :asin_index, :ttl, :stream_opts
 
-          # rubocop:disable Metrics/ParameterLists -- one keyword per CLI flag; mirrors the Python entrypoint.
+          # -- one keyword per CLI flag; mirrors the Python entrypoint.
           def initialize(marketplace:, ttl: 30, config: nil,
-                         asin_since_days: 7, asin_time_field: nil, asin_cutoff: nil,
-                         asin_label: nil, asin_label_field: nil)
+            asin_since_days: 7, asin_time_field: nil, asin_cutoff: nil,
+            asin_label: nil, asin_label_field: nil)
             @marketplace = normalize_marketplace(marketplace)
             @asin_index = "amz_asins_#{@marketplace}"
             @ttl = ttl.to_i
@@ -42,7 +41,6 @@ module EmTools
               asin_since_days, asin_time_field, asin_cutoff, asin_label, asin_label_field
             )
           end
-          # rubocop:enable Metrics/ParameterLists
 
           def resolved_time_field
             Stream::AsinStreamOptions.effective_time_field(@stream_opts[:time_field], @asin_index)
@@ -76,17 +74,15 @@ module EmTools
           # Bulk-index matched ASINs into a destination Elasticsearch index. Each document uses the
           # ASIN as its +_id+ so reruns idempotently overwrite (action: +index+).
           #
-          # @return [IndexStats]
-          # rubocop:disable Metrics/ParameterLists -- one keyword per CLI flag.
+          # @return [IndexStats] # -- one keyword per CLI flag.
           def bulk_index_asins!(client:, sink_index: nil, max_asins: nil,
-                                bulk_chunk_lines: DEFAULT_BULK_CHUNK_LINES,
-                                dry_run: false, refresh: false)
+            bulk_chunk_lines: DEFAULT_BULK_CHUNK_LINES,
+            dry_run: false, refresh: false)
             indexer = build_indexer(client, sink_index, bulk_chunk_lines, dry_run, refresh)
             each_asin_hit(client: client, max_hits: max_asins) { |hit| indexer.process(hit) }
             indexer.finalize!
             indexer.stats
           end
-          # rubocop:enable Metrics/ParameterLists
 
           # Yields each hit from the ASIN index stream (same query as +stream_asins!+).
           def each_asin_hit(client:, max_hits: nil, batch_size: DEFAULT_BATCH_SIZE, &block)
@@ -108,7 +104,7 @@ module EmTools
               cutoff: cutoff_time_utc.iso8601(3),
               label: @stream_opts[:label],
               label_field: @stream_opts[:label_field],
-              relative_days: @stream_opts[:relative_days]
+              relative_days: @stream_opts[:relative_days],
             }
           end
 
@@ -121,13 +117,13 @@ module EmTools
               cli_time_field: time_field,
               cli_cutoff: cutoff,
               cli_label: label,
-              cli_label_field: label_field
+              cli_label_field: label_field,
             )
           end
 
           def normalize_marketplace(value)
             mp = value.to_s.downcase.strip
-            raise ArgumentError, 'marketplace is required' if mp.empty?
+            raise ArgumentError, "marketplace is required" if mp.empty?
 
             mp
           end
@@ -143,8 +139,8 @@ module EmTools
           end
 
           def extract_asin(hit)
-            src = hit['_source'] || {}
-            (src['asin'] || hit['_id']).to_s.strip
+            src = hit["_source"] || {}
+            (src["asin"] || hit["_id"]).to_s.strip
           end
 
           def build_indexer(client, sink_index, bulk_chunk_lines, dry_run, refresh)
@@ -155,30 +151,30 @@ module EmTools
               dry_run: dry_run ? true : false,
               refresh: refresh ? true : false,
               extract_asin: method(:extract_asin),
-              build_document: method(:build_sink_document)
+              build_document: method(:build_sink_document),
             )
           end
 
           def build_sink_document(asin, hit)
-            src = hit['_source'] || {}
+            src = hit["_source"] || {}
             {
-              'asin' => asin,
-              'marketplace' => @marketplace,
-              'source_index' => @asin_index,
-              'source_id' => hit['_id'],
-              'processed_at' => Time.now.utc.iso8601(3)
+              "asin" => asin,
+              "marketplace" => @marketplace,
+              "source_index" => @asin_index,
+              "source_id" => hit["_id"],
+              "processed_at" => Time.now.utc.iso8601(3),
             }.merge(time_metadata(src)).merge(label_metadata(src))
           end
 
           def time_metadata(src)
-            metadata_for(src, resolved_time_field, key_field: 'source_time_field', key_value: 'source_time_value')
+            metadata_for(src, resolved_time_field, key_field: "source_time_field", key_value: "source_time_value")
           end
 
           def label_metadata(src)
             field = @stream_opts[:label_field].to_s
             return {} if field.empty?
 
-            metadata_for(src, field, key_field: 'label_field', key_value: 'label_value')
+            metadata_for(src, field, key_field: "label_field", key_value: "label_value")
           end
 
           def metadata_for(src, field, key_field:, key_value:)

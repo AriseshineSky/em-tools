@@ -3,11 +3,11 @@
 module EmTools
   module Core
     module Inventory
-      # Wraps {EmTools::Core::Inventory::Sync} + {EmTools::Clients::GcsBlobFetcher} so a rake task
-      # can run a single GCS-backed inventory sync (or a list of them from settings YAML) without
-      # owning the file plumbing.
+      # Wraps {EmTools::Core::Inventory::Sync} + {EmTools::Clients::GcsBlobFetcher} so a CLI
+      # command can run a single GCS-backed inventory sync (or a list of them from settings YAML)
+      # without owning the file plumbing.
       class SyncRunner
-        DEFAULT_GS_URI = 'gs://em-bucket/boyner-Inv.csv'
+        DEFAULT_GS_URI = "gs://em-bucket/boyner-Inv.csv"
 
         # @param sink [#bulk] usually {EmTools::Core::Sinks::ElasticsearchBulkSink}.
         # @param fetcher_opts [Hash] forwarded to {EmTools::Clients::GcsBlobFetcher.new}.
@@ -15,7 +15,7 @@ module EmTools
         def initialize(sink:, fetcher_opts: {}, logger: nil)
           @sink = sink
           @fetcher_opts = fetcher_opts
-          @logger = logger || EmTools::Core::Logger.for(progname: 'inventory-sync')
+          @logger = logger || EmTools::Core::Logger.for(progname: "inventory-sync")
         end
 
         # Sync a single GCS CSV → ES.
@@ -37,17 +37,20 @@ module EmTools
 
         # Sync a list of {SyncSources::Source}.
         # @param sources [Array]
-        # @return [EmTools::Core::RakeSupport::Result]
+        # @return [EmTools::Core::Cli::Runner::Result]
         def run_many!(sources, label: nil)
           sources.each_with_index do |src, i|
             @logger.info { "[InventorySync] [#{i + 1}/#{sources.size}] #{src.gs_uri} -> #{src.index}" }
             run_one!(
-              gs_uri: src.gs_uri, index: src.index, feed_id: src.feed_id,
-              refresh: src.refresh, prune_obsolete: src.prune_obsolete
+              gs_uri: src.gs_uri,
+              index: src.index,
+              feed_id: src.feed_id,
+              refresh: src.refresh,
+              prune_obsolete: src.prune_obsolete,
             )
           end
-          EmTools::Core::RakeSupport::Result.new(
-            summary: "Inventory sync done (#{sources.size} source(s)#{label ? " from #{label}" : ''})"
+          EmTools::Core::Cli::Runner::Result.new(
+            summary: "Inventory sync done (#{sources.size} source(s)#{" from #{label}" if label})",
           )
         end
 
@@ -57,7 +60,7 @@ module EmTools
         # @return [String]
         def self.resolve_single_gs_uri(cli_gs_uri: nil, env: ENV)
           try_uri(cli_gs_uri) ||
-            try_uri(env['INVENTORY_GS_URI']) ||
+            try_uri(env["INVENTORY_GS_URI"]) ||
             gs_uri_from_bucket_object(env) ||
             DEFAULT_GS_URI
         end
@@ -65,38 +68,38 @@ module EmTools
         # @return [String]
         def self.try_uri(raw)
           s = raw.to_s.strip
-          return nil if s.empty?
+          return if s.empty?
 
           assert_gs_uri!(s)
         end
 
         def self.gs_uri_from_bucket_object(env)
-          bucket = env['INVENTORY_GCS_BUCKET'].to_s.strip
-          object = env['INVENTORY_GCS_OBJECT'].to_s.strip
-          return nil if bucket.empty? || object.empty?
+          bucket = env["INVENTORY_GCS_BUCKET"].to_s.strip
+          object = env["INVENTORY_GCS_OBJECT"].to_s.strip
+          return if bucket.empty? || object.empty?
 
-          assert_gs_uri!("gs://#{bucket}/#{object.sub(%r{\A/+}, '')}")
+          assert_gs_uri!("gs://#{bucket}/#{object.sub(%r{\A/+}, "")}")
         end
 
         def self.assert_gs_uri!(uri)
           return uri if uri.match?(%r{\Ags://[^/]+/.+\z}i)
 
           raise EmTools::Core::Errors::ConfigurationError,
-                "expected gs://bucket/path/to/file.csv, got: #{uri.inspect}"
+            "expected gs://bucket/path/to/file.csv, got: #{uri.inspect}"
         end
 
         # Build fetcher_opts from +GCS_SERVICE_ACCOUNT_PATH+.
         def self.fetcher_opts_from_env(env: ENV)
-          creds = env['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+          creds = env["GCS_SERVICE_ACCOUNT_PATH"].to_s.strip
           creds.empty? ? {} : { credentials_path: File.expand_path(creds) }
         end
 
         # Validate +ELASTICSEARCH_URL+ presence; raise +ConfigurationError+ if missing.
         def self.require_elasticsearch_url!(env: ENV)
-          return unless env['ELASTICSEARCH_URL'].to_s.strip.empty?
+          return unless env["ELASTICSEARCH_URL"].to_s.strip.empty?
 
           raise EmTools::Core::Errors::ConfigurationError,
-                'set ELASTICSEARCH_URL (e.g. http://localhost:9200)'
+            "set ELASTICSEARCH_URL (e.g. http://localhost:9200)"
         end
       end
     end

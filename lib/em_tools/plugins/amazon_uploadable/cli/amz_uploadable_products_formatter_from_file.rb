@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'optparse'
+require "json"
+require "optparse"
 
 module EmTools
   module Plugins
@@ -12,7 +12,7 @@ module EmTools
           def run(argv)
             options = {
               store_code: nil,
-              marketplace: 'us',
+              marketplace: "us",
               output_path: nil,
               source: nil,
               source_code: nil,
@@ -27,10 +27,10 @@ module EmTools
               sink_index: nil,
               bulk_chunk: EmTools::Plugins::AmazonUploadable::Formatters::UploadableProductsFormatterFromFile::DEFAULT_SINK_BULK_CHUNK_LINES,
               refresh: false,
-              dry_run: false
+              dry_run: false,
             }
 
-            # rubocop:disable Metrics/BlockLength -- Click-parity CLI options
+            # -- Click-parity CLI options
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
                 Usage: em-tools amz-uploadable-products-formatter-from-file [options] PRODUCTS_PATH
@@ -56,62 +56,71 @@ module EmTools
                     --so SRC --sc CODE asins.txt
               BANNER
 
-              opts.on('-s', '--store-code CODE', String, 'Store code (required; same as Python -s).') do |v|
+              opts.on("-s", "--store-code CODE", String, "Store code (required; same as Python -s).") do |v|
                 options[:store_code] = v
               end
-              opts.on('-m', '--marketplace CODE', String, 'Amazon marketplace (default us).') do |v|
+              opts.on("-m", "--marketplace CODE", String, "Amazon marketplace (default us).") do |v|
                 options[:marketplace] = v
               end
-              opts.on('-o', '--output PATH', String,
-                      'Output NDJSON path (required unless --to-es; same as Python -o).') do |v|
+              opts.on(
+                "-o",
+                "--output PATH",
+                String,
+                "Output NDJSON path (required unless --to-es; same as Python -o).",
+              ) do |v|
                 options[:output_path] = v
               end
-              opts.on('--so', '--source NAME', String, 'Product source (required; Python -so).') do |v|
+              opts.on("--so", "--source NAME", String, "Product source (required; Python -so).") do |v|
                 options[:source] = v
               end
-              opts.on('--sc', '--source-code CODE', String, 'Product source code (required; Python -sc).') do |v|
+              opts.on("--sc", "--source-code CODE", String, "Product source code (required; Python -sc).") do |v|
                 options[:source_code] = v
               end
-              opts.on('-e', '--export', 'Whether to export products to other countries (Python -e).') do
+              opts.on("-e", "--export", "Whether to export products to other countries (Python -e).") do
                 options[:export] = true
               end
-              opts.on('-t', '--ttl N', Integer, 'Offer TTL days (default 30; informational).') do |v|
+              opts.on("-t", "--ttl N", Integer, "Offer TTL days (default 30; informational).") do |v|
                 options[:ttl] = v
               end
               opts.on(
-                '--product-index NAME', String,
-                'Override product ES index (default amz_products_api_<mp>_v2).'
+                "--product-index NAME",
+                String,
+                "Override product ES index (default amz_products_api_<mp>_v2).",
               ) do |v|
                 options[:product_index] = v
               end
               opts.on(
-                '--offer-index NAME', String,
-                'Override offer ES index (default lowest_offer_listings_<mp>_new).'
+                "--offer-index NAME",
+                String,
+                "Override offer ES index (default lowest_offer_listings_<mp>_new).",
               ) do |v|
                 options[:offer_index] = v
               end
-              opts.on('--emitter-dir DIR', String, 'Sidecar stats directory (default ~/.em_tasks/amz_<mp>).') do |v|
+              opts.on("--emitter-dir DIR", String, "Sidecar stats directory (default ~/.em_tasks/amz_<mp>).") do |v|
                 options[:emitter_dir] = v
               end
-              opts.on('--skip-offers', 'Do not mget offer index; use price/currency from product _source.') do
+              opts.on("--skip-offers", "Do not mget offer index; use price/currency from product _source.") do
                 options[:skip_offers] = true
               end
-              opts.on('--batch-size N', Integer, 'ASINs per mget batch (default 500).') do |v|
+              opts.on("--batch-size N", Integer, "ASINs per mget batch (default 500).") do |v|
                 options[:batch_size] = v
               end
-              opts.on('--to-es', 'Bulk-index formatted rows into Elasticsearch (in addition to or instead of -o).') do
+              opts.on("--to-es", "Bulk-index formatted rows into Elasticsearch (in addition to or instead of -o).") do
                 options[:to_es] = true
               end
-              opts.on('--sink-index NAME', String,
-                      'Destination ES index for --to-es (default amz_uploadable_products_<mp>).') do |v|
+              opts.on(
+                "--sink-index NAME",
+                String,
+                "Destination ES index for --to-es (default amz_uploadable_products_<mp>).",
+              ) do |v|
                 options[:sink_index] = v
                 options[:to_es] = true
               end
-              opts.on('--bulk-chunk N', Integer, 'Documents per bulk request (default 500).') do |v|
+              opts.on("--bulk-chunk N", Integer, "Documents per bulk request (default 500).") do |v|
                 options[:bulk_chunk] = v
               end
-              opts.on('--refresh', 'Refresh sink index after run (--to-es only).') { options[:refresh] = true }
-              opts.on('--dry-run', 'Resolve and process but skip ES bulk writes (file output still written).') do
+              opts.on("--refresh", "Refresh sink index after run (--to-es only).") { options[:refresh] = true }
+              opts.on("--dry-run", "Resolve and process but skip ES bulk writes (file output still written).") do
                 options[:dry_run] = true
               end
             end
@@ -120,8 +129,8 @@ module EmTools
             parser.parse!(argv)
             products_path = argv.shift
             if products_path.nil? || argv.any?
-              got = ([products_path] + argv).compact.join(' ')
-              warn "error: expected exactly one argument (products_path); got: #{got}"
+              got = ([products_path] + argv).compact.join(" ")
+              warn("error: expected exactly one argument (products_path); got: #{got}")
               usage!(parser)
             end
 
@@ -147,19 +156,22 @@ module EmTools
               sink_index: sink_index,
               sink_bulk_chunk_lines: options[:bulk_chunk],
               sink_refresh: options[:refresh],
-              dry_run: options[:dry_run]
+              dry_run: options[:dry_run],
             )
 
             client = EmTools::Clients::ElasticsearchClient.new
             formatter.run!(client: client)
-            warn(JSON.generate(sink_index: formatter.sink_index, output_path: formatter.output_path,
-                               record: formatter.record))
+            warn(JSON.generate(
+              sink_index: formatter.sink_index,
+              output_path: formatter.output_path,
+              record: formatter.record,
+            ))
           end
 
           private
 
           def resolved_sink_index(options)
-            return nil unless options[:to_es]
+            return unless options[:to_es]
 
             explicit = options[:sink_index].to_s.strip
             return explicit unless explicit.empty?
@@ -169,21 +181,21 @@ module EmTools
 
           def validate!(options)
             missing = []
-            missing << '-s / --store-code' if options[:store_code].to_s.strip.empty?
-            missing << '--so / --source' if options[:source].to_s.strip.empty?
-            missing << '--sc / --source-code' if options[:source_code].to_s.strip.empty?
+            missing << "-s / --store-code" if options[:store_code].to_s.strip.empty?
+            missing << "--so / --source" if options[:source].to_s.strip.empty?
+            missing << "--sc / --source-code" if options[:source_code].to_s.strip.empty?
             if options[:output_path].to_s.strip.empty? && !options[:to_es]
-              missing << '-o / --output (or --to-es / --sink-index)'
+              missing << "-o / --output (or --to-es / --sink-index)"
             end
             return if missing.empty?
 
-            warn "error: missing required option(s): #{missing.join(', ')}"
-            exit 1
+            warn("error: missing required option(s): #{missing.join(", ")}")
+            exit(1)
           end
 
           def usage!(parser)
-            warn parser.help
-            exit 1
+            warn(parser.help)
+            exit(1)
           end
         end
       end

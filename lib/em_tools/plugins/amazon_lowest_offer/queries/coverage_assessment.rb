@@ -20,16 +20,16 @@ module EmTools
             # 在售库存索引 +em_inventory+ 等（原 +inventory+）。
             FROM_OPERATING_INVENTORY = :from_operating_inventory
 
-            module_function
+            extend self
 
             def to_id_source(sym)
               case sym.to_sym
               when FROM_PROMOTION_SEED_FEED
-                'seed'
+                "seed"
               when FROM_OPERATING_INVENTORY
-                'inventory'
+                "inventory"
               else
-                allowed = [FROM_PROMOTION_SEED_FEED, FROM_OPERATING_INVENTORY].join(', ')
+                allowed = [FROM_PROMOTION_SEED_FEED, FROM_OPERATING_INVENTORY].join(", ")
                 raise ArgumentError, "watched_product_id_source must be one of: #{allowed} (got #{sym.inspect})"
               end
             end
@@ -38,7 +38,7 @@ module EmTools
           def initialize(search_client:, watched_product_id_source:, **listing_coverage_options)
             @search_client = search_client
             @listing_coverage_options = listing_coverage_options.merge(
-              id_source: WatchedProductIdSource.to_id_source(watched_product_id_source)
+              id_source: WatchedProductIdSource.to_id_source(watched_product_id_source),
             )
           end
 
@@ -47,20 +47,20 @@ module EmTools
             ListingsCoverageQuery.new(
               es_client: @search_client,
               snapshot_time: snapshot_captured_at,
-              **@listing_coverage_options
+              **@listing_coverage_options,
             ).fetch_all
           end
 
           # 业务语义：只评估单个站点（例如只跑 DE）。
           def snapshot_rows_for_marketplace(marketplace_code, snapshot_captured_at:)
             mp = marketplace_code.to_s.downcase.strip
-            raise ArgumentError, 'marketplace_code is required' if mp.empty?
+            raise ArgumentError, "marketplace_code is required" if mp.empty?
 
             ListingsCoverageQuery.new(
               es_client: @search_client,
               marketplaces: [mp],
               snapshot_time: snapshot_captured_at,
-              **@listing_coverage_options
+              **@listing_coverage_options,
             ).fetch_marketplace(mp)
           end
         end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'tempfile'
-require 'google/cloud/storage'
+require "tempfile"
+require "google/cloud/storage"
 
 module EmTools
   module Clients
@@ -12,7 +12,7 @@ module EmTools
         m = s.match(%r{\Ags://([^/]+)/(.+)\z}i)
         unless m
           raise ArgumentError,
-                "expected gs://bucket/path/to/object, got: #{gs_uri.inspect}"
+            "expected gs://bucket/path/to/object, got: #{gs_uri.inspect}"
         end
 
         [m[1], m[2]]
@@ -33,7 +33,7 @@ module EmTools
         remote = bucket.file(object_path)
         raise "GCS object not found: #{object_path}" unless remote
 
-        Tempfile.create(%w[gcs_blob .bin]) do |tmp|
+        Tempfile.create(["gcs_blob", ".bin"]) do |tmp|
           remote.download(tmp.path)
           yield tmp.path
         end

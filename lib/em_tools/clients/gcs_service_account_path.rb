@@ -5,16 +5,16 @@ module EmTools
     # Resolves the GCS JSON key path: +GCS_SERVICE_ACCOUNT_PATH+ when set, otherwise
     # +$HOME/.em_celery/gcs-sa.json+ (+Dir.home+, portable across machines).
     module GcsServiceAccountPath
-      module_function
+      extend self
 
-      RELATIVE_UNDER_HOME = File.join('.em_celery', 'gcs-sa.json')
+      RELATIVE_UNDER_HOME = File.join(".em_celery", "gcs-sa.json")
 
       def default_path
         File.expand_path(File.join(Dir.home, RELATIVE_UNDER_HOME))
       end
 
       def resolve
-        raw = ENV['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip
+        raw = ENV["GCS_SERVICE_ACCOUNT_PATH"].to_s.strip
         path = raw.empty? ? File.join(Dir.home, RELATIVE_UNDER_HOME) : raw
         File.expand_path(path)
       end
@@ -29,7 +29,7 @@ module EmTools
         path = resolve
         return path if File.file?(path)
 
-        if env['GCS_SERVICE_ACCOUNT_PATH'].to_s.strip.empty?
+        if env["GCS_SERVICE_ACCOUNT_PATH"].to_s.strip.empty?
           msg = missing_message || "place your service account JSON at #{path} or set GCS_SERVICE_ACCOUNT_PATH"
           raise EmTools::Core::Errors::ConfigurationError, msg
         end

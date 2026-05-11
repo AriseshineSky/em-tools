@@ -24,7 +24,7 @@ module EmTools
       def run
         unless @source.respond_to?(:each)
           raise ArgumentError,
-                'PipelineEngine#run requires a source responding to #each'
+            "PipelineEngine#run requires a source responding to #each"
         end
 
         @source.each { |record| call(record) }
@@ -35,7 +35,7 @@ module EmTools
       # Run a single record through filters + transforms + sink.
       # Returns the transformed record, or +nil+ if it was filtered out.
       def call(record)
-        return nil unless apply_filters(record)
+        return unless apply_filters(record)
 
         out = apply_transforms(record)
         @sink.index(out) if @sink.respond_to?(:index)

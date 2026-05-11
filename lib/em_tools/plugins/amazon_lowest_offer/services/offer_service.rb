@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'time'
+require "json"
+require "time"
 
 module EmTools
   module Plugins
@@ -24,10 +24,9 @@ module EmTools
         # +shipping_price+, +currency+, ...) which {Filters::OfferFilter} evaluates.
         #
         # +get_lowest_offer+ and +analyze_offers+ from the Python class are intentionally not
-        # ported: no caller in this gem references them today.
-        # rubocop:disable Metrics/ClassLength -- mirrors Python composition surface
+        # ported: no caller in this gem references them today. # -- mirrors Python composition surface
         class OfferService
-          DEFAULT_CONDITION = 'new'
+          DEFAULT_CONDITION = "new"
           DEFAULT_MAX_RETRIES = 3
           DEFAULT_TRANSIENT_DELAY_SECONDS = 10
           DEFAULT_EXCEPTION_DELAY_SECONDS = 3
@@ -46,16 +45,15 @@ module EmTools
           # @param transient_delay [Numeric] sleep when ES response is not a Hash.
           # @param exception_delay [Numeric] sleep when ES raises before returning.
           # @param logger [Logger, nil]
-          # @param sleeper [#call] override for tests.
-          # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/ParameterLists -- mirrors the Python constructor surface
+          # @param sleeper [#call] override for tests. # -- mirrors the Python constructor surface
           def initialize(client:, marketplace:, condition: DEFAULT_CONDITION, filter: nil,
-                         offer_index: nil, max_retries: DEFAULT_MAX_RETRIES,
-                         transient_delay: DEFAULT_TRANSIENT_DELAY_SECONDS,
-                         exception_delay: DEFAULT_EXCEPTION_DELAY_SECONDS,
-                         logger: nil, sleeper: nil)
+            offer_index: nil, max_retries: DEFAULT_MAX_RETRIES,
+            transient_delay: DEFAULT_TRANSIENT_DELAY_SECONDS,
+            exception_delay: DEFAULT_EXCEPTION_DELAY_SECONDS,
+            logger: nil, sleeper: nil)
             @client = client
             @marketplace = marketplace.to_s.downcase.strip
-            raise ArgumentError, 'marketplace is required' if @marketplace.empty?
+            raise ArgumentError, "marketplace is required" if @marketplace.empty?
 
             @condition = condition.to_s.downcase.strip
             @condition = DEFAULT_CONDITION if @condition.empty?
@@ -63,14 +61,14 @@ module EmTools
             override = offer_index.to_s.strip
             @offer_index = override.empty? ? "lowest_offer_listings_#{@marketplace}_#{@condition}" : override
 
-            @filter = filter || Filters::OfferFilter.new(provider_type: 'min')
+            @filter = filter || Filters::OfferFilter.new(provider_type: "min")
             @max_retries = [max_retries.to_i, 0].max
             @transient_delay = transient_delay
             @exception_delay = exception_delay
-            @logger = logger || EmTools::Core::Logger.for(progname: 'amz-offer-service')
+            @logger = logger || EmTools::Core::Logger.for(progname: "amz-offer-service")
             @sleeper = sleeper || ->(seconds) { sleep(seconds) }
           end
-          # rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Metrics/ParameterLists
+          # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
           # Returns +{ asin => filtered_offer_hash | nil }+ for each requested ASIN. ASINs without a
           # passing offer are present in the result with a +nil+ value (matching Python's
@@ -109,7 +107,7 @@ module EmTools
               rescue StandardError => e
                 @logger.error("[OfferService] #{e.class}: #{e.message}")
                 remaining -= 1
-                return nil if remaining <= 0
+                return if remaining <= 0
 
                 @sleeper.call(@exception_delay)
                 next
@@ -117,9 +115,9 @@ module EmTools
 
               return resp if resp.is_a?(Hash)
 
-              @logger.info('[OfferService] Temporary unavailable! Wait to retry.')
+              @logger.info("[OfferService] Temporary unavailable! Wait to retry.")
               remaining -= 1
-              return nil if remaining <= 0
+              return if remaining <= 0
 
               @sleeper.call(@transient_delay)
             end
@@ -128,22 +126,22 @@ module EmTools
 
           # Mirrors +EsLowestOfferListingOfferConverter.convert+: returns
           # +{ asin => { 'asin' => ..., 'offers' => [Hash, ...], 'time' => '...' } }+.
-          # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity -- string-or-symbol key tolerance mirrors Python dict access
+          # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, -- string-or-symbol key tolerance mirrors Python dict access
           def convert(resp)
-            docs = resp['docs'] || resp[:docs] || []
+            docs = resp["docs"] || resp[:docs] || []
             out = {}
             docs.each do |doc|
               next unless doc.is_a?(Hash)
-              next unless doc['found'] || doc[:found]
+              next unless doc["found"] || doc[:found]
 
-              asin = (doc['_id'] || doc[:_id]).to_s.strip.upcase
+              asin = (doc["_id"] || doc[:_id]).to_s.strip.upcase
               next if asin.empty?
 
-              src = doc['_source'] || doc[:_source] || {}
+              src = doc["_source"] || doc[:_source] || {}
               out[asin] = {
-                'asin' => src['asin'] || src[:asin] || asin,
-                'offers' => parse_offers(src['offers'] || src[:offers]),
-                'time' => src['time'] || src[:time]
+                "asin" => src["asin"] || src[:asin] || asin,
+                "offers" => parse_offers(src["offers"] || src[:offers]),
+                "time" => src["time"] || src[:time],
               }
             end
             out
@@ -153,10 +151,10 @@ module EmTools
           def parse_offers(raw)
             case raw
             when nil then []
-            when Array then raw.select { |o| o.is_a?(Hash) }
+            when Array then raw.grep(Hash)
             when String
               parsed = safe_json_parse(raw)
-              parsed.is_a?(Array) ? parsed.select { |o| o.is_a?(Hash) } : []
+              parsed.is_a?(Array) ? parsed.grep(Hash) : []
             else []
             end
           end
@@ -176,16 +174,16 @@ module EmTools
           end
 
           def pick_offer(entry, expire_hour)
-            return nil unless entry
+            return unless entry
 
-            offers = entry['offers']
-            return nil if !offers.is_a?(Array) || offers.empty?
+            offers = entry["offers"]
+            return if !offers.is_a?(Array) || offers.empty?
 
             offer = @filter.filter(offers)
-            return nil unless offer
+            return unless offer
 
-            offer['time'] = entry['time']
-            offer['expired'] = expired?(entry['time'], expire_hour)
+            offer["time"] = entry["time"]
+            offer["expired"] = expired?(entry["time"], expire_hour)
             offer
           end
 

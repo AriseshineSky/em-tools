@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
-require 'csv'
+require "csv"
 
 module EmTools
   module Core
     module Inventory
-      # rubocop:disable Metrics/ClassLength
       # +inventory_feed+ (used with +prune_obsolete+) defaults to each row's CSV +Source+ column (header
       # +Source+ becomes field +source+). If +source+ is blank, falls back to +:feed_id+ from options
       # (e.g. YAML override).
@@ -14,9 +13,9 @@ module EmTools
 
         # Default target index for inventory CSV sync (overridable via +INVENTORY_INDEX+ or YAML
         # +inventory_sync.index+).
-        INDEX = 'em_inventory'
+        INDEX = "em_inventory"
 
-        ID_FIELDS = %w[product_id sku asin id].freeze
+        ID_FIELDS = ["product_id", "sku", "asin", "id"].freeze
 
         def initialize(sink:, index:, **opts)
           @sink = sink
@@ -25,7 +24,7 @@ module EmTools
           @id_fields = opts.fetch(:id_fields, ID_FIELDS)
           @feed_id = opts[:feed_id]
           @prune_obsolete = opts[:prune_obsolete] ? true : false
-          @logger = opts[:logger] || EmTools::Core::Logger.for(progname: 'inventory-sync')
+          @logger = opts[:logger] || EmTools::Core::Logger.for(progname: "inventory-sync")
           @flushed_docs = 0
         end
 
@@ -61,11 +60,11 @@ module EmTools
           return unless @prune_obsolete
 
           missing = []
-          missing << 'delete_by_query' unless @sink.respond_to?(:delete_by_query)
-          missing << 'refresh' unless @sink.respond_to?(:refresh)
+          missing << "delete_by_query" unless @sink.respond_to?(:delete_by_query)
+          missing << "refresh" unless @sink.respond_to?(:refresh)
           return if missing.empty?
 
-          raise ArgumentError, "sink must respond to #{missing.join(' and ')} when prune_obsolete is true"
+          raise ArgumentError, "sink must respond to #{missing.join(" and ")} when prune_obsolete is true"
         end
 
         def after_bulk_refresh_prune(batch_id)
@@ -80,7 +79,7 @@ module EmTools
           fid = @feed_id.to_s.strip if fid.empty?
           if fid.empty?
             raise ArgumentError,
-                  'prune_obsolete needs a non-empty inventory_feed: set CSV Source column on rows or pass feed_id'
+              "prune_obsolete needs a non-empty inventory_feed: set CSV Source column on rows or pass feed_id"
           end
 
           @sink.delete_by_query(index: @index, body: obsolete_inventory_body(fid, batch_id))
@@ -91,11 +90,11 @@ module EmTools
             query: {
               bool: {
                 filter: [
-                  { term: { 'inventory_feed.keyword' => fid } },
-                  { bool: { must_not: { term: { 'sync_batch_id' => batch_id } } } }
-                ]
-              }
-            }
+                  { term: { "inventory_feed.keyword" => fid } },
+                  { bool: { must_not: { term: { "sync_batch_id" => batch_id } } } },
+                ],
+              },
+            },
           }
         end
 
@@ -119,23 +118,23 @@ module EmTools
 
         def build_doc(row, batch_id)
           doc = row_to_doc_hash(row)
-          doc['sync_batch_id'] = batch_id
-          doc['synced_at'] = Time.now.utc.iso8601
-          feed = doc['source'].to_s.strip
+          doc["sync_batch_id"] = batch_id
+          doc["synced_at"] = Time.now.utc.iso8601
+          feed = doc["source"].to_s.strip
           feed = @feed_id.to_s.strip if feed.empty?
-          doc['inventory_feed'] = feed unless feed.empty?
+          doc["inventory_feed"] = feed unless feed.empty?
           doc
         end
 
         def register_resolved_inventory_feed!(doc)
-          f = doc['inventory_feed'].to_s.strip
+          f = doc["inventory_feed"].to_s.strip
           return if f.empty?
 
           if @csv_resolved_feed.nil?
             @csv_resolved_feed = f
           elsif @csv_resolved_feed != f
             raise ArgumentError,
-                  "inventory CSV mixes Source values: #{@csv_resolved_feed.inspect} vs #{f.inspect}"
+              "inventory CSV mixes Source values: #{@csv_resolved_feed.inspect} vs #{f.inspect}"
           end
         end
 
@@ -153,12 +152,12 @@ module EmTools
 
         # +ProductID+ -> +product_id+, +SourceProductID+ -> +source_product_id+ (generic CamelCase / Acronym edges).
         def header_to_snake(raw)
-          s = raw.to_s.strip.gsub(/\s+/, '_')
-          return '' if s.empty?
+          s = raw.to_s.strip.gsub(/\s+/, "_")
+          return "" if s.empty?
 
           s.gsub(/([A-Z\d])([A-Z][a-z])/, '\1_\2')
-           .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-           .downcase
+            .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+            .downcase
         end
 
         def document_id(doc)
@@ -179,13 +178,13 @@ module EmTools
               _id: id,
               data: {
                 doc: doc,
-                doc_as_upsert: true
-              }
-            }
+                doc_as_upsert: true,
+              },
+            },
           }
         end
 
-        # rubocop:disable Metrics/AbcSize -- bulk-then-log-then-validate is one atomic step
+        # -- bulk-then-log-then-validate is one atomic step
         def flush(buffer)
           return if buffer.empty?
 
@@ -194,9 +193,9 @@ module EmTools
           buffer.clear
           @flushed_docs += batch_size
           @logger.info { "[Flushed] index=#{@index} batch=#{batch_size} total=#{@flushed_docs}" }
-          return unless response.is_a?(Hash) && response['errors']
+          return unless response.is_a?(Hash) && response["errors"]
 
-          bad = (response['items'] || []).filter_map { |i| i if i.values.first['error'] }.first(5)
+          bad = (response["items"] || []).filter_map { |i| i if i.values.first["error"] }.first(5)
           raise "Bulk sink reported errors (sample): #{bad.inspect}"
         end
         # rubocop:enable Metrics/AbcSize

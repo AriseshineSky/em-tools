@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'net/http'
-require 'json'
+require "net/http"
+require "json"
 
 module EmTools
   module Core
@@ -19,8 +19,8 @@ module EmTools
         def fetch_keywords
           data = fetch
 
-          Array(data['blacklist_keywords']).flat_map do |item|
-            parse_keywords(item['keywords'])
+          Array(data["blacklist_keywords"]).flat_map do |item|
+            parse_keywords(item["keywords"])
           end.uniq
         end
 
@@ -31,11 +31,11 @@ module EmTools
         def build_uri
           uri = URI.join(
             EmTools::Core::Config.blacklist_api_endpoint,
-            EmTools::Core::Config.blacklist_api_path.to_s
+            EmTools::Core::Config.blacklist_api_path.to_s,
           )
 
           uri.query = URI.encode_www_form(
-            token: EmTools::Core::Config.blacklist_api_token
+            token: EmTools::Core::Config.blacklist_api_token,
           )
 
           uri

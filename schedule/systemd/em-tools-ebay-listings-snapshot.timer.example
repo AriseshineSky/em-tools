@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule em-tools eBay listings coverage snapshot
+
+[Timer]
+# Daily at 04:30 (after the lowest-offer snapshot starts).
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

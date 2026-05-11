@@ -4,11 +4,11 @@
 
 ---
 
-## 1. 用 Zeitwerk 管理 gem 内代码
+## 1. 用 Zeitwerk 管理应用内代码
 
-本 gem 的入口是 `lib/em_tools.rb`，使用标准 `Zeitwerk::Loader.for_gem` 装载 `lib/em_tools/` 下全部代码：`lib/em_tools/core/...` ↔ `EmTools::Core::...`，`lib/em_tools/plugins/...` ↔ `EmTools::Plugins::...`，`lib/em_tools/clients/...` ↔ `EmTools::Clients::...`。新增文件时只要路径与常量名对应（例如 `lib/em_tools/plugins/amazon_uploadable/pipelines/upload_products_from_es/runner.rb` → `EmTools::Plugins::AmazonUploadable::Pipelines::UploadProductsFromEs::Runner`），不需要手写 `require`。
+本项目不是 gem；入口是 `bin/em-tools`，它把 `lib/` 加进 `$LOAD_PATH` 后 `require "em_tools"`。`lib/em_tools.rb` 使用 `Zeitwerk::Loader.new + push_dir("lib")` 装载全部应用代码：`lib/em_tools/core/...` ↔ `EmTools::Core::...`，`lib/em_tools/plugins/...` ↔ `EmTools::Plugins::...`，`lib/em_tools/clients/...` ↔ `EmTools::Clients::...`。新增文件时只要路径与常量名对应（例如 `lib/em_tools/plugins/amazon_uploadable/pipelines/upload_products_from_es/runner.rb` → `EmTools::Plugins::AmazonUploadable::Pipelines::UploadProductsFromEs::Runner`），不需要手写 `require`。
 
-**可学点**：在 Ruby gem 里采用「文件名 = gem 名 (`em_tools.rb`)、子目录 = 同名 (`em_tools/`)、顶层模块 = `EmTools`」的 canonical 布局，能让 `Zeitwerk::Loader.for_gem` 零配置生效；只有需要自注册的入口文件（每个 plugin 的 `plugin.rb`）才显式 `require`。
+**可学点**：即使不是 Rails / gem，也可以用 Zeitwerk 管理普通 Ruby 应用；只要保持「文件路径 ↔ 常量名」一致，`bin/` 入口保持薄，只有需要自注册的入口文件（每个 plugin 的 `plugin.rb`）才显式 `require`。
 
 ---
 
@@ -16,7 +16,9 @@
 
 历史上所有子命令写在一个 `exe/em-tools` 里，随着选项增多会难以阅读与测试。当前做法：
 
-- `EmTools::Core::Cli::App`：从 `EmTools::Core::PluginRegistry` 收集所有插件贡献的命令，解析第一个参数后 `run(argv)`。
+- `EmTools::Core::Cli::App`：只负责 CLI 生命周期（help / 参数校验 / dispatch）。
+- `EmTools::Core::Cli::CommandRegistry`：集中内置命令定义，启动后一次性收集插件贡献的命令并缓存。
+- `EmTools::Core::Cli::HelpRenderer`：从 registry 渲染 help，不把 UI 逻辑混进 runtime。
 - `EmTools::Core::Cli::Support`：共享的 `ELASTICSEARCH_URL` 检查、YAML 安全加载、关键词文件读取。
 - `EmTools::Core::Cli::Commands::*` 与 `EmTools::Plugins::<Plugin>::Cli::*`：每个子命令一个类，内部仍用标准库 `OptionParser`（无额外 Thor 依赖）。
 

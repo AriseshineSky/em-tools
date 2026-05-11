@@ -1,60 +1,100 @@
+inherit_gem:
+  rubocop-shopify: rubocop.yml
+
+plugins:
+  - rubocop-rspec
+
 AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  SuggestExtensions: false
   Exclude:
-    - 'docs/**/*'
+    - "vendor/**/*"
+    - "tmp/**/*"
+    - "docs/**/*"
+    - "examples/**/*"
 
 Style/Documentation:
   Enabled: false
 
-# CLI command classes are thin OptionParser scripts; splitting them purely for metrics hurts readability.
+# Project-wide preference: `def self.method_name` is more readable for the small
+# number of class methods we have than the `class << self ... end` block form.
+Style/ClassMethodsDefinitions:
+  EnforcedStyle: def_self
+
+# Spec style preferences. Some pre-existing specs use `expect(...).to receive(...)`
+# (message expectations) and `File.open { ... }` instead of the rubocop-rspec
+# preferred forms. These are stylistic, not correctness, and we keep them off so
+# the wider test set reads consistently with how the project was written.
+RSpec/ExampleLength:
+  Enabled: false
+RSpec/MultipleExpectations:
+  Enabled: false
+RSpec/NestedGroups:
+  Max: 5
+RSpec/MessageSpies:
+  Enabled: false
+RSpec/StubbedMock:
+  Enabled: false
+RSpec/DescribeClass:
+  Enabled: false
+RSpec/InstanceVariable:
+  Enabled: false
+RSpec/MultipleMemoizedHelpers:
+  Enabled: false
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+# A handful of pre-existing files exceed the default Metrics caps because they encapsulate
+# unavoidably wide coordination logic (multi-source pipelines, listings-coverage queries,
+# CLI option parsing). Keep the exemptions explicit so new code stays inside the defaults.
 Metrics/AbcSize:
   Exclude:
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb'
-    - 'lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/core/cli/commands/**/*'
-    - 'lib/em_tools/plugins/*/cli/**/*'
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+    - "lib/em_tools/core/cli/commands/**/*"
+    - "lib/em_tools/plugins/*/cli/**/*"
+
 Metrics/ClassLength:
   Exclude:
-    - 'lib/em_tools/core/config.rb'
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/core/cli/commands/**/*'
-    - 'lib/em_tools/plugins/*/cli/**/*'
-Metrics/BlockNesting:
-  Exclude:
-    - 'rakelib/**/*.rake'
-    - 'lib/em_tools/plugins/*/rakelib/**/*.rake'
+    - "lib/em_tools/core/config.rb"
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+    - "lib/em_tools/core/cli/commands/**/*"
+    - "lib/em_tools/plugins/*/cli/**/*"
 
-Metrics/BlockLength:
+Metrics/MethodLength:
   Exclude:
-    - 'spec/**/*'
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb'
-
-Metrics/PerceivedComplexity:
-  Exclude:
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb'
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/core/cli/commands/**/*'
-    - 'lib/em_tools/plugins/*/cli/**/*'
-
-Metrics/ParameterLists:
-  Exclude:
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
+    - "lib/em_tools/core/config.rb"
+    - "lib/em_tools/core/cli/app.rb"
+    - "lib/em_tools/core/cli/commands/**/*"
+    - "lib/em_tools/plugins/*/cli/**/*"
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/upload_products_from_es/runner.rb"
+    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/ebay/sinks/coverage_snapshot.rb"
 
 Metrics/CyclomaticComplexity:
   Exclude:
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb'
-    - 'lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/core/cli/commands/**/*'
-    - 'lib/em_tools/plugins/*/cli/**/*'
-Metrics/MethodLength:
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+    - "lib/em_tools/core/cli/commands/**/*"
+    - "lib/em_tools/plugins/*/cli/**/*"
+
+Metrics/PerceivedComplexity:
   Exclude:
-    - 'lib/em_tools/core/config.rb'
-    - 'lib/em_tools/core/cli/app.rb'
-    - 'lib/em_tools/core/cli/commands/**/*'
-    - 'lib/em_tools/plugins/*/cli/**/*'
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb'
-    - 'lib/em_tools/plugins/amazon_uploadable/pipelines/upload_products_from_es/runner.rb'
-    - 'lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb'
-    - 'lib/em_tools/plugins/ebay/sinks/coverage_snapshot.rb'
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+    - "lib/em_tools/core/cli/commands/**/*"
+    - "lib/em_tools/plugins/*/cli/**/*"
+
+Metrics/ParameterLists:
+  Exclude:
+    - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"

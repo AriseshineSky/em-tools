@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'json'
+require "json"
 
 module EmTools
   module Plugins
@@ -14,11 +14,11 @@ module EmTools
             :price_filtered_products,
             :accepted_products,
             :batches_emitted,
-            keyword_init: true
+            keyword_init: true,
           )
 
           def initialize(store_code:, batch_size: 50, min_price: 40, max_price: 500, blacklist_keywords: [],
-                         min_shipping_days: 7, taxonomy_name: 'Categories', merchant_id: nil, vendor_id: nil, tax_category_id: 1, stock_location_id: nil, shipping_category_id: nil, dont_filter_blacklist: false, dont_optimize_title: false)
+            min_shipping_days: 7, taxonomy_name: "Categories", merchant_id: nil, vendor_id: nil, tax_category_id: 1, stock_location_id: nil, shipping_category_id: nil, dont_filter_blacklist: false, dont_optimize_title: false)
             @store_code = store_code.to_s.downcase
             @batch_size = [batch_size.to_i, 1].max
             @min_price = min_price
@@ -42,11 +42,11 @@ module EmTools
               category_filtered_products: 0,
               price_filtered_products: 0,
               accepted_products: 0,
-              batches_emitted: 0
+              batches_emitted: 0,
             )
 
             batch = []
-            File.open(file_path, encoding: 'utf-8', errors: 'ignore') do |fh|
+            File.open(file_path, encoding: "utf-8", errors: "ignore") do |fh|
               fh.each_line do |line|
                 product = parse_product(line)
                 unless product
@@ -92,7 +92,7 @@ module EmTools
               return false
             end
 
-            price = product['price']
+            price = product["price"]
             unless price.is_a?(Numeric) || price.to_s.match?(/\A\d+(\.\d+)?\z/)
               result.price_filtered_products += 1
               return false
@@ -113,10 +113,10 @@ module EmTools
           end
 
           def category_filtered?(product)
-            categories = product['categories']
-            return false if categories.nil? || categories == ''
+            categories = product["categories"]
+            return false if categories.nil? || categories == ""
 
-            categories = categories.split('>') if categories.is_a?(String)
+            categories = categories.split(">") if categories.is_a?(String)
             categories = Array(categories)
             root_category = categories.first.to_s
             return false if root_category.empty?
@@ -130,17 +130,17 @@ module EmTools
 
           def blacklist_categories
             [
-              { store: 'us', name: 'gift cards' },
-              { store: 'uk', name: 'auto' },
-              { store: 'uk', name: 'kitchen' },
-              { store: 'uk', name: 'guarden' },
-              { store: 'uk', name: 'lawn' },
-              { store: 'uk', name: 'toy' },
-              { store: 'ca', name: 'auto' },
-              { store: 'ca', name: 'kitchen' },
-              { store: 'ca', name: 'guarden' },
-              { store: 'ca', name: 'lawn' },
-              { store: 'ca', name: 'toy' }
+              { store: "us", name: "gift cards" },
+              { store: "uk", name: "auto" },
+              { store: "uk", name: "kitchen" },
+              { store: "uk", name: "guarden" },
+              { store: "uk", name: "lawn" },
+              { store: "uk", name: "toy" },
+              { store: "ca", name: "auto" },
+              { store: "ca", name: "kitchen" },
+              { store: "ca", name: "guarden" },
+              { store: "ca", name: "lawn" },
+              { store: "ca", name: "toy" },
             ]
           end
 
@@ -149,13 +149,13 @@ module EmTools
           end
 
           def blacklisted?(product)
-            text = [product['brand'], product['title_en'], product['title']].compact.join(' - ').downcase
+            text = [product["brand"], product["title_en"], product["title"]].compact.join(" - ").downcase
             @blacklist_keywords.any? { |keyword| text.include?(keyword.downcase) }
           end
 
           def normalized_product(product)
             normalized = product.dup
-            normalized.delete('categories')
+            normalized.delete("categories")
             normalized
           end
 
@@ -166,16 +166,16 @@ module EmTools
 
           def build_batch_payload(products)
             {
-              'store_code' => @store_code,
-              'merchant_id' => @merchant_id,
-              'vendor_id' => @vendor_id,
-              'tax_category_id' => @tax_category_id,
-              'stock_location_id' => @stock_location_id,
-              'shipping_category_id' => @shipping_category_id,
-              'min_shipping_days' => @min_shipping_days,
-              'taxonomy_name' => @taxonomy_name,
-              'dont_optimize_title' => @dont_optimize_title,
-              'products' => products
+              "store_code" => @store_code,
+              "merchant_id" => @merchant_id,
+              "vendor_id" => @vendor_id,
+              "tax_category_id" => @tax_category_id,
+              "stock_location_id" => @stock_location_id,
+              "shipping_category_id" => @shipping_category_id,
+              "min_shipping_days" => @min_shipping_days,
+              "taxonomy_name" => @taxonomy_name,
+              "dont_optimize_title" => @dont_optimize_title,
+              "products" => products,
             }
           end
         end

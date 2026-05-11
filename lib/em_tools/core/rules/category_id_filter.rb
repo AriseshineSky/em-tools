@@ -9,44 +9,44 @@ module EmTools
 
         BLOCKED_CATEGORY_IDS_BY_MARKETPLACE_ID = {
           # DE
-          'A1PA6795UKMFR9' => Set[
-            '64274031',     # Sex & Sensuality
-            '2727360031',   # Novelty & Games
-            '2727361031',   # Edible Underwear
-            '2970847031'    # Lighters
+          "A1PA6795UKMFR9" => Set[
+            "64274031",     # Sex & Sensuality
+            "2727360031",   # Novelty & Games
+            "2727361031",   # Edible Underwear
+            "2970847031", # Lighters
           ],
           # UK
-          'A1F83G8C2ARO7P' => Set[
-            '3076594031' # Camping Lighters & Fire Starters
+          "A1F83G8C2ARO7P" => Set[
+            "3076594031", # Camping Lighters & Fire Starters
           ],
           # JP
-          'A1VC38T7YXB528' => Set[
-            '169939011',    # Intimate Care
-            '8486179051',   # Douches & Enemas
-            '14917031',     # Replacement Fuel
-            '15326261',     # Gas Cartridges
-            '15348551',     # Gas Lighters
-            '2201151051'    # Camp Kitchen
+          "A1VC38T7YXB528" => Set[
+            "169939011",    # Intimate Care
+            "8486179051",   # Douches & Enemas
+            "14917031",     # Replacement Fuel
+            "15326261",     # Gas Cartridges
+            "15348551",     # Gas Lighters
+            "2201151051", # Camp Kitchen
           ],
           # US
-          'ATVPDKIKX0DER' => Set[
-            '10342347011',  # Lighters & Matches
-            '10342354011'   # Lighters
+          "ATVPDKIKX0DER" => Set[
+            "10342347011", # Lighters & Matches
+            "10342354011", # Lighters
           ],
           # IN
-          'A21TJRUUN4KGV' => Set[
-            '1374574031' # Lighters & Matches
-          ]
+          "A21TJRUUN4KGV" => Set[
+            "1374574031", # Lighters & Matches
+          ],
         }.freeze
 
-        MARKETPLACE_ID_KEYS = %w[
-          identifiers
-          productTypes
-          relationships
-          summaries
-          classifications
-          dimensions
-          salesRanks
+        MARKETPLACE_ID_KEYS = [
+          "identifiers",
+          "productTypes",
+          "relationships",
+          "summaries",
+          "classifications",
+          "dimensions",
+          "salesRanks",
         ].freeze
 
         def check(product)
@@ -60,7 +60,7 @@ module EmTools
           hit_ids = (category_ids & blocked_ids).to_a.sort
           return passed_result if hit_ids.empty?
 
-          failed_result("[CategoryIdBlocked:#{hit_ids.join(',')}]")
+          failed_result("[CategoryIdBlocked:#{hit_ids.join(",")}]")
         end
 
         private
@@ -80,7 +80,7 @@ module EmTools
             values.each do |item|
               next unless item.is_a?(Hash)
 
-              marketplace_id = item['marketplaceId'] || item[:marketplaceId]
+              marketplace_id = item["marketplaceId"] || item[:marketplaceId]
               return marketplace_id.to_s if marketplace_id
             end
           end
@@ -89,9 +89,9 @@ module EmTools
 
         def extract_category_ids(product)
           category_ids = Set.new
-          collect_categories!(category_ids, product['categories'])
-          collect_sales_ranks!(category_ids, product['salesRanks'])
-          collect_summary_browse_ids!(category_ids, product['summaries'])
+          collect_categories!(category_ids, product["categories"])
+          collect_sales_ranks!(category_ids, product["salesRanks"])
+          collect_summary_browse_ids!(category_ids, product["summaries"])
           category_ids
         end
 
@@ -99,7 +99,7 @@ module EmTools
           Array(items).each do |item|
             next unless item.is_a?(Hash)
 
-            cat_id = item['cat_id'] || item[:cat_id]
+            cat_id = item["cat_id"] || item[:cat_id]
             category_ids << cat_id.to_s if cat_id
           end
         end
@@ -108,10 +108,10 @@ module EmTools
           Array(items).each do |rank|
             next unless rank.is_a?(Hash)
 
-            Array(rank['classificationRanks']).each do |cls|
+            Array(rank["classificationRanks"]).each do |cls|
               next unless cls.is_a?(Hash)
 
-              cls_id = cls['classificationId']
+              cls_id = cls["classificationId"]
               category_ids << cls_id.to_s if cls_id
             end
           end
@@ -121,10 +121,10 @@ module EmTools
           Array(items).each do |summary|
             next unless summary.is_a?(Hash)
 
-            browse = summary['browseClassification']
+            browse = summary["browseClassification"]
             next unless browse.is_a?(Hash)
 
-            cls_id = browse['classificationId']
+            cls_id = browse["classificationId"]
             category_ids << cls_id.to_s if cls_id
           end
         end

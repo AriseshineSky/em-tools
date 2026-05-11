@@ -6,23 +6,23 @@ module EmTools
     # after +dotenv+ (or the shell) has run. Operational URLs and indexes (+DATA_ELASTICSEARCH_URL+,
     # +INVENTORY_INDEX+, eBay inventory index, etc.) are expected in +.env+ only — not copied from YAML here.
     module SettingsHydrator
-      module_function
+      extend self
 
       def apply_if_blank!
-        return if ENV['EM_TOOLS_SKIP_SETTINGS_HYDRATE'].to_s == '1'
+        return if ENV["EM_TOOLS_SKIP_SETTINGS_HYDRATE"].to_s == "1"
         return unless File.file?(SettingsLoader.default_path)
 
         settings = SettingsLoader.load
         hydrate_core_env!(settings)
-        hydrate_sites(settings['sites'])
+        hydrate_sites(settings["sites"])
       end
 
       # Hydrate only NON-SECRET local-dev fallbacks from settings YAML. Secrets
       # (BLACKLIST_API_*, GCS_SERVICE_ACCOUNT_PATH, GCS_CREDENTIALS, real cluster URLs)
       # MUST come from .env — never from a committed YAML.
       def hydrate_core_env!(settings)
-        assign_if_blank('ELASTICSEARCH_URL', dig_string(settings, %w[elasticsearch url]))
-        assign_if_blank('REDIS_URL', dig_string(settings, %w[redis url]))
+        assign_if_blank("ELASTICSEARCH_URL", dig_string(settings, ["elasticsearch", "url"]))
+        assign_if_blank("REDIS_URL", dig_string(settings, ["redis", "url"]))
       end
       private_class_method :hydrate_core_env!
 
@@ -46,9 +46,9 @@ module EmTools
           next unless cfg.is_a?(Hash)
 
           pfx = SettingsLoader.site_env_prefix(name)
-          assign_if_blank("#{pfx}ENDPOINT", dig_string(cfg, %w[endpoint]))
-          assign_if_blank("#{pfx}BASE_URL", dig_string(cfg, %w[base_url]))
-          assign_if_blank("#{pfx}TOKEN", dig_string(cfg, %w[token]))
+          assign_if_blank("#{pfx}ENDPOINT", dig_string(cfg, ["endpoint"]))
+          assign_if_blank("#{pfx}BASE_URL", dig_string(cfg, ["base_url"]))
+          assign_if_blank("#{pfx}TOKEN", dig_string(cfg, ["token"]))
         end
       end
     end

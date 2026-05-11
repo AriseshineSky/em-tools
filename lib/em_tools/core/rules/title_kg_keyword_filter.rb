@@ -8,7 +8,7 @@ module EmTools
         KG_PATTERN = /(10|[1-9])\s*kg\b/i
 
         def check(product)
-          title = (product.is_a?(Hash) ? product['title'] : nil).to_s
+          title = (product.is_a?(Hash) ? product["title"] : nil).to_s
           match = title.match(KG_PATTERN)
           return passed_result unless match
 

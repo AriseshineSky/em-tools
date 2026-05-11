@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'fileutils'
-require 'stringio'
-require 'google/cloud/storage'
+require "fileutils"
+require "stringio"
+require "google/cloud/storage"
 
 module EmTools
   module Clients
@@ -29,7 +29,7 @@ module EmTools
         remote = bucket.file(blob_name)
         raise "GCS object not found: #{blob_name}" unless remote
 
-        File.open(local_path, 'wb') do |io|
+        File.open(local_path, "wb") do |io|
           remote.download(io, verify: verify)
         end
       end

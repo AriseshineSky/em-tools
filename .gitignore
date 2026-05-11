@@ -1,26 +1,20 @@
+# em-tools is a project-local Ruby app (no gem packaging).
+
+# Bundler state
 /.bundle/
-/.yardoc
-/_yardoc/
-/doc/
-/pkg/
-/spec/reports/
+/vendor/bundle/
+
+# Generated outputs
 /tmp/
+/log/
+/coverage/
+/spec/reports/
 
-*.gem
+# Editor / tooling
 *.rbc
+.ruby-lsp/
 
-/vendor/bundle
-
-coverage/
-/.nyc_output
-
-/doc/
-
+# Secrets — only the example file is tracked
 .env
 .env.*
 !.env.example
-
-config/
-
-
-

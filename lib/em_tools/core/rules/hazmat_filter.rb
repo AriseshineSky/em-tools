@@ -4,39 +4,56 @@ module EmTools
   module Core
     module Rules
       # Hazardous material / restricted-shipping detection. Targets aerosols, flammable sprays,
-      # pressurized cans, perfumes, fuel containers, batteries, etc. that are unsafe for cross-border air shipping.
-      # rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Layout/LineLength -- ported 1:1 from em-tasks; preserve decision-tree shape.
+      # pressurized cans, perfumes, fuel containers, batteries, etc. that are unsafe for cross-border air shipping. # -- ported 1:1 from em-tasks; preserve decision-tree shape.
       class HazmatFilter < Strategy
-        ALLOW_PURFUME_MARKETPLACE_IDS = %w[A2VIGQ35RCS4UG].freeze
+        ALLOW_PURFUME_MARKETPLACE_IDS = ["A2VIGQ35RCS4UG"].freeze
 
-        AEROSOL_KEYWORDS = %w[
-          aerosol spray mist mousse carbonated
-          炭酸 スプレー ムース
+        AEROSOL_KEYWORDS = [
+          "aerosol",
+          "spray",
+          "mist",
+          "mousse",
+          "carbonated",
+          "炭酸",
+          "スプレー",
+          "ムース",
         ].freeze
 
-        FLAMMABLE_PROPELLANTS = %w[butane propane isobutane lpg].freeze
-        AEROSOL_FORMS = %w[aerosol mousse foam spray mist].freeze
-        HAZMAT_PRODUCT_TYPES = %w[SOLID_FIRE_FUEL PESTICIDE].freeze
+        FLAMMABLE_PROPELLANTS = ["butane", "propane", "isobutane", "lpg"].freeze
+        AEROSOL_FORMS = ["aerosol", "mousse", "foam", "spray", "mist"].freeze
+        HAZMAT_PRODUCT_TYPES = ["SOLID_FIRE_FUEL", "PESTICIDE"].freeze
 
-        FUEL_KEYWORDS = Set.new(%w[fuel gas butane propane lpg cartridge canister]).freeze
-        FUEL_CATEGORIES = Set.new(['GAS CARTRIDGES', 'REPLACEMENT FUEL', 'CAMP KITCHEN']).freeze
+        FUEL_KEYWORDS = Set.new(["fuel", "gas", "butane", "propane", "lpg", "cartridge", "canister"]).freeze
+        FUEL_CATEGORIES = Set.new(["GAS CARTRIDGES", "REPLACEMENT FUEL", "CAMP KITCHEN"]).freeze
 
-        CHEMICAL_PUTTY_KEYWORDS = Set.new(%w[putty epoxy resin hardener] + ['repair compound']).freeze
+        CHEMICAL_PUTTY_KEYWORDS = Set.new(["putty", "epoxy", "resin", "hardener"] + ["repair compound"]).freeze
 
         SOLID_FIRE_FUEL_FALSE_POSITIVE_KEYWORDS = Set.new([
-                                                            'sheet', 'mat', 'blanket', 'fireproof', 'flame retardant',
-                                                            'heat resistant', 'spatter', 'welding', 'glass fiber', 'fiberglass'
-                                                          ]).freeze
+          "sheet",
+          "mat",
+          "blanket",
+          "fireproof",
+          "flame retardant",
+          "heat resistant",
+          "spatter",
+          "welding",
+          "glass fiber",
+          "fiberglass",
+        ]).freeze
 
         CHEMICAL_WARNING_KEYWORDS = Set.new([
-                                              'avoid fire', 'danger', 'do not inhale', 'use outdoors',
-                                              'flammable', 'keep away from heat'
-                                            ]).freeze
+          "avoid fire",
+          "danger",
+          "do not inhale",
+          "use outdoors",
+          "flammable",
+          "keep away from heat",
+        ]).freeze
 
-        ADHESIVE_KEYWORDS = Set.new(['adhesive', 'glue', 'super glue', 'cyanoacrylate', 'sealant']).freeze
-        ADHESIVE_PRODUCT_TYPES = Set.new(%w[BONDING_ADHESIVES ADHESIVES]).freeze
+        ADHESIVE_KEYWORDS = Set.new(["adhesive", "glue", "super glue", "cyanoacrylate", "sealant"]).freeze
+        ADHESIVE_PRODUCT_TYPES = Set.new(["BONDING_ADHESIVES", "ADHESIVES"]).freeze
 
-        HIGH_RISK_HAZMAT_CLASSES = Set.new(%w[2 2.1 3]).freeze
+        HIGH_RISK_HAZMAT_CLASSES = Set.new(["2", "2.1", "3"]).freeze
 
         def initialize(**opts)
           super
@@ -45,9 +62,9 @@ module EmTools
 
         def check(product)
           product = normalize_product(product)
-          text = product['title'].to_s.downcase
+          text = product["title"].to_s.downcase
           item_form = item_form_text(product)
-          category = product['product_type'].to_s.downcase
+          category = product["product_type"].to_s.downcase
 
           foam_result = @foam_filter.check(product)
           return foam_result unless foam_result[:passed]
@@ -68,17 +85,17 @@ module EmTools
             return failed_result("[HazmatPropellant:#{gas}]")
           end
 
-          return failed_result('[HazmatHairFoam]') if category.include?('hair') && text.include?('foam')
-          return failed_result('[Perfume]') if perfume?(product)
-          return failed_result('[CompressedGas]') if compressed_gas?(product)
-          return failed_result('[IncludeBattery]') if include_battery?(product)
+          return failed_result("[HazmatHairFoam]") if category.include?("hair") && text.include?("foam")
+          return failed_result("[Perfume]") if perfume?(product)
+          return failed_result("[CompressedGas]") if compressed_gas?(product)
+          return failed_result("[IncludeBattery]") if include_battery?(product)
 
           if (cls = blocking_hazmat(product))
             return failed_result("[HazmatFuel:#{cls}]")
           end
 
-          return failed_result('[RestrictedChemical:Adhesive]') if hazardous_adhesive?(product)
-          return failed_result('[RestrictedChemical:EpoxyPutty]') if restricted_chemical?(product)
+          return failed_result("[RestrictedChemical:Adhesive]") if hazardous_adhesive?(product)
+          return failed_result("[RestrictedChemical:EpoxyPutty]") if restricted_chemical?(product)
 
           passed_result
         end
@@ -90,11 +107,11 @@ module EmTools
         end
 
         def marketplace_id(product)
-          %w[identifiers productTypes relationships].each do |key|
+          ["identifiers", "productTypes", "relationships"].each do |key|
             Array(product[key]).each do |value|
               next unless value.is_a?(Hash)
 
-              return value['marketplaceId'] if value['marketplaceId']
+              return value["marketplaceId"] if value["marketplaceId"]
             end
           end
           nil
@@ -106,30 +123,30 @@ module EmTools
           return {} unless product.is_a?(Hash)
 
           dup = product.dup
-          dup['categories'] ||= []
-          dup['productTypes'] ||= []
-          attrs = (dup['attributes'] || {}).dup
-          attrs['bullet_point'] ||= []
-          attrs['hazmat'] ||= []
-          attrs['batteries_included'] ||= []
-          attrs['item_form'] ||= []
-          dup['attributes'] = attrs
+          dup["categories"] ||= []
+          dup["productTypes"] ||= []
+          attrs = (dup["attributes"] || {}).dup
+          attrs["bullet_point"] ||= []
+          attrs["hazmat"] ||= []
+          attrs["batteries_included"] ||= []
+          attrs["item_form"] ||= []
+          dup["attributes"] = attrs
           dup
         end
 
         def item_form_text(product)
           parts = []
-          top = product['item_form']
+          top = product["item_form"]
           case top
           when String
             parts << top unless top.strip.empty?
           when Array
-            top.each { |x| parts << x['value'].to_s if x.is_a?(Hash) && !x['value'].nil? }
+            top.each { |x| parts << x["value"].to_s if x.is_a?(Hash) && !x["value"].nil? }
           end
-          Array(product.dig('attributes', 'item_form')).each do |x|
-            parts << x['value'].to_s if x.is_a?(Hash) && !x['value'].nil?
+          Array(product.dig("attributes", "item_form")).each do |x|
+            parts << x["value"].to_s if x.is_a?(Hash) && !x["value"].nil?
           end
-          parts.join(' ').downcase
+          parts.join(" ").downcase
         end
 
         def aerosol_keyword_hit(text)
@@ -139,7 +156,7 @@ module EmTools
         def hazmat_product_type_hit(product)
           product_types(product).find do |pt|
             next false unless HAZMAT_PRODUCT_TYPES.include?(pt)
-            next false if pt == 'SOLID_FIRE_FUEL' && false_positive_solid_fire_fuel?(product)
+            next false if pt == "SOLID_FIRE_FUEL" && false_positive_solid_fire_fuel?(product)
 
             true
           end
@@ -155,40 +172,40 @@ module EmTools
 
         def perfume?(product)
           return false if ALLOW_PURFUME_MARKETPLACE_IDS.include?(marketplace_id(product))
-          return true if product_types(product).include?('PERSONAL_FRAGRANCE')
+          return true if product_types(product).include?("PERSONAL_FRAGRANCE")
 
-          categories_upcase(product).any? { |c| c.include?('FRAGRANCE') || c.include?('EAU DE TOILETTE') }
+          categories_upcase(product).any? { |c| c.include?("FRAGRANCE") || c.include?("EAU DE TOILETTE") }
         end
 
         def compressed_gas?(product)
           cls = nil
           name = nil
-          Array(product.dig('attributes', 'hazmat')).each do |item|
+          Array(product.dig("attributes", "hazmat")).each do |item|
             next unless item.is_a?(Hash)
 
-            value = item['value'].to_s.upcase
-            case item['aspect']
-            when 'transportation_regulatory_class'
+            value = item["value"].to_s.upcase
+            case item["aspect"]
+            when "transportation_regulatory_class"
               cls = value
-            when 'proper_shipping_name'
+            when "proper_shipping_name"
               name = value
             end
           end
-          cls == '2.1' && name == 'RECEPTACLES, SMALL, CONTAINING GAS'
+          cls == "2.1" && name == "RECEPTACLES, SMALL, CONTAINING GAS"
         end
 
         def include_battery?(product)
           return false if ALLOW_PURFUME_MARKETPLACE_IDS.include?(marketplace_id(product))
 
-          Array(product.dig('attributes', 'batteries_included')).any? do |flag|
-            flag.is_a?(Hash) && flag['value'] == true
+          Array(product.dig("attributes", "batteries_included")).any? do |flag|
+            flag.is_a?(Hash) && flag["value"] == true
           end
         end
 
         def blocking_hazmat(product)
           cls = hazmat_class(product)
-          return nil unless cls
-          return nil unless HIGH_RISK_HAZMAT_CLASSES.include?(cls)
+          return unless cls
+          return unless HIGH_RISK_HAZMAT_CLASSES.include?(cls)
 
           fuel_container?(product) ? cls : nil
         end
@@ -200,7 +217,7 @@ module EmTools
           categories = categories_upcase(product)
           return true if categories.any? { |c| FUEL_CATEGORIES.include?(c) }
 
-          !product.dig('attributes', 'fuel_type').to_s.empty?
+          !product.dig("attributes", "fuel_type").to_s.empty?
         end
 
         def hazardous_adhesive?(product)
@@ -208,19 +225,19 @@ module EmTools
           types = product_types(product).to_set
 
           has_adhesive_signal = ADHESIVE_KEYWORDS.any? { |k| text.include?(k) } ||
-                                !(types & ADHESIVE_PRODUCT_TYPES).empty?
+            !!types.intersect?(ADHESIVE_PRODUCT_TYPES)
           return false unless has_adhesive_signal
-          return false unless hazmat_class(product) == '3'
+          return false unless hazmat_class(product) == "3"
 
-          shipping_name = ''
-          Array(product.dig('attributes', 'hazmat')).each do |item|
-            next unless item.is_a?(Hash) && item['aspect'] == 'proper_shipping_name'
+          shipping_name = ""
+          Array(product.dig("attributes", "hazmat")).each do |item|
+            next unless item.is_a?(Hash) && item["aspect"] == "proper_shipping_name"
 
-            shipping_name = item['value'].to_s.upcase
+            shipping_name = item["value"].to_s.upcase
             break
           end
 
-          shipping_name.include?('ADHESIVE') || !(types & ADHESIVE_PRODUCT_TYPES).empty?
+          shipping_name.include?("ADHESIVE") || !!types.intersect?(ADHESIVE_PRODUCT_TYPES)
         end
 
         def restricted_chemical?(product)
@@ -228,7 +245,7 @@ module EmTools
           return false unless CHEMICAL_PUTTY_KEYWORDS.any? { |k| text.include?(k) }
           return true if CHEMICAL_WARNING_KEYWORDS.any? { |k| text.include?(k) }
 
-          hazmat_class(product) == '3'
+          hazmat_class(product) == "3"
         end
 
         def false_positive_solid_fire_fuel?(product)
@@ -241,26 +258,26 @@ module EmTools
         end
 
         def collect_text(product)
-          title = product['title'].to_s
-          bullets = Array(product.dig('attributes', 'bullet_point')).filter_map do |bp|
-            bp.is_a?(Hash) ? bp['value'] : nil
-          end.join(' ')
+          title = product["title"].to_s
+          bullets = Array(product.dig("attributes", "bullet_point")).filter_map do |bp|
+            bp.is_a?(Hash) ? bp["value"] : nil
+          end.join(" ")
           "#{title} #{bullets}".downcase
         end
 
         def product_types(product)
-          Array(product['productTypes']).filter_map do |pt|
+          Array(product["productTypes"]).filter_map do |pt|
             next unless pt.is_a?(Hash)
 
-            pt['productType'].to_s.upcase
+            pt["productType"].to_s.upcase
           end
         end
 
         def categories_upcase(product)
-          Array(product['categories']).filter_map do |c|
+          Array(product["categories"]).filter_map do |c|
             next unless c.is_a?(Hash)
 
-            c['cat_name'].to_s.upcase
+            c["cat_name"].to_s.upcase
           end
         end
       end

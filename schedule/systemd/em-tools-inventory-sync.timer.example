@@ -1,0 +1,14 @@
+# em-tools — inventory sync timer.
+# See em-tools-inventory-sync.service.example for the matching service.
+
+[Unit]
+Description=Schedule em-tools inventory sync
+
+[Timer]
+# Daily at 03:30 (system timezone). See systemd.time(7) for syntax.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

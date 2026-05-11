@@ -3,76 +3,58 @@
 module EmTools
   module Core
     module Cli
-      # Plugin-aware CLI entry point.
+      # Thin lifecycle wrapper for the +bin/em-tools+ executable.
       #
-      # The dispatcher exposes a small set of built-in core commands (see {CORE_COMMANDS}) and then
-      # asks every registered plugin for its own +cli_commands+ hash. Plugins win conflicts in
-      # registration order (later registrations overwrite earlier names); core commands are the
-      # base layer and may be overridden by a plugin if it explicitly maps the same key.
+      # Responsibilities kept here:
+      #   * decide whether this is a help invocation
+      #   * validate / dispatch the first CLI argument
+      #   * exit with the expected status code
+      #
+      # Command discovery / caching lives in +CommandRegistry+ and help text
+      # rendering lives in +HelpRenderer+.
       class App
-        # Core commands shipped with the engine itself, independent of any plugin.
-        CORE_COMMANDS = {
-          'dump' => Commands::Dump
-        }.freeze
+        HELP_ALIASES = ["help", "-h", "--help"].freeze
 
         def self.start(argv)
           new(argv).start
         end
 
-        def initialize(argv)
+        def initialize(argv, registry: CommandRegistry.default, help_renderer: nil)
           @argv = argv.dup
+          @registry = registry
+          @help_renderer = help_renderer || HelpRenderer.new(registry: registry)
         end
 
         def start
+          return print_usage_and_exit(exit_code: 0) if help_invocation?
+
           command = @argv.shift
-          if command.nil? || command.start_with?('-')
-            usage_main
-            exit 1
+          if command.nil? || command.start_with?("-")
+            warn("error: missing command\n\n")
+            print_usage_and_exit(exit_code: 1)
           end
 
-          klass = command_table[command]
-          unless klass
-            warn "error: unknown command: #{command}"
-            usage_main
-            exit 1
+          definition = @registry.fetch(command)
+          unless definition
+            warn("error: unknown command: #{command}\n\n")
+            print_usage_and_exit(exit_code: 1)
           end
 
-          klass.new.run(@argv)
-        end
-
-        # Merged map of every CLI command name -> command class, after consulting every plugin
-        # registered with +EmTools::Core::PluginRegistry+. Built lazily so plugins can be registered
-        # after this class is loaded.
-        def command_table
-          @command_table ||= CORE_COMMANDS.merge(plugin_commands)
-        end
-
-        def plugin_commands
-          merged = {}
-          EmTools::Core::PluginRegistry.each_plugin do |plugin|
-            commands = plugin.cli_commands
-            next if commands.nil? || commands.empty?
-
-            merged.merge!(commands)
-          end
-          merged
-        end
-
-        def usage_main
-          warn build_usage
+          definition.klass.new.run(@argv)
         end
 
         private
 
-        def build_usage
-          lines = ['Usage:']
-          command_table.each_key { |name| lines << "  em-tools #{name} [...]" }
-          lines << ''
-          lines << 'Commands:'
-          command_table.each do |name, klass|
-            lines << "  #{name.ljust(46)}  (#{klass.name})"
-          end
-          lines.join("\n")
+        def help_invocation?
+          return true if @argv.empty?
+
+          first = @argv.first
+          HELP_ALIASES.include?(first)
+        end
+
+        def print_usage_and_exit(exit_code:)
+          puts @help_renderer.render
+          exit(exit_code)
         end
       end
     end

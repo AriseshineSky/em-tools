@@ -12,10 +12,9 @@ module EmTools
         # - +source_product_id+: ASIN-like string for +terms+ queries against +lowest_offer_listings_<mp>_new+.
         #
         # Optional +marketplace_field+ narrows inventory rows to the current marketplace code (+mp+ is +de+, +us+, …).
-        class InventoryAsinLoader
-          # rubocop:disable Metrics/ParameterLists -- ES field names are explicit for operability
+        class InventoryAsinLoader # -- ES field names are explicit for operability
           def initialize(es_client:, index:, source_field:, source_terms:, product_id_field:,
-                         marketplace_field: nil, max_hits: nil)
+            marketplace_field: nil, max_hits: nil)
             @es_client = es_client
             @index = index.to_s.strip
             @source_field = source_field.to_s.strip
@@ -25,10 +24,8 @@ module EmTools
             @marketplace_field = nil if @marketplace_field.empty?
             @max_hits = resolve_max_hits(max_hits)
           end
-          # rubocop:enable Metrics/ParameterLists
 
           # Returns sorted unique ASIN strings (same shape as seed-derived IDs for +LowestOfferListingsCoverageQuery+).
-          # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
           def load(mkt)
             return [] if @index.empty? || @source_terms.empty? || @product_id_field.empty?
             return [] unless @es_client.index_exists?(@index)
@@ -39,7 +36,7 @@ module EmTools
               index: @index,
               query: build_query(mkt),
               batch_size: 2_000,
-              max_hits: @max_hits
+              max_hits: @max_hits,
             ) do |hit|
               yielded += 1
               raw = extract_product_id(hit)
@@ -61,26 +58,26 @@ module EmTools
 
           def resolve_max_hits(max_hits)
             raw_max = max_hits
-            raw_max = ENV['LOWEST_OFFER_INVENTORY_MAX_HITS'].to_s.strip if raw_max.nil?
+            raw_max = ENV["LOWEST_OFFER_INVENTORY_MAX_HITS"].to_s.strip if raw_max.nil?
             mh = raw_max.to_s.empty? ? nil : Integer(raw_max, exception: false)
             mh&.positive? ? mh : nil
           end
 
           def warn_max_hits
-            warn 'InventoryAsinLoader: hit LOWEST_OFFER_INVENTORY_MAX_HITS limit; ' \
-                 'distinct ASIN count may be incomplete. Increase limit or narrow inventory query.'
+            warn("InventoryAsinLoader: hit LOWEST_OFFER_INVENTORY_MAX_HITS limit; " \
+              "distinct ASIN count may be incomplete. Increase limit or narrow inventory query.")
           end
 
           def normalize_source_terms(list)
-            arr = Array(list).flat_map { |s| s.to_s.split(',') }.map(&:strip).reject(&:empty?)
-            return %w[amazon amz] if arr.empty?
+            arr = Array(list).flat_map { |s| s.to_s.split(",") }.map(&:strip).reject(&:empty?)
+            return ["amazon", "amz"] if arr.empty?
 
             arr.uniq
           end
 
           def build_query(mkt)
             filters = [
-              { terms: { @source_field => @source_terms } }
+              { terms: { @source_field => @source_terms } },
             ]
             filters << { term: { @marketplace_field => inventory_marketplace_value(mkt) } } if @marketplace_field
             { bool: { filter: filters } }
@@ -88,7 +85,7 @@ module EmTools
 
           # Default: lowercase +mkt+ (+de+, +us+) to match common keyword values.
           def inventory_marketplace_value(mkt)
-            if ENV.fetch('LOWEST_OFFER_INVENTORY_MARKETPLACE_VALUE_MODE', 'downcase') == 'upcase'
+            if ENV.fetch("LOWEST_OFFER_INVENTORY_MARKETPLACE_VALUE_MODE", "downcase") == "upcase"
               mkt.to_s.upcase
             else
               mkt.to_s.downcase
@@ -96,7 +93,7 @@ module EmTools
           end
 
           def extract_product_id(hit)
-            src = hit['_source'] || {}
+            src = hit["_source"] || {}
             key = @product_id_field
             return src[key] if src.key?(key)
             return src[key.to_sym] if src.key?(key.to_sym)

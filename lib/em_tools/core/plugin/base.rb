@@ -16,16 +16,15 @@ module EmTools
       #
       # Plugins also declare:
       #
-      #   cli_commands     -> { 'cli-name' => CommandClass }
-      #   rake_load_paths  -> array of *.rake file paths to import from the top-level Rakefile
+      #   cli_commands -> { 'cli-name' => CommandClass } merged into the +em-tools+ binary
       class Base
         # Default plugin identifier: lowercased, snake_cased class name within EmTools::Plugins.
         # e.g. EmTools::Plugins::AmazonUploadable -> :amazon_uploadable
         def self.plugin_name
-          short = name.to_s.split('::').last
+          short = name.to_s.split("::").last
           underscored = short.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-                             .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-                             .downcase
+            .gsub(/([a-z\d])([A-Z])/, '\1_\2')
+            .downcase
           underscored.to_sym
         end
 
@@ -51,10 +50,6 @@ module EmTools
 
         def cli_commands
           {}
-        end
-
-        def rake_load_paths
-          []
         end
       end
     end

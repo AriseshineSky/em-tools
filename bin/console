@@ -1,13 +1,21 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'bundler/setup'
-require 'em_tools'
-require 'dotenv'
-Dotenv.load
+# Project console: boots em-tools and drops you into IRB with the gem and
+# dotenv loaded. Useful for poking pipelines / clients ad hoc.
+#
+#   bundle exec bin/console
 
-# You can add fixtures and/or initialization code here to make experimenting
-# with your gem easier. You can also use a different console, if you like.
+require "bundler/setup"
 
-require 'irb'
+begin
+  require "dotenv/load"
+rescue LoadError
+  # Optional in environments that inject env via systemd/cron.
+end
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+require "em_tools"
+
+require "irb"
 IRB.start(__FILE__)

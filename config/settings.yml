@@ -1,0 +1,81 @@
+# Project structure / routing only — secrets and connection URLs belong in .env.
+#
+# What goes here:
+#   - inventory_sync.sources         (which GCS CSVs to sync per APP_ENV)
+#   - exporters.<name>               (which cluster + index each exporter writes to)
+#   - elasticsearch_clusters.<name>  (LOCAL dev URLs only; .env's *_ELASTICSEARCH_URL wins)
+#   - gcs.buckets                    (bucket name routing, not credentials)
+#   - sites.<name>                   (per-site base_url / endpoint placeholders, hydrated to ENV)
+#
+# What does NOT go here (use .env):
+#   - ELASTICSEARCH_URL / DATA_ELASTICSEARCH_URL  (real cluster URLs with auth)
+#   - GCS_SERVICE_ACCOUNT_PATH / GCS_CREDENTIALS  (key path / JSON content)
+#   - BLACKLIST_API_KEY / BLACKLIST_API_TOKEN     (any API secret)
+#
+# Merging: "default" deep-merged with the section named by APP_ENV
+# (defaults to "development"; RAILS_ENV / RACK_ENV are also accepted). ERB allowed.
+
+default: &default
+  elasticsearch:
+    url: http://localhost:9200       # local dev fallback; .env ELASTICSEARCH_URL overrides
+
+  # Routing table only. Real hosts come from .env (DATA_ELASTICSEARCH_URL or
+  # ELASTICSEARCH_CLUSTER_<NAME>_URL); these stay on localhost so nothing leaks via git.
+  elasticsearch_clusters:
+    primary:
+      url: http://localhost:9200
+    analytics:
+      url: http://localhost:9200
+
+  # Map exporter -> cluster + target index. Used by EmTools::Core::Config.exporter_*.
+  exporters:
+    ssg_products:
+      cluster: primary
+      index: ssg_products
+    lotteon_products:
+      cluster: analytics
+      index: user1_lotteon_products
+
+  redis:
+    url: redis://localhost:6379/0    # local dev fallback; .env REDIS_URL overrides
+
+  # Bucket name routing only. Service account path / JSON live in .env.
+  gcs:
+    buckets:
+      inventory: em-bucket
+
+  # Per-site placeholder structure. SettingsHydrator copies endpoint/base_url/token
+  # into ENV[EM_TOOLS_SITE_<NAME>_*] only when those env vars are unset.
+  sites:
+    example_partner:
+      base_url: https://partner.example.com
+      endpoint: https://partner.example.com/api/v1
+
+  inventory_sync:
+    index: em_inventory
+    refresh: false
+    prune_obsolete: false
+    sources: []
+
+development:
+  <<: *default
+  inventory_sync:
+    index: em_inventory
+    refresh: false
+    prune_obsolete: false
+    sources:
+      - gs://em-bucket/AMZ_AE-Inv.csv
+      - gs://em-bucket/AMZ_CA-Inv.csv
+
+test:
+  elasticsearch:
+    url: http://127.0.0.1:9200
+
+production:
+  <<: *default
+  inventory_sync:
+    index: em_inventory
+    refresh: false
+    prune_obsolete: false
+    sources:
+      - gs://em-bucket/boyner-Inv.csv

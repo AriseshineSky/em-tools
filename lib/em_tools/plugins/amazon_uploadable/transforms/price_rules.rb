@@ -9,7 +9,7 @@ module EmTools
           DEFAULTS = {
             roi: 0.3,
             ad_cost: 4.5,
-            transfer_cost: 0.0
+            transfer_cost: 0.0,
           }.freeze
 
           attr_reader :values
@@ -44,7 +44,7 @@ module EmTools
               flat = config["price.rules.amz_#{mp_code}"]
               return flat if flat.is_a?(Hash)
 
-              rules = config.dig('price', 'rules')
+              rules = config.dig("price", "rules")
               return {} unless rules.is_a?(Hash)
 
               rules["amz_#{mp_code}"] || rules[:"amz_#{mp_code}"]
@@ -53,7 +53,7 @@ module EmTools
             def coerce_float(key, value, fallback)
               Float(value).round(2)
             rescue ArgumentError, TypeError
-              warn "em-tools: invalid price rule #{key.inspect}=#{value.inspect} (keeping #{fallback.inspect})"
+              warn("em-tools: invalid price rule #{key.inspect}=#{value.inspect} (keeping #{fallback.inspect})")
               fallback
             end
           end

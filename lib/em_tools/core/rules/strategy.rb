@@ -21,10 +21,10 @@ module EmTools
         protected
 
         def passed_result
-          { passed: true, reason: '', message: '' }
+          { passed: true, reason: "", message: "" }
         end
 
-        def failed_result(reason, message: '')
+        def failed_result(reason, message: "")
           { passed: false, reason: reason, message: message }
         end
       end

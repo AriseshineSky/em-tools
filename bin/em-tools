@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# em-tools — Everymarket data-management platform CLI.
+#
+# This is a project-local executable, not a gem binary. Run it with
+# +bundle exec bin/em-tools+ from inside the repo, or symlink the absolute
+# path into +/usr/local/bin/em-tools+ for cron / systemd jobs.
+
+require "bundler/setup"
+begin
+  require "debug" if ENV["DEBUG"]
+rescue LoadError
+end
+
+begin
+  require "dotenv/load"
+rescue LoadError
+  # +dotenv+ is intentionally optional: production deployments may inject env
+  # via systemd EnvironmentFile or the shell instead.
+end
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+require "em_tools"
+
+EmTools::Core::Cli::App.start(ARGV)

@@ -1,31 +1,31 @@
 # frozen_string_literal: true
 
-require 'csv'
-require 'fileutils'
-require 'json'
-require 'securerandom'
-require 'tmpdir'
+require "csv"
+require "fileutils"
+require "json"
+require "securerandom"
+require "tmpdir"
 
 module EmTools
   module Plugins
     module Storefront
       # Higher-level product/inventory helpers built on top of {EmTools::Plugins::Storefront::Api}.
-      # rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Naming/AccessorMethodName -- mirror em-tasks' ProductUtil API for migration compatibility.
+      # rubocop:disable Naming/AccessorMethodName -- mirror em-tasks' ProductUtil API for migration compatibility.
       class ProductUtil
         INVENTORY_HEADERS = {
-          'ProductID' => 'product_id',
-          'Source' => 'source',
-          'SourceProductID' => 'source_product_id',
-          'Handle' => 'handle',
-          'Variants' => 'variants',
-          'InStock' => 'in_stock'
+          "ProductID" => "product_id",
+          "Source" => "source",
+          "SourceProductID" => "source_product_id",
+          "Handle" => "handle",
+          "Variants" => "variants",
+          "InStock" => "in_stock",
         }.freeze
 
-        DOWNLOAD_HEADERS = INVENTORY_HEADERS.except('InStock').freeze
+        DOWNLOAD_HEADERS = INVENTORY_HEADERS.except("InStock").freeze
 
         attr_reader :spree_api
 
-        def initialize(endpoint, api_key, api_version: 'v1', spree_api: nil, logger: nil)
+        def initialize(endpoint, api_key, api_version: "v1", spree_api: nil, logger: nil)
           @spree_api = spree_api || EmTools::Clients::SpreeClient.new(
             endpoint, api_key, api_version: api_version, logger: logger
           )
@@ -33,86 +33,86 @@ module EmTools
         end
 
         def get_daisomall_products(&block)
-          get_products('Daisomall', &block)
+          get_products("Daisomall", &block)
         end
 
         def get_yesstyle_products(&block)
           return enum_for(__method__) unless block
 
-          get_products('Yeskr', &block)
-          get_products('Yesjp', &block)
+          get_products("Yeskr", &block)
+          get_products("Yesjp", &block)
         end
 
         def get_hepsiburada_products(&block)
-          get_products('Hepsiburada', &block)
+          get_products("Hepsiburada", &block)
         end
 
-        def get_trendyol_products(marketplace = 'us', &block)
-          get_products('Trendyol', marketplace, &block)
+        def get_trendyol_products(marketplace = "us", &block)
+          get_products("Trendyol", marketplace, &block)
         end
 
-        def get_amz_products(marketplace = 'us', &block)
-          get_products('Amazon', marketplace, &block)
+        def get_amz_products(marketplace = "us", &block)
+          get_products("Amazon", marketplace, &block)
         end
 
         def get_alibaba_products(&block)
-          get_products('Alibaba', &block)
+          get_products("Alibaba", &block)
         end
 
         def get_emp_products(&block)
-          get_products('EMP', &block)
+          get_products("EMP", &block)
         end
 
         def get_boots_products(&block)
-          get_products('Boots', &block)
+          get_products("Boots", &block)
         end
 
-        def get_ebay_products(marketplace = 'us', &block)
-          get_products('Ebay', marketplace, &block)
+        def get_ebay_products(marketplace = "us", &block)
+          get_products("Ebay", marketplace, &block)
         end
 
         def get_nandansons_products(&block)
-          get_products('nandansons', &block)
+          get_products("nandansons", &block)
         end
 
         def get_rakuten_products(&block)
-          get_products('Rakuten', &block)
+          get_products("Rakuten", &block)
         end
 
         def get_st11_products(&block)
-          get_products('11ST', &block)
+          get_products("11ST", &block)
         end
 
         def get_apo_health_products(&block)
-          get_products('ApoHealth', &block)
+          get_products("ApoHealth", &block)
         end
 
         def get_lotteon_products(&block)
-          get_products('lotteon', &block)
+          get_products("lotteon", &block)
         end
 
         def get_wemakeprice_products(&block)
-          get_products('WEMAKEPRICE', &block)
+          get_products("WEMAKEPRICE", &block)
         end
 
         def get_naver_products(&block)
-          get_products('Naver', &block)
+          get_products("Naver", &block)
         end
 
         def get_dangdang_products(&block)
-          get_products('Dangdang', &block)
+          get_products("Dangdang", &block)
         end
 
         def get_coupang_products(&block)
-          get_products('Coupang', &block)
+          get_products("Coupang", &block)
         end
 
         def get_faire_products(&block)
-          get_products('faire', &block)
+          get_products("faire", &block)
         end
 
         def get_www_books_com_tw_products(&block)
-          get_products('www_books_com_tw', &block)
+          get_products("www_books_com_tw", &block)
         end
 
         def get_products(src, marketplace = nil, &block)
@@ -123,7 +123,7 @@ module EmTools
 
           output_path = File.join(Dir.tmpdir, "#{source}-#{SecureRandom.uuid}.csv")
           begin
-            log(:info, '[InventoryPath] %s', output_path)
+            log(:info, "[InventoryPath] %s", output_path)
             spree_api.download_inventory(source, output_path)
             return unless File.file?(output_path)
 
@@ -151,8 +151,8 @@ module EmTools
               result = spree_api.get_multi_source_products(source, page, per_page)
               break if api_error_result?(result)
 
-              total_pages = result.fetch('total_pages')
-              Array(result['products']).each { |product| products[product['id']] = product }
+              total_pages = result.fetch("total_pages")
+              Array(result["products"]).each { |product| products[product["id"]] = product }
             rescue StandardError => e
               log_exception(e)
             end
@@ -165,7 +165,7 @@ module EmTools
           result = spree_api.get_manual_products
           return [] if api_error_result?(result)
 
-          Array(result['products'])
+          Array(result["products"])
         rescue StandardError => e
           log_exception(e)
           []
@@ -175,10 +175,10 @@ module EmTools
           store_offers = {}
           prods.each do |prod_id, prod|
             prod = stringify_keys(prod)
-            variants = Array(prod['variants'])
+            variants = Array(prod["variants"])
             next if variants.empty?
 
-            offer = prod['offer']
+            offer = prod["offer"]
             next if offer == false || offer.nil?
 
             offer = stringify_nested_hash(offer)
@@ -189,7 +189,7 @@ module EmTools
           end
 
           resp = spree_api.set_offers(store_offers)
-          log(:info, '[InventoryUpdated] %s', resp)
+          log(:info, "[InventoryUpdated] %s", resp)
           store_offers
         end
 
@@ -207,20 +207,26 @@ module EmTools
           retries = 3
           loop do
             resp = if cost
-                     spree_api.update_variant(product_id, variant_id, price: price, cost_price: cost)
-                   else
-                     spree_api.update_variant(product_id, variant_id, price: price)
-                   end
+              spree_api.update_variant(product_id, variant_id, price: price, cost_price: cost)
+            else
+              spree_api.update_variant(product_id, variant_id, price: price)
+            end
             if response_code(resp) == 422 && (retries -= 1).positive?
-              log(:debug, '[PriceUpdateMsg] ProductID: %s, VariantId: %s, Price: %s, Response: %s',
-                  product_id, variant_id, price, response_body(resp))
-              sleep 1
+              log(
+                :debug,
+                "[PriceUpdateMsg] ProductID: %s, VariantId: %s, Price: %s, Response: %s",
+                product_id,
+                variant_id,
+                price,
+                response_body(resp),
+              )
+              sleep(1)
               next
             end
 
             return handle_price_response(resp, product_id, variant_id, price)
           rescue StandardError => e
-            log(:warning, '[PriceUpdateError] ProductId: %s, VariantId: %s, Price: %s', product_id, variant_id, price)
+            log(:warning, "[PriceUpdateError] ProductId: %s, VariantId: %s, Price: %s", product_id, variant_id, price)
             log_exception(e)
             return false unless (retries -= 1).positive?
           end
@@ -239,9 +245,9 @@ module EmTools
 
         def inventory_source(src, marketplace)
           case src
-          when 'Amazon'
+          when "Amazon"
             marketplace ? "AMZ_#{marketplace.to_s.upcase}" : src
-          when 'Ebay'
+          when "Ebay"
             marketplace ? "Ebay_#{marketplace.to_s.upcase}" : src
           else
             src
@@ -249,14 +255,14 @@ module EmTools
         end
 
         def each_inventory_record(inv_path, headers_mapping, require_core_fields:)
-          CSV.foreach(inv_path, headers: true, encoding: 'bom|utf-8:UTF-8', invalid: :replace, undef: :replace) do |row|
+          CSV.foreach(inv_path, headers: true, encoding: "bom|utf-8:UTF-8", invalid: :replace, undef: :replace) do |row|
             record = inventory_record(row, headers_mapping)
             next if record.empty?
             next if require_core_fields && missing_core_inventory_fields?(record)
 
             yield record
           rescue StandardError => e
-            log(:info, '[InventoryRow] %s', row&.fields)
+            log(:info, "[InventoryRow] %s", row&.fields)
             log_exception(e)
           end
         end
@@ -266,30 +272,36 @@ module EmTools
             next unless row.headers.include?(csv_header)
 
             value = row[csv_header]
-            acc[record_header] = record_header == 'variants' ? JSON.parse(value.to_s) : value
+            acc[record_header] = record_header == "variants" ? JSON.parse(value.to_s) : value
           end
         end
 
         def missing_core_inventory_fields?(record)
-          record['product_id'].to_s.empty? ||
-            record['source'].to_s.empty? ||
-            record['source_product_id'].to_s.empty?
+          record["product_id"].to_s.empty? ||
+            record["source"].to_s.empty? ||
+            record["source_product_id"].to_s.empty?
         end
 
         def build_store_offer(prod_id, prod, variants, offer)
           offer = normalize_single_variant_offer(variants, offer)
-          store_offer = { 'handle' => prod['handle'], 'product_id' => prod_id, 'offers' => {} }
+          store_offer = { "handle" => prod["handle"], "product_id" => prod_id, "offers" => {} }
 
           variants.each do |variant|
             variant = stringify_keys(variant)
-            variant_id = variant['variant_id']
+            variant_id = variant["variant_id"]
             v_offer = offer[variant_id]
             next unless v_offer
 
             target_offer = build_variant_offer(prod_id, variant_id, stringify_keys(v_offer))
-            store_offer['offers'][variant_id] = target_offer
-            log(:debug, '[InventoryUpdate] ProductId: %s, VariantId: %s, Price: %s, Quantity: %s',
-                prod_id, variant_id, target_offer['price'], target_offer['quantity'])
+            store_offer["offers"][variant_id] = target_offer
+            log(
+              :debug,
+              "[InventoryUpdate] ProductId: %s, VariantId: %s, Price: %s, Quantity: %s",
+              prod_id,
+              variant_id,
+              target_offer["price"],
+              target_offer["quantity"],
+            )
           end
 
           store_offer
@@ -298,25 +310,25 @@ module EmTools
         def normalize_single_variant_offer(variants, offer)
           return offer unless variants.length == 1
 
-          variant_id = stringify_keys(variants.first)['variant_id']
+          variant_id = stringify_keys(variants.first)["variant_id"]
           offer.key?(variant_id) ? offer : { variant_id => offer }
         end
 
         def build_variant_offer(prod_id, variant_id, v_offer)
-          price = round_two(v_offer.fetch('price'))
-          quantity = round_two(v_offer.fetch('quantity'))
-          currency = v_offer.fetch('currency', 'USD')
+          price = round_two(v_offer.fetch("price"))
+          quantity = round_two(v_offer.fetch("quantity"))
+          currency = v_offer.fetch("currency", "USD")
           target_offer = {
-            'product_id' => prod_id,
-            'variant_id' => variant_id,
-            'price' => price,
-            'quantity' => quantity,
-            'currency' => currency
+            "product_id" => prod_id,
+            "variant_id" => variant_id,
+            "price" => price,
+            "quantity" => quantity,
+            "currency" => currency,
           }
 
-          if quantity.positive? && v_offer.key?('src_price')
-            target_offer['cost_price'] = round_two(v_offer['src_price'])
-            target_offer['cost_currency'] = currency
+          if quantity.positive? && v_offer.key?("src_price")
+            target_offer["cost_price"] = round_two(v_offer["src_price"])
+            target_offer["cost_currency"] = currency
           end
           target_offer
         end
@@ -326,11 +338,17 @@ module EmTools
           retries = 3
 
           loop do
-            resp = spree_api.update_stock(item['id'], item['quantity'], item['stock_location_id'])
+            resp = spree_api.update_stock(item["id"], item["quantity"], item["stock_location_id"])
             if response_code(resp) == 422 && (retries -= 1).positive?
-              log(:debug, '[StockUpdateMsg] VariantId: %s, Stock: %s, Quantity: %s, Response: %s',
-                  item['variant_id'], item['id'], item['quantity'], response_body(resp))
-              sleep 1
+              log(
+                :debug,
+                "[StockUpdateMsg] VariantId: %s, Stock: %s, Quantity: %s, Response: %s",
+                item["variant_id"],
+                item["id"],
+                item["quantity"],
+                response_body(resp),
+              )
+              sleep(1)
               next
             end
 
@@ -339,43 +357,64 @@ module EmTools
             log_exception(e)
             return false unless (retries -= 1).positive?
 
-            sleep 1
+            sleep(1)
           end
         end
 
         def handle_stock_response(resp, item)
           stock = parse_response_json(resp)
           if response_error_result?(stock)
-            log(:warning, '[StockUpdateError] VariantId: %s, Stock: %s, Error: %s',
-                item['variant_id'], item['id'], stock['error'] || stock['errors'])
+            log(
+              :warning,
+              "[StockUpdateError] VariantId: %s, Stock: %s, Error: %s",
+              item["variant_id"],
+              item["id"],
+              stock["error"] || stock["errors"],
+            )
             false
           else
-            log(:info, '[StockUpdated] VariantId: %s, Stock: %s, Quantity: %s',
-                item['variant_id'], item['id'], item['quantity'])
+            log(
+              :info,
+              "[StockUpdated] VariantId: %s, Stock: %s, Quantity: %s",
+              item["variant_id"],
+              item["id"],
+              item["quantity"],
+            )
             true
           end
         rescue StandardError => e
           log_exception(e)
-          log(:warning, '[StockUpdateInvalidResponse] %s', response_body(resp))
+          log(:warning, "[StockUpdateInvalidResponse] %s", response_body(resp))
           false
         end
 
         def handle_price_response(resp, product_id, variant_id, price)
           variant = parse_response_json(resp)
           if response_error_result?(variant)
-            log(:warning, '[PriceUpdateError] ProductId: %s, VariantId: %s, Error: %s',
-                product_id, variant_id, variant['error'] || variant['errors'])
+            log(
+              :warning,
+              "[PriceUpdateError] ProductId: %s, VariantId: %s, Error: %s",
+              product_id,
+              variant_id,
+              variant["error"] || variant["errors"],
+            )
             false
-          elsif variant['sku'].to_s.empty?
-            log(:info, '[ResponseWithoutSKU] %s', response_body(resp))
+          elsif variant["sku"].to_s.empty?
+            log(:info, "[ResponseWithoutSKU] %s", response_body(resp))
             true
           else
-            log(:info, '[PriceUpdated] ProductId: %s, VariantId: %s, Price: %s, SKU: %s',
-                product_id, variant_id, price, variant['sku'])
+            log(
+              :info,
+              "[PriceUpdated] ProductId: %s, VariantId: %s, Price: %s, SKU: %s",
+              product_id,
+              variant_id,
+              price,
+              variant["sku"],
+            )
             true
           end
         rescue StandardError
-          log(:warning, '[PriceUpdateInvalidResponse] %s', response_body(resp))
+          log(:warning, "[PriceUpdateInvalidResponse] %s", response_body(resp))
           false
         end
 
@@ -384,7 +423,7 @@ module EmTools
         end
 
         def response_error_result?(result)
-          result.is_a?(Hash) && (result.key?('error') || result.key?('errors'))
+          result.is_a?(Hash) && (result.key?("error") || result.key?("errors"))
         end
 
         def parse_response_json(resp)
@@ -434,7 +473,7 @@ module EmTools
           if @logger.respond_to?(:exception)
             @logger.exception(error)
           else
-            log(:warning, '%s: %s', error.class, error.message)
+            log(:warning, "%s: %s", error.class, error.message)
           end
         end
       end
