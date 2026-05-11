@@ -11,6 +11,7 @@ RSpec.describe(EmTools::Core::Cli::CommandRegistry) do
         "inventory-sync" => EmTools::Core::Cli::Commands::InventorySync,
         "lowest-offer-publish-snapshot" => EmTools::Core::Cli::Commands::LowestOfferPublishSnapshot,
         "dump" => EmTools::Core::Cli::Commands::Dump,
+        "blacklist-download" => EmTools::Core::Cli::Commands::BlacklistDownload,
       ))
     end
   end
@@ -21,6 +22,13 @@ RSpec.describe(EmTools::Core::Cli::CommandRegistry) do
 
       expect(command.name).to(eq("inventory-sync"))
       expect(command.klass).to(eq(EmTools::Core::Cli::Commands::InventorySync))
+    end
+
+    it "resolves the blacklist namespace alias" do
+      command = described_class.new.fetch("blacklist:download")
+
+      expect(command.name).to(eq("blacklist-download"))
+      expect(command.klass).to(eq(EmTools::Core::Cli::Commands::BlacklistDownload))
     end
   end
 

@@ -117,13 +117,38 @@ Required env: `ELASTICSEARCH_URL`, `ES_DUMP_INDEX`. Optional: `ES_DUMP_OUTPUT`
 ### `es-download-product`
 
 Same plumbing as `es-dump-index`, but reads from the **data cluster**
-(`DATA_ELASTICSEARCH_URL`). Useful for pulling read-only analytics indices.
+(`DATA_ELASTICSEARCH_URL`) and, by default, **filters out blacklisted
+products** at write time.
 
 ```bash
 DATA_ELASTICSEARCH_URL='http://user:pw@host:9200' \
 ES_DUMP_INDEX=user1_kr_products \
 ES_DUMP_OUTPUT=tmp/kr_products.ndjson \
 bundle exec bin/em-tools es-download-product
+```
+
+#### Blacklist filter (default on)
+
+For each hit, `EmTools::Core::Blacklist` selects the `product_download` rule
+from `config/blacklist/source_rules.yml`. Today that rule uses the
+`title_brand` strategy: build the lowercased text `"<title> <brand>"` and run
+it through an Aho-Corasick automaton seeded with the keywords returned by
+`blacklist-download` (configured via `BLACKLIST_API_*`). Blacklisted hits are
+**not** written to the main NDJSON; instead, one record per rejection is
+appended to `<output>.blocked.ndjson` with the doc `_id`, title, brand, and the
+matched keywords — so you can audit *which* products were skipped and *why*.
+
+| Flag | Purpose |
+|---|---|
+| `--no-blacklist-filter` | Disable filtering entirely (raw dump). |
+| `--title-field FIELD` | Source field for product title (default `title`). |
+| `--brand-field FIELD` | Source field for product brand (default `brand`). |
+| `--blocked-output PATH` | Override the blocked-products side-file path. |
+
+The summary line surfaces both counts:
+
+```text
+Wrote 8123 hits to tmp/kr_products.ndjson; blocked 412/8535 against 2892 blacklist keyword(s) -> tmp/kr_products.blocked.ndjson
 ```
 
 ---
@@ -187,6 +212,36 @@ eBay listings coverage snapshot, one row per marketplace.
 
 See the `EBAY_LISTINGS_COVERAGE_*` block in
 [`.env.example`](../.env.example) for the full list.
+
+---
+
+## Reference data
+
+### `blacklist-download` (alias `blacklist:download`)
+
+Downloads the keyword blacklist from the Everymarket admin API. Used to refresh
+the local keyword set that the storefront / Amazon importers feed into
+`EmTools::Core::Blacklist` (Aho-Corasick).
+
+```bash
+# Print parsed keywords to stdout, one per line
+bundle exec bin/em-tools blacklist-download
+
+# Persist to a file
+bundle exec bin/em-tools blacklist-download -o tmp/blacklist.txt
+
+# Inspect the raw API response (useful when the schema changes)
+bundle exec bin/em-tools blacklist-download --raw -o tmp/blacklist.json
+```
+
+Required env: `BLACKLIST_API_ENDPOINT`, `BLACKLIST_API_PATH`,
+`BLACKLIST_API_TOKEN` (or legacy `BLACKLIST_API_KEY`). Missing config produces
+a single-line `error: Blacklist API not configured: missing ...` + exit 1.
+
+Parsed shape: the loader is tolerant of legacy
+`{"blacklist_keywords":[{"keywords":[...]}]}` payloads as well as flatter
+`{"keywords":[...]}` and bare-array responses, so a server-side schema flip
+will not silently produce an empty list.
 
 ---
 

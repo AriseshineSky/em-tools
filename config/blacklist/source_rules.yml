@@ -1,0 +1,8 @@
+# Structural blacklist strategy routing. Keep secrets in .env only.
+sources:
+  product_download:
+    strategy: title_brand
+    options:
+      title_field: title
+      brand_field: brand
+      case_sensitive: false

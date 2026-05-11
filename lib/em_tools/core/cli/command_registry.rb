@@ -31,6 +31,9 @@ module EmTools
             [CommandNames::LOWEST_OFFER_DOWNLOAD_AND_PUBLISH, Commands::LowestOfferDownloadAndPublish],
             [CommandNames::EBAY_LISTINGS_PUBLISH_SNAPSHOT, Commands::EbayListingsPublishSnapshot],
           ],],
+          ["Reference data", [
+            [CommandNames::BLACKLIST_DOWNLOAD, Commands::BlacklistDownload],
+          ],],
         ].freeze
 
         @default_mutex = Mutex.new

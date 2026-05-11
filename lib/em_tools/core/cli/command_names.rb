@@ -18,6 +18,7 @@ module EmTools
         LOWEST_OFFER_PUBLISH_SNAPSHOT = "lowest-offer-publish-snapshot"
         LOWEST_OFFER_DOWNLOAD_AND_PUBLISH = "lowest-offer-download-and-publish"
         EBAY_LISTINGS_PUBLISH_SNAPSHOT = "ebay-listings-publish-snapshot"
+        BLACKLIST_DOWNLOAD = "blacklist-download"
 
         # Namespace-style aliases preserve today's hyphenated command names
         # while giving us a path toward grouped commands later.
@@ -30,6 +31,7 @@ module EmTools
           "lowest-offer:publish-snapshot" => LOWEST_OFFER_PUBLISH_SNAPSHOT,
           "lowest-offer:download-and-publish" => LOWEST_OFFER_DOWNLOAD_AND_PUBLISH,
           "ebay-listings:publish-snapshot" => EBAY_LISTINGS_PUBLISH_SNAPSHOT,
+          "blacklist:download" => BLACKLIST_DOWNLOAD,
         }.freeze
       end
     end

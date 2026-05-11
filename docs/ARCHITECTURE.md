@@ -54,7 +54,11 @@ lib/em_tools/
     inventory/                              EmTools::Core::Inventory::*
     sinks/                                  EmTools::Core::Sinks::*
     rules/                                  EmTools::Core::Rules::*
-    blacklist/                              EmTools::Core::Blacklist::*
+    blacklist.rb                            EmTools::Core::Blacklist facade
+    blacklist/
+      engine/                               Aho-Corasick adapters
+      rules/                                source_rules.yml loader
+      strategy/                             source-specific blacklist strategies
 
 bin/                                        project executables
   em-tools                                  the CLI (bundle exec bin/em-tools)

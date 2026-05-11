@@ -7,7 +7,7 @@ module EmTools
     # Each +stage+ must respond to +call(record, context)+:
     # - +record+ is typically a Hash representing one logical row/document.
     # - +context+ is a shared object (often Hash) passed through unchanged; use it for
-    #   configuration, +Logger+, mutable counters, or collaborators like +Blacklist::Engine+.
+    #   configuration, +Logger+, mutable counters, or collaborators like +Blacklist+ strategies.
     #
     # Return convention:
     # - Return the next +record+ to continue.
