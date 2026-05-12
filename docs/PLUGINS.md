@@ -52,7 +52,6 @@ flowchart LR
 | Sink | `#sink(**opts)` | object responding to `#index(record)` (and optional `#flush!`) | pipelines / engine |
 | CLI namespace | `.cli_namespace` | `String` prefix every CLI command must use (default: kebab-case of plugin name) | `Core::Cli::CommandRegistry` |
 | CLI commands | `#cli_commands` | `Hash<String, CommandClass>` (`"<namespace>:cmd" => Cli::Cmd`) | `Core::Cli::App` |
-| CLI aliases | `#cli_aliases` | `Hash<String, String>` mapping legacy names to canonical ones | `Core::Cli::CommandRegistry` |
 | Operations | any plain instance method | whatever the caller needs | other plugins / specs / scripts |
 
 The "operation methods" slot is the escape hatch for workflows that do not
@@ -117,16 +116,9 @@ class Plugin < EmTools::Core::Plugin::Base
 end
 ```
 
-Old, un-namespaced names should be carried as **aliases** so existing scripts
-and cron jobs keep working:
-
-```ruby
-def cli_aliases
-  {
-    "import-products" => "storefront:import-products",
-  }
-end
-```
+The project does **not** carry legacy command aliases. Renaming a plugin
+command is a one-shot rename: change `cli_commands`, update the banner,
+update any docs / cron / scripts in the same commit.
 
 ## Adding a CLI command to an existing plugin
 

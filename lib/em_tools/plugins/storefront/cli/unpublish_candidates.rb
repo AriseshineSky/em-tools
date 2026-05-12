@@ -34,7 +34,7 @@ module EmTools
             }
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools storefront:unpublish-candidates [options]   (alias: storefront-unpublish-candidates)
+                Usage: em-tools storefront:unpublish-candidates [options]
 
                 For each Amazon-sourced row in --inventory-index, look up the enriched product
                 doc in amz_products_api_<mp>_v2, run all rules from EmTools::Core::Rules::Registry

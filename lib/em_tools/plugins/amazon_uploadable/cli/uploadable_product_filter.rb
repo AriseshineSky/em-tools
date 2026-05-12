@@ -29,7 +29,7 @@ module EmTools
             # -- mirrors many Python CLI flags
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:filter [options]   (alias: uploadable-product-filter)
+                Usage: em-tools amz-uploadable:filter [options]
 
                 Phase-1 Ruby port of: python -m em_tasks.applications.tools.amazon.uploadable_product_filter
                 Streams ASINs from amz_asins_<marketplace> using time range + optional label (see em-tasks asin_stream_options).
@@ -39,10 +39,10 @@ module EmTools
                 Set ELASTICSEARCH_URL. Optional YAML config (--config) with keys like amz.uploadable_filter.asin_stream.
 
                 Examples:
-                  em-tools uploadable-product-filter -m de --asin-since-days 1
-                  em-tools uploadable-product-filter -m de --dry-run
-                  em-tools uploadable-product-filter -m de --to-es
-                  em-tools uploadable-product-filter -m de --to-es \\
+                  em-tools amz-uploadable:filter -m de --asin-since-days 1
+                  em-tools amz-uploadable:filter -m de --dry-run
+                  em-tools amz-uploadable:filter -m de --to-es
+                  em-tools amz-uploadable:filter -m de --to-es \\
                     --sink-index amz_uploadable_asins_de --bulk-chunk 1000 --refresh
               BANNER
 

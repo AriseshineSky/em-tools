@@ -25,6 +25,7 @@ module EmTools
           @feed_id = opts[:feed_id]
           @prune_obsolete = opts[:prune_obsolete] ? true : false
           @logger = opts[:logger] || EmTools::Core::Logger.for(progname: "inventory-sync")
+          @transforms = Array(opts[:transforms]).freeze
           @flushed_docs = 0
         end
 
@@ -108,6 +109,9 @@ module EmTools
 
         def append_row!(buffer, row, batch_id)
           doc = build_doc(row, batch_id)
+          doc = apply_transforms(doc)
+          return if doc.nil?
+
           register_resolved_inventory_feed!(doc)
           id = document_id(doc)
           return if id.nil? || id.empty?
@@ -116,25 +120,51 @@ module EmTools
           flush(buffer) if buffer.size >= @batch_size
         end
 
+        # Run every configured transform against +doc+ in declared order. Each transform
+        # follows the +#call(doc) -> doc+ contract; returning +nil+ drops the row entirely.
+        def apply_transforms(doc)
+          @transforms.each do |t|
+            doc = t.call(doc)
+            return doc if doc.nil?
+          end
+          doc
+        end
+
         def build_doc(row, batch_id)
           doc = row_to_doc_hash(row)
           doc["sync_batch_id"] = batch_id
           doc["synced_at"] = Time.now.utc.iso8601
-          feed = doc["source"].to_s.strip
-          feed = @feed_id.to_s.strip if feed.empty?
+          feed = resolve_feed_value(doc)
           doc["inventory_feed"] = feed unless feed.empty?
           doc
         end
 
+        # When +feed_id+ is configured (CLI / YAML / +INVENTORY_FEED_ID+) it is the canonical
+        # value for every row, overriding whatever the CSV +Source+ column says. Otherwise the
+        # row's own +Source+ column is used.
+        def resolve_feed_value(doc)
+          pinned = @feed_id.to_s.strip
+          return pinned unless pinned.empty?
+
+          doc["source"].to_s.strip
+        end
+
+        # Enforce a single +inventory_feed+ value per CSV (otherwise +prune_obsolete+ would
+        # delete the wrong docs). Case-only mismatches (+"Ebay_US"+ vs +"EBAY_US"+) are
+        # treated as the same source and silently normalized to the first-seen casing;
+        # truly different values raise so the operator must pin +feed_id+ explicitly.
         def register_resolved_inventory_feed!(doc)
           f = doc["inventory_feed"].to_s.strip
           return if f.empty?
 
           if @csv_resolved_feed.nil?
             @csv_resolved_feed = f
-          elsif @csv_resolved_feed != f
+          elsif @csv_resolved_feed.casecmp(f).zero?
+            doc["inventory_feed"] = @csv_resolved_feed
+          else
             raise ArgumentError,
-              "inventory CSV mixes Source values: #{@csv_resolved_feed.inspect} vs #{f.inspect}"
+              "inventory CSV mixes Source values: #{@csv_resolved_feed.inspect} vs #{f.inspect} " \
+                "(set feed_id / INVENTORY_FEED_ID to pin a canonical value)"
           end
         end
 

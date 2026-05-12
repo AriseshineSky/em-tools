@@ -4,9 +4,15 @@ require "spec_helper"
 
 RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
   describe ".run_from_settings!" do
-    def make_source(uri:, cluster: nil, index: "inv")
+    def make_source(uri:, cluster: nil, index: "inv", drop_fields: [])
       EmTools::Core::Inventory::SyncSources::Source.new(
-        gs_uri: uri, index: index, refresh: false, feed_id: nil, prune_obsolete: false, cluster: cluster,
+        gs_uri: uri,
+        index: index,
+        refresh: false,
+        feed_id: nil,
+        prune_obsolete: false,
+        cluster: cluster,
+        drop_fields: drop_fields,
       )
     end
 

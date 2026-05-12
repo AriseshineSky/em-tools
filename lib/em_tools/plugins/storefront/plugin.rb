@@ -17,15 +17,6 @@ module EmTools
           }
         end
 
-        # Legacy command names retained as aliases so existing scripts / cron jobs keep working.
-        def cli_aliases
-          {
-            "import-products" => "storefront:import-products",
-            "storefront-sync-inventory" => "storefront:sync-inventory",
-            "storefront-unpublish-candidates" => "storefront:unpublish-candidates",
-          }
-        end
-
         def product_util(**opts)
           ProductUtil.new(**opts)
         end

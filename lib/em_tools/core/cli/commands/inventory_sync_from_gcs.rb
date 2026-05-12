@@ -22,7 +22,7 @@ module EmTools
                 DATA_ELASTICSEARCH_URL instead (falls back to ELASTICSEARCH_URL when unset).
 
                 Env: INVENTORY_INDEX, INVENTORY_REFRESH=1, INVENTORY_PRUNE_OBSOLETE=1,
-                     INVENTORY_FEED_ID.
+                     INVENTORY_FEED_ID, INVENTORY_DROP_FIELDS (comma-separated; e.g. "handle,variants").
               BANNER
               opts.on("--data", "Bulk-index into DATA_ELASTICSEARCH_URL") { options[:use_data_cluster] = true }
               opts.on_tail("-h", "--help") do

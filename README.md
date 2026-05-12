@@ -106,9 +106,9 @@ For configuration and individual command reference, see
 | Amazon lowest-offer coverage snapshot | `Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot` | `em-tools lowest-offer-publish-snapshot [mp,...]` |
 | Seeds + Amazon snapshot in one go | composite of the two above | `em-tools lowest-offer-download-and-publish` |
 | eBay listings coverage snapshot | `Plugins::Ebay::Pipelines::PublishSnapshot` | `em-tools ebay-listings-publish-snapshot [mp]` |
-| Format Amazon uploadable products from a file | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable-products-formatter-from-file` |
-| Upload Amazon products from ES | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-upload-products-from-es` |
-| Storefront → ES inventory + delisting candidates | `Plugins::Storefront::Runners::*` | `em-tools storefront-sync-inventory` / `storefront-unpublish-candidates` |
+| Format Amazon uploadable products from a file | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable:format-from-file` |
+| Upload Amazon products from ES | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable:upload-from-es` |
+| Storefront → ES inventory + delisting candidates | `Plugins::Storefront::Runners::*` | `em-tools storefront:sync-inventory` / `storefront:unpublish-candidates` |
 
 A full per-command reference lives in [`docs/CLI.md`](docs/CLI.md).
 
@@ -224,7 +224,7 @@ The example schedule:
 | 03:30 | `em-tools inventory-sync` (full sync) |
 | 04:00 | `em-tools lowest-offer-download-and-publish` (Amazon snapshot) |
 | 04:30 | `em-tools ebay-listings-publish-snapshot us` (eBay snapshot) |
-| 05:00 | `em-tools storefront-unpublish-candidates` (delisting candidates) |
+| 05:00 | `em-tools storefront:unpublish-candidates` (delisting candidates) |
 
 See [`schedule/README.md`](schedule/README.md) for the full guide.
 

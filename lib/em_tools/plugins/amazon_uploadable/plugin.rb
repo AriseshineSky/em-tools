@@ -29,16 +29,6 @@ module EmTools
           }
         end
 
-        # Legacy command names retained as aliases so existing scripts / cron jobs keep working.
-        def cli_aliases
-          {
-            "uploadable-product-filter" => "amz-uploadable:filter",
-            "amz-upload-products-from-es" => "amz-uploadable:upload-from-es",
-            "amz-uploadable-products-formatter-from-file" => "amz-uploadable:format-from-file",
-            "asin-products-to-es" => "amz-uploadable:asin-to-es",
-          }
-        end
-
         # No engine-level filters/transforms/source/sink: the work happens inside cohesive
         # operations, exposed as factory helpers for direct calls.
         def uploadable_product_filter(**opts)

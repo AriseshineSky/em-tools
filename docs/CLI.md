@@ -62,13 +62,13 @@ flowchart LR
     end
 
     subgraph PluginGroup [Plugin commands]
-        UPF[uploadable-product-filter]
-        AmzUpload[amz-upload-products-from-es]
-        AmzFmt[amz-uploadable-products-formatter-from-file]
-        Asin[asin-products-to-es]
-        Import[import-products]
-        SfSync[storefront-sync-inventory]
-        SfUnpub[storefront-unpublish-candidates]
+        UPF[amz-uploadable:filter]
+        AmzUpload[amz-uploadable:upload-from-es]
+        AmzFmt[amz-uploadable:format-from-file]
+        Asin[amz-uploadable:asin-to-es]
+        Import[storefront:import-products]
+        SfSync[storefront:sync-inventory]
+        SfUnpub[storefront:unpublish-candidates]
     end
 ```
 
@@ -83,13 +83,13 @@ flowchart LR
 | Marketplace snapshots | `lowest-offer-publish-snapshot` | `Core::Cli::Commands::LowestOfferPublishSnapshot` | [Marketplace snapshots](#marketplace-monitoring-snapshots) |
 | Marketplace snapshots | `lowest-offer-download-and-publish` | `Core::Cli::Commands::LowestOfferDownloadAndPublish` | [Marketplace snapshots](#marketplace-monitoring-snapshots) |
 | Marketplace snapshots | `ebay-listings-publish-snapshot` | `Core::Cli::Commands::EbayListingsPublishSnapshot` | [Marketplace snapshots](#marketplace-monitoring-snapshots) |
-| Plugin / Amazon | `uploadable-product-filter` | `Plugins::AmazonUploadable::Cli::UploadableProductFilter` | [Plugin commands](#plugin-commands) |
-| Plugin / Amazon | `amz-upload-products-from-es` | `Plugins::AmazonUploadable::Cli::AmzUploadProductsFromEs` | [Plugin commands](#plugin-commands) |
-| Plugin / Amazon | `amz-uploadable-products-formatter-from-file` | `Plugins::AmazonUploadable::Cli::AmzUploadableProductsFormatterFromFile` | [Plugin commands](#plugin-commands) |
-| Plugin / Amazon | `asin-products-to-es` | `Plugins::AmazonUploadable::Cli::AsinProductsToEs` | [Plugin commands](#plugin-commands) |
-| Plugin / Storefront | `import-products` | `Plugins::Storefront::Cli::ImportProducts` | [Plugin commands](#plugin-commands) |
-| Plugin / Storefront | `storefront-sync-inventory` | `Plugins::Storefront::Cli::SyncInventory` | [Plugin commands](#plugin-commands) |
-| Plugin / Storefront | `storefront-unpublish-candidates` | `Plugins::Storefront::Cli::UnpublishCandidates` | [Plugin commands](#plugin-commands) |
+| Plugin / Amazon | `amz-uploadable:filter` | `Plugins::AmazonUploadable::Cli::UploadableProductFilter` | [Plugin commands](#plugin-commands) |
+| Plugin / Amazon | `amz-uploadable:upload-from-es` | `Plugins::AmazonUploadable::Cli::AmzUploadProductsFromEs` | [Plugin commands](#plugin-commands) |
+| Plugin / Amazon | `amz-uploadable:format-from-file` | `Plugins::AmazonUploadable::Cli::AmzUploadableProductsFormatterFromFile` | [Plugin commands](#plugin-commands) |
+| Plugin / Amazon | `amz-uploadable:asin-to-es` | `Plugins::AmazonUploadable::Cli::AsinProductsToEs` | [Plugin commands](#plugin-commands) |
+| Plugin / Storefront | `storefront:import-products` | `Plugins::Storefront::Cli::ImportProducts` | [Plugin commands](#plugin-commands) |
+| Plugin / Storefront | `storefront:sync-inventory` | `Plugins::Storefront::Cli::SyncInventory` | [Plugin commands](#plugin-commands) |
+| Plugin / Storefront | `storefront:unpublish-candidates` | `Plugins::Storefront::Cli::UnpublishCandidates` | [Plugin commands](#plugin-commands) |
 
 ---
 
@@ -255,18 +255,18 @@ on the plugin being loaded (which it always is, since
 
 | Command | What it does |
 |---|---|
-| `uploadable-product-filter` | Filter ASINs from one ES index against the rule engine and write the eligible-for-upload list. |
-| `amz-upload-products-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
-| `amz-uploadable-products-formatter-from-file` | Format a local file into the upload pipeline's input format. |
-| `asin-products-to-es` | Stage / index ASIN-keyed product documents into ES. |
+| `amz-uploadable:filter` | Filter ASINs from one ES index against the rule engine and write the eligible-for-upload list. |
+| `amz-uploadable:upload-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
+| `amz-uploadable:format-from-file` | Format a local file into the upload pipeline's input format. |
+| `amz-uploadable:asin-to-es` | Stage / index ASIN-keyed product documents into ES. |
 
 ### Storefront (`plugins/storefront/`)
 
 | Command | What it does |
 |---|---|
-| `import-products` | Filter local CSV / JSON product feeds against the rule engine. |
-| `storefront-sync-inventory` | Download per-source inventory CSVs from Spree and bulk-index into ES. |
-| `storefront-unpublish-candidates` | Iterate ES inventory, run rules, write delisting candidates to `em_products_to_unpublish`. |
+| `storefront:import-products` | Filter local CSV / JSON product feeds against the rule engine. |
+| `storefront:sync-inventory` | Download per-source inventory CSVs from Spree and bulk-index into ES. |
+| `storefront:unpublish-candidates` | Iterate ES inventory, run rules, write delisting candidates to `em_products_to_unpublish`. |
 
 ---
 

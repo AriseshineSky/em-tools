@@ -33,7 +33,7 @@ module EmTools
             # -- Click-parity CLI options
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:format-from-file [options] PRODUCTS_PATH   (alias: amz-uploadable-products-formatter-from-file)
+                Usage: em-tools amz-uploadable:format-from-file [options] PRODUCTS_PATH
 
                 Ruby port of +em_celery/tools/spree/amz_uploadable_products_formatter_from_file.py+ (+filter_products+).
                 Reads ASINs (one per line), loads product + offer docs from Elasticsearch (+mget+), and outputs
@@ -47,11 +47,11 @@ module EmTools
                 Python uses -so / -sc; Ruby OptionParser reserves -s for --store-code, so use --so / --sc here.
 
                 Examples:
-                  em-tools amz-uploadable-products-formatter-from-file -s MYSTORE -m us -o out.ndjson \\
+                  em-tools amz-uploadable:format-from-file -s MYSTORE -m us -o out.ndjson \\
                     --so AMZ_US --sc wholesale products.txt
-                  em-tools amz-uploadable-products-formatter-from-file -s MYSTORE -m de --to-es \\
+                  em-tools amz-uploadable:format-from-file -s MYSTORE -m de --to-es \\
                     --so SRC --sc CODE --skip-offers asins.txt
-                  em-tools amz-uploadable-products-formatter-from-file -s MYSTORE -m de -o out.ndjson --to-es \\
+                  em-tools amz-uploadable:format-from-file -s MYSTORE -m de -o out.ndjson --to-es \\
                     --sink-index amz_uploadable_products_de --bulk-chunk 1000 --refresh \\
                     --so SRC --sc CODE asins.txt
               BANNER

@@ -33,10 +33,6 @@ RSpec.describe(EmTools::Core::Plugin::Base) do
     it "returns an empty hash for cli_commands" do
       expect(plugin.cli_commands).to(eq({}))
     end
-
-    it "returns an empty hash for cli_aliases" do
-      expect(plugin.cli_aliases).to(eq({}))
-    end
   end
 
   describe ".cli_namespace" do

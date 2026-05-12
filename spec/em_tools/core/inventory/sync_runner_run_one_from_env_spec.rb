@@ -57,12 +57,24 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
         feed_id: "ebay",
         refresh: true,
         prune_obsolete: true,
+        drop_fields: [],
       ))
     end
 
     it "falls back to gs_uri as feed_id when INVENTORY_FEED_ID is blank" do
       described_class.run_one_from_env!(cli_gs_uri: "gs://b/x.csv", env: base_env)
       expect(runner).to(have_received(:run_one!).with(hash_including(feed_id: "gs://b/x.csv")))
+    end
+
+    it "parses INVENTORY_DROP_FIELDS as a comma-separated list and forwards it" do
+      env = base_env.merge("INVENTORY_DROP_FIELDS" => "handle, variants ,")
+      described_class.run_one_from_env!(cli_gs_uri: "gs://b/x.csv", env: env)
+      expect(runner).to(have_received(:run_one!).with(hash_including(drop_fields: ["handle", "variants"])))
+    end
+
+    it "forwards an empty drop_fields list when INVENTORY_DROP_FIELDS is unset" do
+      described_class.run_one_from_env!(cli_gs_uri: "gs://b/x.csv", env: base_env)
+      expect(runner).to(have_received(:run_one!).with(hash_including(drop_fields: [])))
     end
 
     it "returns a Cli::Runner::Result with a summary that includes the gs_uri" do
@@ -82,7 +94,13 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
       env = { "DATA_ELASTICSEARCH_URL" => "http://data:9200" }
       sources = [
         EmTools::Core::Inventory::SyncSources::Source.new(
-          gs_uri: "gs://b/x.csv", index: "i", refresh: false, feed_id: nil, prune_obsolete: false, cluster: nil,
+          gs_uri: "gs://b/x.csv",
+          index: "i",
+          refresh: false,
+          feed_id: nil,
+          prune_obsolete: false,
+          cluster: nil,
+          drop_fields: [],
         ),
       ]
       allow(EmTools::Core::Inventory::SyncSources).to(receive(:load!).and_return(sources))

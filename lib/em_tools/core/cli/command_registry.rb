@@ -55,7 +55,6 @@ module EmTools
           @plugin_registry = plugin_registry
           @commands_by_name = {}
           @core_names_by_section = {}
-          @plugin_aliases = {}
           @plugin_namespaces = {}
           register_core_commands
           register_plugin_commands
@@ -85,9 +84,7 @@ module EmTools
         private
 
         def canonical_name(raw_name)
-          name = raw_name.to_s
-          name = @plugin_aliases.fetch(name, name)
-          CommandNames::ALIASES.fetch(name, name)
+          CommandNames::ALIASES.fetch(raw_name.to_s, raw_name.to_s)
         end
 
         def register_core_commands
@@ -106,7 +103,6 @@ module EmTools
               validate_plugin_command_name!(plugin, name)
               register(Command.new(name: name, klass: klass, section: nil, source: plugin.name))
             end
-            merge_plugin_aliases!(plugin)
           end
         end
 
@@ -117,12 +113,6 @@ module EmTools
           raise InvalidPluginCommandError,
             "plugin #{plugin.name.inspect} CLI command #{name.inspect} must start with " \
               "#{expected_prefix.inspect} (override Plugin.cli_namespace if you want a different prefix)"
-        end
-
-        def merge_plugin_aliases!(plugin)
-          plugin.cli_aliases.each do |old_name, new_name|
-            @plugin_aliases[old_name.to_s] = new_name.to_s
-          end
         end
 
         def register(command)

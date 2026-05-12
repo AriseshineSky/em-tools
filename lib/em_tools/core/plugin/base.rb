@@ -72,14 +72,6 @@ module EmTools
         def cli_commands
           {}
         end
-
-        # Hash of legacy command names -> current canonical names. Used to keep old call sites
-        # working after a rename. Aliases do *not* need to follow the namespace rule.
-        #
-        #   { "import-products" => "storefront:import-products" }
-        def cli_aliases
-          {}
-        end
       end
     end
   end

@@ -12,7 +12,12 @@ module EmTools
         # "data"/"analytics", or any custom +elasticsearch_clusters+ key).
         # +nil+ means "use whatever default the orchestrator picks" — usually
         # +primary+, or +data+ when the operator passed +--data+.
-        Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete, :cluster)
+        #
+        # +drop_fields+ lists per-doc fields to strip before bulk-indexing
+        # (snake_cased like the headers stored on the doc). Empty / nil means no transform.
+        Source = Data.define(
+          :gs_uri, :index, :refresh, :feed_id, :prune_obsolete, :cluster, :drop_fields
+        )
 
         class Error < StandardError; end
 
@@ -54,6 +59,7 @@ module EmTools
             refresh: default_refresh(node),
             prune_obsolete: default_prune_obsolete(node),
             cluster: default_cluster(node),
+            drop_fields: default_drop_fields(node),
           }
           list.each_with_index.map { |item, i| build_entry(item, i, defaults) }
         end
@@ -115,6 +121,22 @@ module EmTools
           v.empty? ? nil : v
         end
 
+        def default_drop_fields(node)
+          parse_drop_fields(node["drop_fields"])
+        end
+
+        # Accepts +Array<String>+, comma-separated +String+, or +nil+. Returns an
+        # array of normalized field names (no surprises like +nil+ entries).
+        def parse_drop_fields(value)
+          case value
+          when nil then []
+          when Array then value.map { |v| v.to_s.strip }.reject(&:empty?)
+          when String then value.split(",").map(&:strip).reject(&:empty?)
+          else
+            raise Error, "drop_fields must be an array or comma-separated string, got #{value.class}"
+          end
+        end
+
         def build_entry(item, idx, defaults)
           case item
           when String
@@ -135,6 +157,7 @@ module EmTools
             feed_id: nil,
             prune_obsolete: defaults[:prune_obsolete],
             cluster: defaults[:cluster],
+            drop_fields: defaults[:drop_fields],
           )
         end
 
@@ -147,7 +170,14 @@ module EmTools
             feed_id: coalesce_feed_id(item["feed_id"]),
             prune_obsolete: coalesce_prune_obsolete(item, defaults[:prune_obsolete]),
             cluster: coalesce_cluster(item, defaults[:cluster]),
+            drop_fields: coalesce_drop_fields(item, defaults[:drop_fields]),
           )
+        end
+
+        def coalesce_drop_fields(item, default_drop_fields)
+          return default_drop_fields unless item.key?("drop_fields")
+
+          parse_drop_fields(item["drop_fields"])
         end
 
         def coalesce_cluster(item, default_cluster)

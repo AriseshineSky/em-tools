@@ -24,11 +24,20 @@ module EmTools
         # @param feed_id [String, nil]
         # @param refresh [Boolean]
         # @param prune_obsolete [Boolean]
-        def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false)
-          sync = Sync.new(sink: @sink, index: index, feed_id: feed_id, prune_obsolete: prune_obsolete, logger: @logger)
+        # @param drop_fields [Array<String>] field names stripped from every doc before bulk.
+        def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false, drop_fields: [])
+          sync = Sync.new(
+            sink: @sink,
+            index: index,
+            feed_id: feed_id,
+            prune_obsolete: prune_obsolete,
+            transforms: build_transforms(drop_fields),
+            logger: @logger,
+          )
           @logger.info do
             "[InventorySync] #{gs_uri} -> #{index} " \
-              "(refresh=#{refresh} prune=#{prune_obsolete} feed=#{feed_id.inspect})"
+              "(refresh=#{refresh} prune=#{prune_obsolete} feed=#{feed_id.inspect}" \
+              "#{" drop=#{drop_fields.inspect}" if Array(drop_fields).any?})"
           end
           EmTools::Clients::GcsBlobFetcher.new(**@fetcher_opts).with_downloaded(gs_uri) do |path|
             sync.sync_from_path(path, refresh: refresh)
@@ -47,12 +56,24 @@ module EmTools
               feed_id: src.feed_id,
               refresh: src.refresh,
               prune_obsolete: src.prune_obsolete,
+              drop_fields: Array(src.drop_fields),
             )
           end
           EmTools::Core::Cli::Runner::Result.new(
             summary: "Inventory sync done (#{sources.size} source(s)#{" from #{label}" if label})",
           )
         end
+
+        private
+
+        def build_transforms(drop_fields)
+          fields = Array(drop_fields).compact.reject { |f| f.to_s.strip.empty? }
+          return [] if fields.empty?
+
+          [Transforms::DropFields.new(*fields)]
+        end
+
+        public
 
         # Resolve the gs:// URI for a single-source debug run (CLI arg / env vars / default).
         # @param cli_gs_uri [String, nil]
@@ -174,10 +195,20 @@ module EmTools
             feed_id: feed_id,
             refresh: env["INVENTORY_REFRESH"] == "1",
             prune_obsolete: env["INVENTORY_PRUNE_OBSOLETE"] == "1",
+            drop_fields: drop_fields_from_env(env),
           )
 
           EmTools::Core::Cli::Runner::Result.new(summary: "Inventory sync done (#{gs_uri}).")
         end
+
+        # Parse +INVENTORY_DROP_FIELDS+ as comma-separated field names.
+        def self.drop_fields_from_env(env)
+          raw = env["INVENTORY_DROP_FIELDS"].to_s.strip
+          return [] if raw.empty?
+
+          raw.split(",").map(&:strip).reject(&:empty?)
+        end
+        private_class_method :drop_fields_from_env
 
         # Validates that *some* cluster URL is reachable. When +prefer_data_cluster+ is true,
         # accept either +DATA_ELASTICSEARCH_URL+ or +ELASTICSEARCH_URL+; otherwise require

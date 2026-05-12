@@ -34,20 +34,20 @@ module EmTools
 
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:asin-to-es [options]   (alias: asin-products-to-es)
+                Usage: em-tools amz-uploadable:asin-to-es [options]
 
-                Stream ASINs from the ASIN index (same time/label options as uploadable-product-filter),
+                Stream ASINs from the ASIN index (same time/label options as amz-uploadable:filter),
                 load matching documents from the product API index (mget by ASIN _id),
                 resolve price from configurable _source paths, apply min/max price, optional title keyword
-                blacklist (substring, same spirit as import-products), optional required fields, then bulk-index
-                enriched docs into --sink-index (document _id = ASIN).
+                blacklist (substring, same spirit as storefront:import-products), optional required fields,
+                then bulk-index enriched docs into --sink-index (document _id = ASIN).
 
                 Set ELASTICSEARCH_URL. Create sink index beforehand or rely on dynamic mapping.
 
                 Examples:
-                  em-tools asin-products-to-es -m de --sink-index amz_enriched_products_de \\
+                  em-tools amz-uploadable:asin-to-es -m de --sink-index amz_enriched_products_de \\
                     --min-price 10 --max-price 500 --dry-run
-                  em-tools asin-products-to-es -m de --sink-index amz_enriched_products_de \\
+                  em-tools amz-uploadable:asin-to-es -m de --sink-index amz_enriched_products_de \\
                     --config examples/config/amazon_asin_product_pipeline.example.yml --max-asin-hits 500
               BANNER
 

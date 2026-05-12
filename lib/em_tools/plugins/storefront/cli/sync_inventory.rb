@@ -26,7 +26,7 @@ module EmTools
             options = { sources: [], refresh: true, prune: true, index: nil }
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools storefront:sync-inventory [options]   (alias: storefront-sync-inventory)
+                Usage: em-tools storefront:sync-inventory [options]
 
                 Download inventory CSV from the user's Spree storefront for one or more sources
                 and bulk-index into Elasticsearch (default index: em_inventory). Documents
