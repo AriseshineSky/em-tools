@@ -3,8 +3,6 @@ GEM
   specs:
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
-    ahocorasick-rust (2.3.1)
-      rb_sys (~> 0.9.124)
     ahocorasick-rust (2.3.1-x86_64-linux-gnu)
       rb_sys (~> 0.9.124)
     ast (2.4.3)
@@ -90,6 +88,8 @@ GEM
     multi_json (1.20.1)
     net-http (0.9.1)
       uri (>= 0.11.1)
+    nokogiri (1.19.3-x86_64-linux-gnu)
+      racc (~> 1.4)
     os (1.1.4)
     parallel (2.1.0)
     parser (3.3.11.1)
@@ -170,7 +170,6 @@ GEM
     zeitwerk (2.7.5)
 
 PLATFORMS
-  ruby
   x86_64-linux
 
 DEPENDENCIES
@@ -181,6 +180,7 @@ DEPENDENCIES
   elasticsearch (~> 7.17)
   google-cloud-storage
   irb
+  nokogiri (~> 1.19)
   rake (~> 13.0)
   rspec
   rubocop
@@ -190,7 +190,6 @@ DEPENDENCIES
 
 CHECKSUMS
   addressable (2.9.0) sha256=7fdf6ac3660f7f4e867a0838be3f6cf722ace541dd97767fa42bc6cfa980c7af
-  ahocorasick-rust (2.3.1) sha256=373abbbbfa7b15b20172d75ed4625dab5d2fde2972f241fa81890d58a726894f
   ahocorasick-rust (2.3.1-x86_64-linux-gnu) sha256=1000ef263faae6848d253446f7a3476de90615b8d3f3b946030b84baa7464606
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
@@ -227,6 +226,7 @@ CHECKSUMS
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
   multi_json (1.20.1) sha256=2f3934e805cc45ef91b551a1f89d0e9191abd06a5e04a2ef09a6a036c452ca6d
   net-http (0.9.1) sha256=25ba0b67c63e89df626ed8fac771d0ad24ad151a858af2cc8e6a716ca4336996
+  nokogiri (1.19.3-x86_64-linux-gnu) sha256=2f5078620fe12e83669b5b17311b32532a8153d02eee7ad06948b926d6080976
   os (1.1.4) sha256=57816d6a334e7bd6aed048f4b0308226c5fb027433b67d90a9ab435f35108d3f
   parallel (2.1.0) sha256=b35258865c2e31134c5ecb708beaaf6772adf9d5efae28e93e99260877b09356
   parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54

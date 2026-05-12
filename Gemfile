@@ -12,6 +12,7 @@ gem "ahocorasick-rust", "~> 2.0"
 gem "csv"
 gem "elasticsearch", "~> 7.17"
 gem "google-cloud-storage"
+gem "nokogiri", "~> 1.19"
 gem "zeitwerk", "~> 2.0"
 
 group :development, :test do
