@@ -22,7 +22,7 @@ module EmTools
             # -- Celery-parity CLI options
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools amz-upload-products-from-es [options]
+                Usage: em-tools amz-uploadable:upload-from-es [options]   (alias: amz-upload-products-from-es)
 
                 Ruby port of the Celery/Click command in em-celery +em_celery/tools/spree/amz_upload_products_from_es.py+.
                 Same primary flags as Python: -m / -t. Loads optional YAML (price.rules.amz_<mp>, asin stream keys).

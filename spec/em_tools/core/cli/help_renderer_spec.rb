@@ -11,7 +11,7 @@ RSpec.describe(EmTools::Core::Cli::HelpRenderer) do
       expect(output).to(include("em-tools — Everymarket data platform CLI"))
       expect(output).to(include("Inventory & object storage"))
       expect(output).to(include("inventory-sync"))
-      expect(output).to(include("Plugins & other"))
+      expect(output).to(match(/Plugin: \w+ \(\S+:\*\)/))
     end
   end
 end

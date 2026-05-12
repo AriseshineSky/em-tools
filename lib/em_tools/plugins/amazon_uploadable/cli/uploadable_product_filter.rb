@@ -29,7 +29,7 @@ module EmTools
             # -- mirrors many Python CLI flags
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools uploadable-product-filter [options]
+                Usage: em-tools amz-uploadable:filter [options]   (alias: uploadable-product-filter)
 
                 Phase-1 Ruby port of: python -m em_tasks.applications.tools.amazon.uploadable_product_filter
                 Streams ASINs from amz_asins_<marketplace> using time range + optional label (see em-tasks asin_stream_options).

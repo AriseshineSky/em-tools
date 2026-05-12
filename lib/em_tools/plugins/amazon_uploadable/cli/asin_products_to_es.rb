@@ -34,7 +34,7 @@ module EmTools
 
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools asin-products-to-es [options]
+                Usage: em-tools amz-uploadable:asin-to-es [options]   (alias: asin-products-to-es)
 
                 Stream ASINs from the ASIN index (same time/label options as uploadable-product-filter),
                 load matching documents from the product API index (mget by ASIN _id),

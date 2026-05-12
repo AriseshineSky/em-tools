@@ -6,8 +6,8 @@ module EmTools
   module Core
     module Cli
       module Commands
-        # Convenience composite: runs +gcs-download-seeds+ then +lowest-offer-publish-snapshot+ so
-        # an operator can refresh seed files and produce the snapshot in one invocation.
+        # Thin CLI wrapper over
+        # {EmTools::Plugins::AmazonLowestOffer::Pipelines::DownloadAndPublish}.
         class LowestOfferDownloadAndPublish
           def run(argv)
             parser = OptionParser.new do |opts|
@@ -29,22 +29,7 @@ module EmTools
             end
 
             EmTools::Core::Cli::Runner.run do
-              creds_path = EmTools::Clients::GcsServiceAccountPath.require!
-              target = File.join(Dir.pwd, "tmp")
-
-              EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_gcs(
-                target,
-                marketplaces: EmTools::Plugins::AmazonLowestOffer::Queries::ListingsCoverageQuery::DEFAULT_MARKETPLACES,
-                creds_path: creds_path,
-                bucket: ENV.fetch("GCS_BUCKET", "em-bucket"),
-                prefix: ENV.fetch("GCS_SEEDS_PREFIX", "em-analytics"),
-                force: true,
-              )
-
-              publish = EmTools::Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot.new.run!
-              EmTools::Core::Cli::Runner::Result.new(
-                summary: "Seeds synced to #{target}; #{publish.summary}",
-              )
+              EmTools::Plugins::AmazonLowestOffer::Pipelines::DownloadAndPublish.new.run!
             end
           end
         end

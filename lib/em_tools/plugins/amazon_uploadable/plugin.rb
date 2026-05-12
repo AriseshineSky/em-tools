@@ -14,12 +14,28 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:amazon_uploadable, self)
 
+        # Shorter prefix than the auto-derived "amazon-uploadable"; kept consistent with the
+        # historical +amz-*+ naming so the alias map below stays small.
+        def self.cli_namespace
+          "amz-uploadable"
+        end
+
         def cli_commands
           {
-            "uploadable-product-filter" => Cli::UploadableProductFilter,
-            "amz-upload-products-from-es" => Cli::AmzUploadProductsFromEs,
-            "amz-uploadable-products-formatter-from-file" => Cli::AmzUploadableProductsFormatterFromFile,
-            "asin-products-to-es" => Cli::AsinProductsToEs,
+            "amz-uploadable:filter" => Cli::UploadableProductFilter,
+            "amz-uploadable:upload-from-es" => Cli::AmzUploadProductsFromEs,
+            "amz-uploadable:format-from-file" => Cli::AmzUploadableProductsFormatterFromFile,
+            "amz-uploadable:asin-to-es" => Cli::AsinProductsToEs,
+          }
+        end
+
+        # Legacy command names retained as aliases so existing scripts / cron jobs keep working.
+        def cli_aliases
+          {
+            "uploadable-product-filter" => "amz-uploadable:filter",
+            "amz-upload-products-from-es" => "amz-uploadable:upload-from-es",
+            "amz-uploadable-products-formatter-from-file" => "amz-uploadable:format-from-file",
+            "asin-products-to-es" => "amz-uploadable:asin-to-es",
           }
         end
 

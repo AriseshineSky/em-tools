@@ -11,9 +11,18 @@ module EmTools
 
         def cli_commands
           {
-            "import-products" => Cli::ImportProducts,
-            "storefront-sync-inventory" => Cli::SyncInventory,
-            "storefront-unpublish-candidates" => Cli::UnpublishCandidates,
+            "storefront:import-products" => Cli::ImportProducts,
+            "storefront:sync-inventory" => Cli::SyncInventory,
+            "storefront:unpublish-candidates" => Cli::UnpublishCandidates,
+          }
+        end
+
+        # Legacy command names retained as aliases so existing scripts / cron jobs keep working.
+        def cli_aliases
+          {
+            "import-products" => "storefront:import-products",
+            "storefront-sync-inventory" => "storefront:sync-inventory",
+            "storefront-unpublish-candidates" => "storefront:unpublish-candidates",
           }
         end
 

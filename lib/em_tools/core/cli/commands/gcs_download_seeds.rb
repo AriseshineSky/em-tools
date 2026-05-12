@@ -6,7 +6,8 @@ module EmTools
   module Core
     module Cli
       module Commands
-        # Download lowest-offer AMZ seed files from GCS into +./tmp/+.
+        # Thin CLI wrapper over
+        # {EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_env!}.
         class GcsDownloadSeeds
           def run(argv)
             parser = OptionParser.new do |opts|
@@ -31,17 +32,8 @@ module EmTools
             end
 
             EmTools::Core::Cli::Runner.run do
-              creds_path = EmTools::Clients::GcsServiceAccountPath.require!
               target = File.join(Dir.pwd, "tmp")
-
-              EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_gcs(
-                target,
-                marketplaces: EmTools::Plugins::AmazonLowestOffer::Queries::ListingsCoverageQuery::DEFAULT_MARKETPLACES,
-                creds_path: creds_path,
-                bucket: ENV.fetch("GCS_BUCKET", "em-bucket"),
-                prefix: ENV.fetch("GCS_SEEDS_PREFIX", "em-analytics"),
-                force: true,
-              )
+              EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_env!(target_dir: target)
               EmTools::Core::Cli::Runner::Result.new(
                 summary: "Seeds synced to #{target} (GCS objects AMZ_<MP>.txt -> amz_<mp>.txt)",
               )

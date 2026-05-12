@@ -6,17 +6,26 @@ module EmTools
   module Core
     module Cli
       module Commands
-        # Bulk inventory sync. Reads the +inventory_sync.sources+ list from the merged settings YAML
-        # (or an explicit path) and streams every GCS CSV into the inventory ES index.
+        # Thin CLI wrapper over {EmTools::Core::Inventory::SyncRunner.run_from_settings!}.
         class InventorySync
           def run(argv)
+            options = { use_data_cluster: false }
+
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools inventory-sync [path/to/settings.yml]
+                Usage: em-tools inventory-sync [--data] [path/to/settings.yml]
 
                 Sync all GCS inventory CSV sources listed in the merged settings YAML.
-                Requires ELASTICSEARCH_URL; optional GCS_SERVICE_ACCOUNT_PATH.
+
+                Each source can declare its own cluster in YAML:
+                  - per-source `cluster: primary|data|<name>` (always wins)
+                  - `inventory_sync.cluster: ...`             (section default)
+                  - --data                                    (runtime default for sources without `cluster:`)
+                  - otherwise falls back to ELASTICSEARCH_URL.
               BANNER
+              opts.on("--data", "Default to DATA_ELASTICSEARCH_URL for sources without cluster:") do
+                options[:use_data_cluster] = true
+              end
               opts.on_tail("-h", "--help") do
                 puts opts
                 exit(0)
@@ -30,22 +39,10 @@ module EmTools
             end
 
             EmTools::Core::Cli::Runner.run do
-              EmTools::Core::Inventory::SyncRunner.require_elasticsearch_url!
-
-              raw = argv.shift.to_s.strip
-              config_path = raw.empty? ? nil : File.expand_path(raw)
-
-              sources = begin
-                EmTools::Core::Inventory::SyncSources.load!(config_path)
-              rescue EmTools::Core::Inventory::SyncSources::Error => e
-                raise EmTools::Core::Errors::ConfigurationError, e.message
-              end
-
-              label = config_path || EmTools::Core::SettingsLoader.default_path
-              EmTools::Core::Inventory::SyncRunner.new(
-                sink: EmTools::Core::Sinks::ElasticsearchBulkSink.new,
-                fetcher_opts: EmTools::Core::Inventory::SyncRunner.fetcher_opts_from_env,
-              ).run_many!(sources, label: label)
+              EmTools::Core::Inventory::SyncRunner.run_from_settings!(
+                config_path: argv.shift,
+                prefer_data_cluster: options[:use_data_cluster],
+              )
             end
           end
         end

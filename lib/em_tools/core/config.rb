@@ -58,6 +58,46 @@ module EmTools
         end
       end
 
+      # One-stop factory: explicit +url+ wins, then named +cluster+, then the
+      # +prefer_data_cluster+ shortcut, then the primary cluster. Credentials
+      # are resolved by {EmTools::Clients::ElasticsearchClient} itself
+      # (embedded user-info or +ELASTICSEARCH_USERNAME/PASSWORD/API_KEY+).
+      #
+      # @param url [String, nil]                explicit URL override.
+      # @param cluster [String, nil]            cluster name; resolved via {.cluster_url}.
+      # @param prefer_data_cluster [Boolean]    legacy shortcut for +cluster: "data"+.
+      def self.elasticsearch_client(url: nil, cluster: nil, prefer_data_cluster: false)
+        resolved =
+          string_present(url) ||
+          (string_present(cluster) ? cluster_url(cluster) : nil) ||
+          elasticsearch_connection_url(prefer_data_cluster: prefer_data_cluster)
+        EmTools::Clients::ElasticsearchClient.new(url: resolved)
+      end
+
+      # Resolve a logical cluster name to a concrete URL.
+      #
+      # - +"primary"+ (or empty / nil) -> +ELASTICSEARCH_URL+
+      # - +"data"+ / +"analytics"+      -> +DATA_ELASTICSEARCH_URL+, falling back to +ELASTICSEARCH_URL+
+      # - any other name               -> +ELASTICSEARCH_CLUSTER_<NAME>_URL+ env or
+      #                                    +elasticsearch_clusters.<name>.url+ in YAML
+      def self.cluster_url(name)
+        n = name.to_s.strip
+        case n
+        when "", "primary"
+          elasticsearch_url
+        when "data", "analytics"
+          data_elasticsearch_url || elasticsearch_url
+        else
+          elasticsearch_cluster_url(n) ||
+            raise(
+              EmTools::Core::Errors::ConfigurationError,
+              "ES cluster #{n.inspect} not configured " \
+                "(set ELASTICSEARCH_CLUSTER_#{n.upcase.tr("-", "_")}_URL or " \
+                "elasticsearch_clusters.#{n}.url in settings.yml)",
+            )
+        end
+      end
+
       # Named ES URLs: +ELASTICSEARCH_CLUSTER_<NAME>_URL+ (NAME uppercased, +\-+ -> +_+), then
       # +DATA_ELASTICSEARCH_URL+ for cluster names +data+ and +analytics+, then settings YAML
       # (+elasticsearch_clusters.<name>.url+).

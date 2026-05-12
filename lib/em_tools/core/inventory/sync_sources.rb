@@ -8,7 +8,11 @@ module EmTools
     module Inventory
       # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+) or from an explicit YAML path.
       class SyncSources
-        Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete)
+        # +cluster+ is the **name** of the ES cluster to write into ("primary",
+        # "data"/"analytics", or any custom +elasticsearch_clusters+ key).
+        # +nil+ means "use whatever default the orchestrator picks" — usually
+        # +primary+, or +data+ when the operator passed +--data+.
+        Source = Data.define(:gs_uri, :index, :refresh, :feed_id, :prune_obsolete, :cluster)
 
         class Error < StandardError; end
 
@@ -45,10 +49,13 @@ module EmTools
         def entries
           node = @preloaded_node || section(load_yaml!)
           list = validate_sources!(node)
-          idx = default_index(node)
-          ref = default_refresh(node)
-          prune = default_prune_obsolete(node)
-          list.each_with_index.map { |item, i| build_entry(item, i, idx, ref, prune) }
+          defaults = {
+            index: default_index(node),
+            refresh: default_refresh(node),
+            prune_obsolete: default_prune_obsolete(node),
+            cluster: default_cluster(node),
+          }
+          list.each_with_index.map { |item, i| build_entry(item, i, defaults) }
         end
 
         private
@@ -103,37 +110,51 @@ module EmTools
         end
         # rubocop:enable Naming/PredicateMethod
 
-        def build_entry(item, idx, default_index, default_refresh, default_prune)
+        def default_cluster(node)
+          v = node["cluster"].to_s.strip
+          v.empty? ? nil : v
+        end
+
+        def build_entry(item, idx, defaults)
           case item
           when String
-            string_source(item, idx, default_index, default_refresh, default_prune)
+            string_source(item, idx, defaults)
           when Hash
-            hash_source(item, idx, default_index, default_refresh, default_prune)
+            hash_source(item, idx, defaults)
           else
             raise Error, "sources[#{idx}] must be a String (gs://...) or a Hash, got #{item.class}"
           end
         end
 
-        def string_source(item, idx, default_index, default_refresh, default_prune)
+        def string_source(item, idx, defaults)
           uri = assert_gs_uri!(item.strip, idx)
           Source.new(
             gs_uri: uri,
-            index: default_index,
-            refresh: default_refresh,
+            index: defaults[:index],
+            refresh: defaults[:refresh],
             feed_id: nil,
-            prune_obsolete: default_prune,
+            prune_obsolete: defaults[:prune_obsolete],
+            cluster: defaults[:cluster],
           )
         end
 
-        def hash_source(item, idx, default_index, default_refresh, default_prune)
+        def hash_source(item, idx, defaults)
           uri = uri_from_item!(item, idx)
           Source.new(
             gs_uri: uri,
-            index: coalesce_index(item["index"], default_index),
-            refresh: coalesce_refresh(item, default_refresh),
+            index: coalesce_index(item["index"], defaults[:index]),
+            refresh: coalesce_refresh(item, defaults[:refresh]),
             feed_id: coalesce_feed_id(item["feed_id"]),
-            prune_obsolete: coalesce_prune_obsolete(item, default_prune),
+            prune_obsolete: coalesce_prune_obsolete(item, defaults[:prune_obsolete]),
+            cluster: coalesce_cluster(item, defaults[:cluster]),
           )
+        end
+
+        def coalesce_cluster(item, default_cluster)
+          return default_cluster unless item.key?("cluster")
+
+          v = item["cluster"].to_s.strip
+          v.empty? ? default_cluster : v
         end
 
         def uri_from_item!(item, idx)

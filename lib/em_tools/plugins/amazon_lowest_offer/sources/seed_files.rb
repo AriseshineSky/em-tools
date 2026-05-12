@@ -30,6 +30,28 @@ module EmTools
               helper.download_file(blob, local)
             end
           end
+
+          # Env-driven entrypoint used by +gcs-download-seeds+ and any composite pipeline that
+          # wants "refresh seeds from GCS" without restating the bucket/prefix/creds defaults.
+          # Always runs with +force: true+ because the consumers want a fresh snapshot.
+          #
+          # @param target_dir [String]
+          # @param env [Hash, ENV-like]
+          # @param marketplaces [Array<String>, nil] +nil+ defaults to the lowest-offer plugin's
+          #   canonical marketplace list.
+          # @return [String] +target_dir+ for chaining.
+          def self.sync_from_env!(target_dir:, env: ENV, marketplaces: nil)
+            creds_path = EmTools::Clients::GcsServiceAccountPath.require!
+            sync_from_gcs(
+              target_dir,
+              marketplaces: marketplaces || Queries::ListingsCoverageQuery::DEFAULT_MARKETPLACES,
+              creds_path: creds_path,
+              bucket: env.fetch("GCS_BUCKET", "em-bucket"),
+              prefix: env.fetch("GCS_SEEDS_PREFIX", "em-analytics"),
+              force: true,
+            )
+            target_dir
+          end
         end
       end
     end

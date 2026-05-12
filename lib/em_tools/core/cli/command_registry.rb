@@ -9,6 +9,8 @@ module EmTools
       # dispatch then becomes a hash lookup, not "merge core + scan plugins"
       # on every help render or command invocation.
       class CommandRegistry
+        class InvalidPluginCommandError < StandardError; end
+
         Command = Data.define(:name, :klass, :section, :source) do
           def plugin?
             source != :core
@@ -53,6 +55,8 @@ module EmTools
           @plugin_registry = plugin_registry
           @commands_by_name = {}
           @core_names_by_section = {}
+          @plugin_aliases = {}
+          @plugin_namespaces = {}
           register_core_commands
           register_plugin_commands
         end
@@ -69,17 +73,21 @@ module EmTools
           @commands_by_name.keys
         end
 
+        # Sections rendered by +HelpRenderer+, in display order:
+        #   1. core sections (Elasticsearch & extracts, Inventory & object storage, ...)
+        #   2. one section per plugin that contributes CLI commands, sorted by plugin name
+        #
+        # Each section is +[title, [Command, ...]]+. Empty sections are dropped by the renderer.
         def sections
-          sections = core_sections
-          plugin_commands = unsectioned_plugin_commands(sections)
-          sections << ["Plugins & other", plugin_commands] if plugin_commands.any?
-          sections
+          core_sections + plugin_sections
         end
 
         private
 
         def canonical_name(raw_name)
-          CommandNames::ALIASES.fetch(raw_name.to_s, raw_name.to_s)
+          name = raw_name.to_s
+          name = @plugin_aliases.fetch(name, name)
+          CommandNames::ALIASES.fetch(name, name)
         end
 
         def register_core_commands
@@ -93,9 +101,27 @@ module EmTools
 
         def register_plugin_commands
           @plugin_registry.each_plugin do |plugin|
+            @plugin_namespaces[plugin.name] = plugin.cli_namespace
             plugin.cli_commands.each do |name, klass|
+              validate_plugin_command_name!(plugin, name)
               register(Command.new(name: name, klass: klass, section: nil, source: plugin.name))
             end
+            merge_plugin_aliases!(plugin)
+          end
+        end
+
+        def validate_plugin_command_name!(plugin, name)
+          expected_prefix = "#{plugin.cli_namespace}:"
+          return if name.to_s.start_with?(expected_prefix)
+
+          raise InvalidPluginCommandError,
+            "plugin #{plugin.name.inspect} CLI command #{name.inspect} must start with " \
+              "#{expected_prefix.inspect} (override Plugin.cli_namespace if you want a different prefix)"
+        end
+
+        def merge_plugin_aliases!(plugin)
+          plugin.cli_aliases.each do |old_name, new_name|
+            @plugin_aliases[old_name.to_s] = new_name.to_s
           end
         end
 
@@ -109,11 +135,21 @@ module EmTools
           end
         end
 
-        def unsectioned_plugin_commands(core_sections)
-          sectioned_names = core_sections.flat_map { |_section, commands| commands.map(&:name) }
-          names.reject { |name| sectioned_names.include?(name) }
-            .sort
-            .filter_map { |name| fetch(name) }
+        def plugin_sections
+          plugin_commands_by_source
+            .sort_by { |plugin_name, _| plugin_name.to_s }
+            .map { |plugin_name, commands| [plugin_section_title(plugin_name), commands.sort_by(&:name)] }
+        end
+
+        def plugin_commands_by_source
+          @commands_by_name.values
+            .reject { |c| c.source == :core }
+            .group_by(&:source)
+        end
+
+        def plugin_section_title(plugin_name)
+          ns = @plugin_namespaces[plugin_name]
+          ns ? "Plugin: #{plugin_name} (#{ns}:*)" : "Plugin: #{plugin_name}"
         end
       end
     end

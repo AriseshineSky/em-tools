@@ -50,7 +50,9 @@ flowchart LR
 | Transforms | `#transforms` | `Array` of classes responding to `.new.call(record) -> record` | `PipelineEngine` |
 | Source | `#source(**opts)` | object responding to `#each` | pipelines / engine |
 | Sink | `#sink(**opts)` | object responding to `#index(record)` (and optional `#flush!`) | pipelines / engine |
-| CLI commands | `#cli_commands` | `Hash<String, CommandClass>` (`"my-cmd" => Cli::MyCmd`) | `Core::Cli::App` |
+| CLI namespace | `.cli_namespace` | `String` prefix every CLI command must use (default: kebab-case of plugin name) | `Core::Cli::CommandRegistry` |
+| CLI commands | `#cli_commands` | `Hash<String, CommandClass>` (`"<namespace>:cmd" => Cli::Cmd`) | `Core::Cli::App` |
+| CLI aliases | `#cli_aliases` | `Hash<String, String>` mapping legacy names to canonical ones | `Core::Cli::CommandRegistry` |
 | Operations | any plain instance method | whatever the caller needs | other plugins / specs / scripts |
 
 The "operation methods" slot is the escape hatch for workflows that do not
@@ -90,10 +92,45 @@ spec/em_tools/plugins/<name>/        # mirror of the above
 The names above match what is already in tree — if your contribution doesn't
 need a particular subdirectory, omit it. Zeitwerk discovers everything.
 
+## Plugin CLI naming contract
+
+Every command a plugin contributes **must** be prefixed with its
+`cli_namespace`. `CommandRegistry` enforces this at boot — a violation raises
+{EmTools::Core::Cli::CommandRegistry::InvalidPluginCommandError} so the
+mistake never reaches users.
+
+| Plugin | `cli_namespace` | Example command |
+|---|---|---|
+| `:storefront` | `storefront` (default) | `storefront:import-products` |
+| `:amazon_uploadable` | `amz-uploadable` (override) | `amz-uploadable:filter` |
+| `:ebay` | `ebay` (default) | `ebay:listings-publish-snapshot` |
+
+Default namespace: kebab-case of `plugin_name` (so `:amazon_lowest_offer`
+becomes `"amazon-lowest-offer"`). Override `self.cli_namespace` if you want
+something shorter:
+
+```ruby
+class Plugin < EmTools::Core::Plugin::Base
+  EmTools::Core::PluginRegistry.register(:amazon_uploadable, self)
+
+  def self.cli_namespace = "amz-uploadable"
+end
+```
+
+Old, un-namespaced names should be carried as **aliases** so existing scripts
+and cron jobs keep working:
+
+```ruby
+def cli_aliases
+  {
+    "import-products" => "storefront:import-products",
+  }
+end
+```
+
 ## Adding a CLI command to an existing plugin
 
-1. Add a command class under `cli/` whose `#run(argv)` parses arguments and
-   delegates to a pipeline / runner / operation:
+1. Add a command class under `cli/`. The lightweight, manual way:
 
    ```ruby
    # lib/em_tools/plugins/my_plugin/cli/my_command.rb
@@ -106,7 +143,7 @@ need a particular subdirectory, omit it. Zeitwerk discovers everything.
            class MyCommand
              def run(argv)
                parser = OptionParser.new do |opts|
-                 opts.banner = "Usage: em-tools my-command [options]"
+                 opts.banner = "Usage: em-tools my-plugin:my-command [options]"
                  opts.on_tail("-h", "--help") { puts opts; exit 0 }
                end
                parser.parse!(argv)
@@ -123,23 +160,46 @@ need a particular subdirectory, omit it. Zeitwerk discovers everything.
    end
    ```
 
-2. Wire it into the plugin's `cli_commands`:
+   Or use the optional {EmTools::Core::Plugin::Cli::Base} SDK to skip the
+   boilerplate (banner / `--help` / `ConfigurationError` translation):
+
+   ```ruby
+   class MyCommand < EmTools::Core::Plugin::Cli::Base
+     def banner
+       <<~B
+         Usage: em-tools my-plugin:my-command [--dry-run] PATH
+
+         Imports a CSV into the my_plugin index.
+       B
+     end
+
+     def configure(opts, options)
+       opts.on("--dry-run") { options[:dry_run] = true }
+     end
+
+     def execute!(options, argv)
+       EmTools::Plugins::MyPlugin::Pipelines::DoThing.new(
+         path: argv.first, dry_run: options[:dry_run],
+       ).run!
+     end
+   end
+   ```
+
+2. Wire it into the plugin's `cli_commands`, prefixed with the namespace:
 
    ```ruby
    def cli_commands
      {
-       "my-command" => Cli::MyCommand,
+       "my-plugin:my-command" => Cli::MyCommand,
      }
    end
    ```
 
 3. (Optional) Mention the command in [`docs/CLI.md`](CLI.md).
 
-The command shows up in `bundle exec bin/em-tools help` automatically under
-the "Plugins & other" group. Built-in command grouping lives in
-{EmTools::Core::Cli::CommandRegistry}; if a plugin command deserves a
-first-class section, add an explicit section there instead of teaching `App`
-about presentation details.
+The command shows up in `bundle exec bin/em-tools help` automatically under a
+section titled `Plugin: my_plugin (my-plugin:*)`. Built-in command grouping
+and section ordering live in {EmTools::Core::Cli::CommandRegistry}.
 
 ## Adding a brand-new plugin
 

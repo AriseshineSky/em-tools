@@ -33,5 +33,21 @@ RSpec.describe(EmTools::Core::Plugin::Base) do
     it "returns an empty hash for cli_commands" do
       expect(plugin.cli_commands).to(eq({}))
     end
+
+    it "returns an empty hash for cli_aliases" do
+      expect(plugin.cli_aliases).to(eq({}))
+    end
+  end
+
+  describe ".cli_namespace" do
+    it "kebab-cases the plugin name by default" do
+      expect(CorePluginBaseSpecAmazonUploadable.cli_namespace)
+        .to(eq("core-plugin-base-spec-amazon-uploadable"))
+    end
+
+    it "is also accessible on instances" do
+      expect(CorePluginBaseSpecAmazonUploadable.new.cli_namespace)
+        .to(eq("core-plugin-base-spec-amazon-uploadable"))
+    end
   end
 end

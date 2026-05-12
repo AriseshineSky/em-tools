@@ -29,7 +29,7 @@ module EmTools
             # -- many CLI flags for import-products
             parser = OptionParser.new do |opts|
               opts.banner = <<~BANNER
-                Usage: em-tools import-products [options] INPUT_PATH
+                Usage: em-tools storefront:import-products [options] INPUT_PATH   (alias: import-products)
 
                 Read NDJSON products, filter invalid/blacklisted/price-ineligible items,
                 and emit batch payloads as NDJSON.

@@ -7,6 +7,9 @@ module EmTools
   module Core
     module Cli
       module Commands
+        # Stream every document from an Elasticsearch index as NDJSON to stdout or a file.
+        # Cluster selection (explicit URL, primary, or data cluster) is delegated to
+        # {EmTools::Core::Config.elasticsearch_client}.
         class Dump
           def run(argv)
             options = { output_path: nil, batch_size: 1000, elasticsearch_url: nil, use_data_cluster: false }
@@ -50,30 +53,23 @@ module EmTools
               usage!(parser)
             end
 
-            url_opt = options[:elasticsearch_url].to_s.strip
-            url_opt = nil if url_opt.empty?
-
-            client = if url_opt
-              EmTools::Clients::ElasticsearchClient.new(url: url_opt)
-            elsif options[:use_data_cluster]
-              u = EmTools::Core::Config.elasticsearch_connection_url(prefer_data_cluster: true)
-              EmTools::Clients::ElasticsearchClient.new(url: u)
-            else
-              Support.require_elasticsearch_url!
-              EmTools::Clients::ElasticsearchClient.new
-            end
-            out = options[:output_path] ? File.open(options[:output_path], "w") : $stdout
-
-            begin
-              client.iterate_all(index: index, batch_size: options[:batch_size]) do |hit|
-                out.puts(JSON.generate(hit))
-              end
-            ensure
-              out.close if options[:output_path]
-            end
+            client = EmTools::Core::Config.elasticsearch_client(
+              url: options[:elasticsearch_url],
+              prefer_data_cluster: options[:use_data_cluster],
+            )
+            stream!(client, index, options)
           end
 
           private
+
+          def stream!(client, index, options)
+            out = options[:output_path] ? File.open(options[:output_path], "w") : $stdout
+            client.iterate_all(index: index, batch_size: options[:batch_size]) do |hit|
+              out.puts(JSON.generate(hit))
+            end
+          ensure
+            out.close if options[:output_path] && out
+          end
 
           def usage!(parser)
             warn(parser.help)

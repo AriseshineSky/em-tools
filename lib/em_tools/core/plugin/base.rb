@@ -18,18 +18,37 @@ module EmTools
       #
       #   cli_commands -> { 'cli-name' => CommandClass } merged into the +em-tools+ binary
       class Base
-        # Default plugin identifier: lowercased, snake_cased class name within EmTools::Plugins.
-        # e.g. EmTools::Plugins::AmazonUploadable -> :amazon_uploadable
+        # Default plugin identifier: snake_cased namespace under EmTools::Plugins.
+        #
+        #   EmTools::Plugins::AmazonUploadable::Plugin -> :amazon_uploadable
+        #   EmTools::Plugins::Storefront::Plugin       -> :storefront
+        #
+        # When the final class is literally +Plugin+ (the convention this project uses), we
+        # take the parent module's short name; otherwise we fall back to the class itself.
         def self.plugin_name
-          short = name.to_s.split("::").last
+          parts = name.to_s.split("::")
+          short = parts.last == "Plugin" && parts.length >= 2 ? parts[-2] : parts.last
           underscored = short.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
             .gsub(/([a-z\d])([A-Z])/, '\1_\2')
             .downcase
           underscored.to_sym
         end
 
+        # Namespace prefix every CLI command in this plugin must use.
+        # Default: kebab-case of +plugin_name+ (e.g. +:amazon_uploadable+ -> +"amazon-uploadable"+).
+        # Override to choose a shorter / more memorable prefix:
+        #
+        #   def self.cli_namespace = "amz"
+        def self.cli_namespace
+          plugin_name.to_s.tr("_", "-")
+        end
+
         def name
           self.class.plugin_name
+        end
+
+        def cli_namespace
+          self.class.cli_namespace
         end
 
         def filters
@@ -48,7 +67,17 @@ module EmTools
           nil
         end
 
+        # Hash of <tt>"namespace:command"</tt> -> CommandClass entries surfaced by +em-tools+.
+        # Names MUST start with +"#{cli_namespace}:"+; +CommandRegistry+ enforces this at boot.
         def cli_commands
+          {}
+        end
+
+        # Hash of legacy command names -> current canonical names. Used to keep old call sites
+        # working after a rename. Aliases do *not* need to follow the namespace rule.
+        #
+        #   { "import-products" => "storefront:import-products" }
+        def cli_aliases
           {}
         end
       end

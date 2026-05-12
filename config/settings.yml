@@ -51,7 +51,15 @@ default: &default
       base_url: https://partner.example.com
       endpoint: https://partner.example.com/api/v1
 
+  # Per-source ES routing.
+  #   cluster:  optional section default; falls back to "primary" (=ELASTICSEARCH_URL).
+  #             Each source can override with its own +cluster:+ key.
+  # Cluster names map to .env URLs:
+  #   primary             -> ELASTICSEARCH_URL
+  #   data / analytics    -> DATA_ELASTICSEARCH_URL (falls back to ELASTICSEARCH_URL)
+  #   <other>             -> ELASTICSEARCH_CLUSTER_<NAME>_URL (or elasticsearch_clusters.<name>.url)
   inventory_sync:
+    cluster: primary
     index: em_inventory
     refresh: false
     prune_obsolete: false
@@ -60,12 +68,24 @@ default: &default
 development:
   <<: *default
   inventory_sync:
+    cluster: primary
     index: em_inventory
     refresh: false
     prune_obsolete: false
     sources:
+      # Bare strings inherit the section default cluster (primary here).
       - gs://em-bucket/AMZ_AE-Inv.csv
       - gs://em-bucket/AMZ_CA-Inv.csv
+      - gs://em-bucket/AMZ_US-Inv.csv
+      - gs://em-bucket/AMZ_DE-Inv.csv
+      - gs://em-bucket/AMZ_UK-Inv.csv
+      - gs://em-bucket/AMZ_IN-Inv.csv
+      - gs://em-bucket/AMZ_IT-Inv.csv
+      - gs://em-bucket/AMZ_MX-Inv.csv
+      - gs://em-bucket/AMZ_JP-Inv.csv
+      # Hash form lets you override per source (cluster, index, feed_id, ...).
+      - uri: gs://em-bucket/Ebay_US-Inv.csv
+        cluster: data           # writes to DATA_ELASTICSEARCH_URL instead
 
 test:
   elasticsearch:
