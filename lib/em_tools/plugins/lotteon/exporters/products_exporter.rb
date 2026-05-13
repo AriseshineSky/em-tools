@@ -9,7 +9,7 @@ module EmTools
         class ProductsExporter
           EXPORTER_KEY = "lotteon_products"
 
-          def initialize(client = nil)
+          def initialize(client: nil)
             @client = client || EmTools::Clients::ElasticsearchClient.new(
               url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY),
             )

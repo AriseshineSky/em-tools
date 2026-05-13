@@ -14,6 +14,25 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:amazon_uploadable, self)
 
+        def capabilities
+          {
+            uploadable: {
+              filter: Filters::UploadableProductFilter,
+              pipeline: Pipelines::AsinProductIndexPipeline,
+              runner: Pipelines::UploadProductsFromEs::Runner,
+              formatter: Formatters::UploadableProductsFormatterFromFile,
+              price_calculator: Transforms::PriceCalculator,
+            },
+          }
+        end
+
+        def dependencies
+          @dependencies ||= {
+            es_client: EmTools::Clients::ElasticsearchClient.new,
+            logger: EmTools::Core::Logger.for(progname: "amz-uploadable"),
+          }
+        end
+
         # Shorter prefix than the auto-derived "amazon-uploadable"; kept consistent with the
         # historical +amz-*+ naming so the alias map below stays small.
         def self.cli_namespace
@@ -32,23 +51,23 @@ module EmTools
         # No engine-level filters/transforms/source/sink: the work happens inside cohesive
         # operations, exposed as factory helpers for direct calls.
         def uploadable_product_filter(**opts)
-          Filters::UploadableProductFilter.new(**opts)
+          capabilities.dig(:uploadable, :filter).new(**opts)
         end
 
         def asin_product_pipeline(**opts)
-          Pipelines::AsinProductIndexPipeline.new(**opts)
+          capabilities.dig(:uploadable, :pipeline).new(**opts)
         end
 
         def upload_runner(**opts)
-          Pipelines::UploadProductsFromEs::Runner.new(**opts)
+          capabilities.dig(:uploadable, :runner).new(**opts)
         end
 
         def products_formatter(**opts)
-          Formatters::UploadableProductsFormatterFromFile.new(**opts)
+          capabilities.dig(:uploadable, :formatter).new(**opts)
         end
 
         def price_calculator(**opts)
-          Transforms::PriceCalculator.new(**opts)
+          capabilities.dig(:uploadable, :price_calculator).new(**opts)
         end
       end
     end

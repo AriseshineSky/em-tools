@@ -8,36 +8,94 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:amazon_lowest_offer, self)
 
+        def capabilities
+          {
+            coverage: {
+              listings_query: Queries::ListingsCoverageQuery,
+              assessment: Queries::CoverageAssessment,
+              snapshot: Sinks::CoverageSnapshot,
+              publish_snapshot: Pipelines::PublishSnapshot,
+              download_and_publish: Pipelines::DownloadAndPublish,
+            },
+            sources: {
+              seed_files: Sources::SeedFiles,
+              inventory_asin_loader: Sources::InventoryAsinLoader,
+            },
+            services: {
+              offer_service: Services::OfferService,
+            },
+            filters: {
+              offer_filter: Filters::OfferFilter,
+            },
+            patterns: {
+              asin: Patterns::AsinPattern,
+            },
+          }
+        end
+
+        def dependencies
+          @dependencies ||= {
+            es_client: EmTools::Clients::ElasticsearchClient.new,
+            logger: EmTools::Core::Logger.for(progname: "lowest-offer"),
+          }
+        end
+
+        def cli_commands
+          {
+            "amazon-lowest-offer:coverage:publish-snapshot" => Cli::PublishSnapshot,
+            "amazon-lowest-offer:coverage:download-and-publish" => Cli::DownloadAndPublish,
+          }
+        end
+
         def listings_coverage_query(**opts)
-          Queries::ListingsCoverageQuery.new(**opts)
+          args = opts.dup
+          es_client = args.delete(:es_client) || dependencies[:es_client]
+          capabilities.dig(:coverage, :listings_query).new(es_client: es_client, **args)
         end
 
         def coverage_assessment(**opts)
-          Queries::CoverageAssessment.new(**opts)
+          args = opts.dup
+          search_client = args.delete(:search_client) || dependencies[:es_client]
+          capabilities.dig(:coverage, :assessment).new(search_client: search_client, **args)
         end
 
-        def seed_files(**opts)
-          Sources::SeedFiles.new(**opts)
+        def seed_files(**_opts)
+          capabilities.dig(:sources, :seed_files)
         end
 
         def inventory_asin_loader(**opts)
-          Sources::InventoryAsinLoader.new(**opts)
+          args = opts.dup
+          es_client = args.delete(:es_client) || dependencies[:es_client]
+          capabilities.dig(:sources, :inventory_asin_loader).new(es_client: es_client, **args)
         end
 
-        def coverage_snapshot(**opts)
-          Sinks::CoverageSnapshot.new(**opts)
+        def coverage_snapshot(**_opts)
+          capabilities.dig(:coverage, :snapshot)
         end
 
-        def asin_pattern(**opts)
-          Patterns::AsinPattern.new(**opts)
+        def asin_pattern(**_opts)
+          capabilities.dig(:patterns, :asin)
         end
 
         def offer_service(**opts)
-          Services::OfferService.new(**opts)
+          args = opts.dup
+          client = args.delete(:client) || dependencies[:es_client]
+          capabilities.dig(:services, :offer_service).new(client: client, **args)
         end
 
         def offer_filter(**opts)
-          Filters::OfferFilter.new(**opts)
+          capabilities.dig(:filters, :offer_filter).new(**opts)
+        end
+
+        def publish_snapshot(**opts)
+          args = opts.dup
+          es_client = args.delete(:es_client) || dependencies[:es_client]
+          logger = args.delete(:logger) || dependencies[:logger]
+          capabilities.dig(:coverage, :publish_snapshot).new(es_client: es_client, logger: logger, **args)
+        end
+
+        def download_and_publish(**opts)
+          capabilities.dig(:coverage, :download_and_publish).new(**opts)
         end
       end
     end

@@ -69,7 +69,8 @@ module EmTools
                 {}
               end
 
-            runner = EmTools::Plugins::AmazonUploadable::Pipelines::UploadProductsFromEs::Runner.new(
+            plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
+            runner = plugin.upload_runner(
               marketplace: options[:marketplace],
               ttl: options[:ttl],
               config: cfg,
@@ -84,8 +85,7 @@ module EmTools
 
             out = options[:output_path] ? File.open(options[:output_path], "w") : $stdout
             begin
-              client = EmTools::Clients::ElasticsearchClient.new
-              runner.run!(client: client, io: out, max_asins: options[:max_asins])
+            runner.run!(client: plugin.dependencies[:es_client], io: out, max_asins: options[:max_asins])
             ensure
               out.close if options[:output_path]
             end

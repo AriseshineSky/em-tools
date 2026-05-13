@@ -2,23 +2,20 @@
 
 module EmTools
   module Plugins
-    module Lotteon
+    module Ssg
       module Cli
         class ExportProducts < EmTools::Core::Plugin::Cli::Base
           def banner
             <<~BANNER
-              Usage: em-tools lotteon:products:export [options]
+              Usage: em-tools ssg:products:export [options]
 
-              Stream Lotteon products from Elasticsearch and write them as NDJSON.
-              Defaults to the configured Lotteon exporter cluster and index.
+              Stream SSG products from Elasticsearch and write them as NDJSON.
+              Defaults to the configured SSG exporter cluster and index.
             BANNER
           end
 
           def defaults
-            {
-              output_path: nil,
-              batch_size: 1000,
-            }
+            { output_path: nil, batch_size: 1000 }
           end
 
           def configure(opts, options)
@@ -31,7 +28,7 @@ module EmTools
           end
 
           def execute!(options, _argv)
-            plugin = EmTools::Core::PluginRegistry.fetch(:lotteon)
+            plugin = EmTools::Core::PluginRegistry.fetch(:ssg)
             exporter = plugin.products_exporter
             if options[:output_path]
               exporter.to_jsonl(options[:output_path], batch_size: options[:batch_size])

@@ -81,17 +81,16 @@ module EmTools
           end
 
           def run_sync(credentials, options)
-            product_util = EmTools::Plugins::Storefront::ProductUtil.new(credentials[:endpoint], credentials[:token])
-            sink = EmTools::Core::Sinks::ElasticsearchBulkSink.new
+            plugin = EmTools::Core::PluginRegistry.fetch(:storefront)
+            product_util = plugin.product_util(endpoint: credentials[:endpoint], api_key: credentials[:token])
             runner_opts = {
               product_util: product_util,
-              sink: sink,
               sources: options[:sources],
               refresh: options[:refresh],
               prune_obsolete: options[:prune],
             }
             runner_opts[:index] = options[:index] if options[:index]
-            results = EmTools::Plugins::Storefront::Runners::SyncInventory.new(**runner_opts).run!
+            results = plugin.sync_inventory(**runner_opts).run!
             print_summary(results)
           end
 

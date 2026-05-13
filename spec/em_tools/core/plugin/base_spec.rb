@@ -30,6 +30,11 @@ RSpec.describe(EmTools::Core::Plugin::Base) do
       expect(plugin.sink).to(be_nil)
     end
 
+    it "returns empty hashes for capabilities and dependencies" do
+      expect(plugin.capabilities).to(eq({}))
+      expect(plugin.dependencies).to(eq({}))
+    end
+
     it "returns an empty hash for cli_commands" do
       expect(plugin.cli_commands).to(eq({}))
     end

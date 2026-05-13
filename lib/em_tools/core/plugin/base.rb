@@ -16,6 +16,8 @@ module EmTools
       #
       # Plugins also declare:
       #
+      #   capabilities  -> nested hash of capability name => class or callable
+      #   dependencies  -> shared runtime objects injected into capabilities / CLI
       #   cli_commands -> { 'cli-name' => CommandClass } merged into the +em-tools+ binary
       class Base
         # Default plugin identifier: snake_cased namespace under EmTools::Plugins.
@@ -65,6 +67,14 @@ module EmTools
 
         def sink(**_opts)
           nil
+        end
+
+        def capabilities
+          {}
+        end
+
+        def dependencies
+          {}
         end
 
         # Hash of <tt>"namespace:command"</tt> -> CommandClass entries surfaced by +em-tools+.

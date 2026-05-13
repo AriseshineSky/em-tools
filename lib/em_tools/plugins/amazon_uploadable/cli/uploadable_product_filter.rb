@@ -113,14 +113,15 @@ module EmTools
               :asin_label,
               :asin_label_field,
             ).merge(config: cfg)
-            filter = EmTools::Plugins::AmazonUploadable::Filters::UploadableProductFilter.new(**filter_opts)
+            plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
+            filter = plugin.uploadable_product_filter(**filter_opts)
 
             if options[:dry_run] && !options[:to_es]
               $stdout.puts(JSON.generate(filter.describe))
               return
             end
 
-            client = EmTools::Clients::ElasticsearchClient.new
+            client = plugin.dependencies[:es_client]
 
             if options[:to_es]
               stats = filter.bulk_index_asins!(

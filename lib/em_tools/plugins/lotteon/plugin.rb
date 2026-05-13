@@ -9,14 +9,30 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:lotteon, self)
 
-        def cli_commands
+        def capabilities
           {
-            "lotteon:export-products" => Cli::ExportProducts,
+            products: {
+              exporter: Exporters::ProductsExporter,
+            },
           }
         end
 
-        def products_exporter(**opts)
-          Exporters::ProductsExporter.new(**opts)
+        def dependencies
+          @dependencies ||= {
+            es_client: EmTools::Clients::ElasticsearchClient.new(
+              url: EmTools::Core::Config.exporter_elasticsearch_url(Exporters::ProductsExporter::EXPORTER_KEY),
+            ),
+          }
+        end
+
+        def cli_commands
+          {
+            "lotteon:products:export" => Cli::ExportProducts,
+          }
+        end
+
+        def products_exporter(client: dependencies[:es_client], **_opts)
+          capabilities.dig(:products, :exporter).new(client: client)
         end
       end
     end

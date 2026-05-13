@@ -139,7 +139,8 @@ module EmTools
             Support.require_elasticsearch_url!
 
             sink_index = resolved_sink_index(options)
-            formatter = EmTools::Plugins::AmazonUploadable::Formatters::UploadableProductsFormatterFromFile.new(
+            plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
+            formatter = plugin.products_formatter(
               marketplace: options[:marketplace],
               products_path: products_path,
               output_path: options[:output_path],
@@ -159,8 +160,7 @@ module EmTools
               dry_run: options[:dry_run],
             )
 
-            client = EmTools::Clients::ElasticsearchClient.new
-            formatter.run!(client: client)
+            formatter.run!(client: plugin.dependencies[:es_client])
             warn(JSON.generate(
               sink_index: formatter.sink_index,
               output_path: formatter.output_path,

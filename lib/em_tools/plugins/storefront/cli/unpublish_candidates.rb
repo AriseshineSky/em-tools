@@ -71,9 +71,8 @@ module EmTools
           # rubocop:enable Metrics/BlockLength
 
           def run_pipeline(options)
-            es = EmTools::Clients::ElasticsearchClient.new
+            plugin = EmTools::Core::PluginRegistry.fetch(:storefront)
             runner_opts = {
-              es_client: es,
               inventory_index: options[:inventory_index],
               unpublish_index: options[:unpublish_index],
               sources: options[:sources],
@@ -82,7 +81,7 @@ module EmTools
               refresh: options[:refresh],
             }
             runner_opts[:filters] = options[:filters] if options[:filters]
-            EmTools::Plugins::Storefront::Runners::UnpublishCandidates.new(**runner_opts).run!
+            plugin.unpublish_candidates(**runner_opts).run!
           end
 
           # -- terminal column padding only

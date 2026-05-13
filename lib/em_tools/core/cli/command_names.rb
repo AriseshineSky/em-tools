@@ -20,8 +20,7 @@ module EmTools
         EBAY_LISTINGS_PUBLISH_SNAPSHOT = "ebay-listings-publish-snapshot"
         BLACKLIST_DOWNLOAD = "blacklist-download"
 
-        # Namespace-style aliases preserve today's hyphenated command names
-        # while giving us a path toward grouped commands later.
+        # Namespace-style aliases map built-in core commands into grouped names.
         ALIASES = {
           "es:dump-index" => ES_DUMP_INDEX,
           "es:download-product" => ES_DOWNLOAD_PRODUCT,

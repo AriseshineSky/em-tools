@@ -28,7 +28,7 @@ RSpec.describe(EmTools::Plugins::Lotteon::Exporters::ProductsExporter) do
 
     Dir.mktmpdir do |dir|
       path = File.join(dir, "lotteon.ndjson")
-      described_class.new(client).to_jsonl(path, batch_size: 25)
+      described_class.new(client: client).to_jsonl(path, batch_size: 25)
 
       expect(File.read(path).lines.map(&:strip)).to(eq([
         JSON.generate("sku" => "A-1", "name" => "Alpha"),

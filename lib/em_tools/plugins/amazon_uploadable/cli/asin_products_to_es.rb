@@ -135,12 +135,13 @@ module EmTools
               asin_label: options[:asin_label],
               asin_label_field: options[:asin_label_field],
             }
-            filter = EmTools::Plugins::AmazonUploadable::Filters::UploadableProductFilter.new(**filter_opts)
+            plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
+            filter = plugin.uploadable_product_filter(**filter_opts)
 
             keywords = options[:keywords_path] ? Support.load_keywords(options[:keywords_path]) : []
             req = options[:require_fields].to_s.split(",").map(&:strip).reject(&:empty?)
 
-            pipeline = EmTools::Plugins::AmazonUploadable::Pipelines::AsinProductIndexPipeline.new(
+            pipeline = plugin.asin_product_pipeline(
               marketplace: options[:marketplace],
               sink_index: options[:sink_index],
               product_index: options[:product_index],
@@ -155,8 +156,7 @@ module EmTools
               max_asin_hits: options[:max_asin_hits],
             )
 
-            client = EmTools::Clients::ElasticsearchClient.new
-            stats = pipeline.run!(client: client, dry_run: options[:dry_run])
+            stats = pipeline.run!(client: plugin.dependencies[:es_client], dry_run: options[:dry_run])
 
             $stdout.puts(JSON.generate(stats.to_h))
           end

@@ -105,7 +105,7 @@ module EmTools
 
             keywords = options[:keywords_path] ? Support.load_keywords(options[:keywords_path]) : []
             out = options[:output_path] ? File.open(options[:output_path], "w") : $stdout
-            importer = EmTools::Plugins::Storefront::Importers::ProductImporter.new(
+            importer = EmTools::Core::PluginRegistry.fetch(:storefront).product_importer(
               store_code: options[:store_code],
               batch_size: options[:batch_size],
               min_price: options[:min_price],

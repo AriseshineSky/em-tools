@@ -12,9 +12,14 @@ RSpec.describe(EmTools::Core::Cli::CommandRegistry) do
         "lowest-offer-publish-snapshot" => EmTools::Core::Cli::Commands::LowestOfferPublishSnapshot,
         "dump" => EmTools::Core::Cli::Commands::Dump,
         "blacklist-download" => EmTools::Core::Cli::Commands::BlacklistDownload,
-        "lotteon:export-products" => EmTools::Plugins::Lotteon::Cli::ExportProducts,
+        "lotteon:products:export" => EmTools::Plugins::Lotteon::Cli::ExportProducts,
+        "ssg:products:export" => EmTools::Plugins::Ssg::Cli::ExportProducts,
+        "ebay:listings:publish-snapshot" => EmTools::Plugins::Ebay::Cli::PublishSnapshot,
+        "amazon-lowest-offer:coverage:publish-snapshot" => EmTools::Plugins::AmazonLowestOffer::Cli::PublishSnapshot,
+        "amazon-lowest-offer:coverage:download-and-publish" => EmTools::Plugins::AmazonLowestOffer::Cli::DownloadAndPublish,
       ))
     end
+
   end
 
   describe "#fetch" do
