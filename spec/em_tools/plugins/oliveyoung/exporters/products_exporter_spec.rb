@@ -64,4 +64,58 @@ RSpec.describe(EmTools::Plugins::Oliveyoung::Exporters::ProductsExporter) do
 
     expect(client.calls.first[:query]).to(eq(raw))
   end
+
+  describe "keyword exclusion policy" do
+    let(:mixed_docs) do
+      [
+        { "_id" => "1", "_source" => { "sku" => "OK-1", "title" => "shampoo bottle", "brand" => "BrandA" } },
+        { "_id" => "2", "_source" => { "sku" => "BAD-1", "title" => "weed lotion",  "brand" => "BrandB" } },
+        { "_id" => "3", "_source" => { "sku" => "OK-2", "title" => "face mask",     "brand" => "BrandC" } },
+      ]
+    end
+    let(:policy) do
+      EmTools::Core::Blacklist.build(
+        keywords: ["weed"],
+        rules_source: "product_download",
+      )
+    end
+
+    it "drops blocked docs and writes them to the side-file" do
+      client = OliveyoungProductsExporterSpecClient.new(mixed_docs)
+
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "oy.ndjson")
+        blocked = File.join(dir, "oy.blocked.ndjson")
+
+        counts = described_class.new(
+          client: client,
+          policy: policy,
+          blocked_output_path: blocked,
+        ).to_jsonl(path, batch_size: 5)
+
+        expect(counts).to(eq({ total: 3, written: 2, blocked: 1 }))
+        written_lines = File.read(path).lines.map(&:strip)
+        expect(written_lines.length).to(eq(2))
+        expect(written_lines.map { |l| JSON.parse(l)["sku"] }).to(eq(["OK-1", "OK-2"]))
+
+        blocked_records = File.read(blocked).lines.map { |l| JSON.parse(l) }
+        expect(blocked_records.length).to(eq(1))
+        expect(blocked_records.first).to(include(
+          "_id" => "2",
+          "title" => "weed lotion",
+          "matched" => ["weed"],
+        ))
+      end
+    end
+
+    it "skips the side-file when none is requested but still drops blocked docs" do
+      client = OliveyoungProductsExporterSpecClient.new(mixed_docs)
+      io = StringIO.new
+
+      counts = described_class.new(client: client, policy: policy).write_jsonl(io, batch_size: 5)
+
+      expect(counts).to(eq({ total: 3, written: 2, blocked: 1 }))
+      expect(io.string.lines.length).to(eq(2))
+    end
+  end
 end
