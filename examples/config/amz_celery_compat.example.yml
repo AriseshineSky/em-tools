@@ -1,4 +1,4 @@
-# Example for: em-tools amz-upload-products-from-es --config config/amz_celery_compat.example.yml
+# Example for: em-tools amz-uploadable:upload-from-es --config config/amz_celery_compat.example.yml
 #
 # ASIN stream keys match +em_tasks+ +asin_stream_options+ / +UploadableProductFilter+.
 # Price rules mirror +em_celery/tools/spree/amz_upload_products_from_es.py+ (+price_rules_cfg+).

@@ -23,4 +23,4 @@ MAILTO=""
 30 4 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay-listings-publish-snapshot us >> log/em-tools.ebay-listings.log 2>&1'
 
 # 05:00 daily — storefront unpublish-candidates (which products to delist).
-0  5 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools storefront-unpublish-candidates >> log/em-tools.unpublish.log 2>&1'
+0  5 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools storefront:unpublish-candidates >> log/em-tools.unpublish.log 2>&1'

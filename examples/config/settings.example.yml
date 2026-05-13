@@ -34,7 +34,13 @@ default: &default
       base_url: https://partner.example.com
       endpoint: https://partner.example.com/api/v1
 
+  # Per-source ES routing. Each source may override +cluster:+; section default
+  # below is the fallback. Cluster name -> URL mapping:
+  #   primary           -> .env ELASTICSEARCH_URL
+  #   data / analytics  -> .env DATA_ELASTICSEARCH_URL (fallback ELASTICSEARCH_URL)
+  #   <custom>          -> .env ELASTICSEARCH_CLUSTER_<NAME>_URL or elasticsearch_clusters.<name>.url
   inventory_sync:
+    cluster: primary
     index: em_inventory
     refresh: false
     prune_obsolete: false
@@ -43,9 +49,12 @@ default: &default
 development:
   <<: *default
   inventory_sync:
+    cluster: primary
     sources:
-      - gs://em-bucket/AMZ_AE-Inv.csv
+      - gs://em-bucket/AMZ_AE-Inv.csv      # uses section default (primary)
       - gs://em-bucket/AMZ_CA-Inv.csv
+      - uri: gs://em-bucket/Ebay_US-Inv.csv
+        cluster: data                       # this one writes to DATA_ELASTICSEARCH_URL
 
 test:
   elasticsearch:
