@@ -23,7 +23,7 @@ WorkingDirectory=/home/sky/src/em-tools
 EnvironmentFile=-/home/sky/src/em-tools/.env
 
 # bash -lc picks up rbenv/asdf shims and other user-shell setup.
-ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools inventory-sync'
+ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools inventory sync'
 
 TimeoutStartSec=7200
 Nice=10

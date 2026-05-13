@@ -1,90 +1,68 @@
 # frozen_string_literal: true
 
+require "dry/cli"
 require "json"
-require "optparse"
 
 module EmTools
   module Plugins
     module Storefront
       module Cli
-        # CLI for {EmTools::Plugins::Storefront::Runners::UnpublishCandidates}.
-        # Iterates +em_inventory+, runs the rule registry against the matching Amazon-side
-        # product doc, and indexes failing ASINs into +em_products_to_unpublish+.
-        class UnpublishCandidates
-          def run(argv)
-            options = parse_options(argv)
-            return 0 if options.nil?
+        # +em-tools storefront unpublish-candidates+ — iterate +em_inventory+, run the
+        # rule registry against the matching Amazon-side product doc, and bulk-index
+        # failing ASINs into +em_products_to_unpublish+.
+        class UnpublishCandidates < Dry::CLI::Command
+          desc "Flag inventory rows whose Amazon product doc fails any rule"
 
-            stats = run_pipeline(options)
+          option :inventory_index,
+            default: "em_inventory",
+            desc: "Source ES index (default em_inventory)"
+          option :unpublish_index,
+            default: "em_products_to_unpublish",
+            desc: "Target ES index (default em_products_to_unpublish)"
+          option :source,
+            type: :array,
+            default: [],
+            desc: "Inventory source whitelist (repeatable / CSV). e.g. AMZ_US"
+          option :max_evaluated, desc: "Cap on inventory rows evaluated (smoke runs)"
+          option :batch_size, default: "200", desc: "mget batch size (default: 200)"
+          option :filter,
+            type: :array,
+            default: [],
+            desc: "Rule name(s) to run (repeatable / CSV); omit to run every rule"
+          option :refresh,
+            type: :boolean,
+            default: true,
+            desc: "Refresh unpublish index at end"
+
+          example [
+            "                                          # run every rule against every source",
+            "--source AMZ_US --source AMZ_CA",
+            "--filter LowRatingRule --max-evaluated 1000",
+          ]
+
+          def call(inventory_index: "em_inventory", unpublish_index: "em_products_to_unpublish",
+            source: [], max_evaluated: nil, batch_size: "200", filter: [], refresh: true, **)
+            sources = Array(source).flat_map { |s| s.to_s.split(",") }.map(&:strip).reject(&:empty?)
+            filters = Array(filter).flat_map { |s| s.to_s.split(",") }.map(&:strip).reject(&:empty?)
+            resolved_filters = filters.empty? ? nil : filters.map { |n| EmTools::Core::Rules::Registry.get(n) }
+
+            plugin = EmTools::Core::PluginRegistry.fetch(:storefront)
+            runner_opts = {
+              inventory_index: inventory_index,
+              unpublish_index: unpublish_index,
+              sources: sources,
+              batch_size: Integer(batch_size),
+              max_evaluated: max_evaluated ? Integer(max_evaluated) : nil,
+              refresh: refresh,
+            }
+            runner_opts[:filters] = resolved_filters if resolved_filters
+            stats = plugin.unpublish_candidates(**runner_opts).run!
             print_stats(stats)
-            0
           end
+          # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
           private
 
-          def parse_options(argv)
-            options = {
-              inventory_index: "em_inventory",
-              unpublish_index: "em_products_to_unpublish",
-              sources: [],
-              max_evaluated: nil,
-              batch_size: 200,
-              refresh: true,
-              filters: nil,
-            }
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools storefront:unpublish-candidates [options]
-
-                For each Amazon-sourced row in --inventory-index, look up the enriched product
-                doc in amz_products_api_<mp>_v2, run all rules from EmTools::Core::Rules::Registry
-                against it, and bulk-index the IDs of products that fail any rule into
-                --unpublish-index.
-              BANNER
-              opts.on("--inventory-index NAME", "Source ES index (default em_inventory)") do |v|
-                options[:inventory_index] = v
-              end
-              opts.on("--unpublish-index NAME", "Target ES index (default em_products_to_unpublish)") do |v|
-                options[:unpublish_index] = v
-              end
-              opts.on("--source SOURCE", "Inventory source whitelist (repeatable). e.g. AMZ_US") do |v|
-                options[:sources] << v
-              end
-              opts.on("--max-evaluated N", Integer, "Cap on inventory rows evaluated (smoke runs)") do |v|
-                options[:max_evaluated] = v
-              end
-              opts.on("--batch-size N", Integer, "mget batch size (default 200)") { |v| options[:batch_size] = v }
-              opts.on("--filter NAME", "Run only this rule (repeatable)") do |v|
-                options[:filters] ||= []
-                options[:filters] << EmTools::Core::Rules::Registry.get(v)
-              end
-              opts.on("--[no-]refresh", "Refresh unpublish index at end (default: yes)") { |v| options[:refresh] = v }
-              opts.on_tail("-h", "--help") do
-                puts opts
-                return nil
-              end
-            end
-            parser.parse!(argv)
-            options[:sources] = options[:sources].flat_map { |s| s.split(",") }.map(&:strip).reject(&:empty?)
-            options
-          end
-          # rubocop:enable Metrics/BlockLength
-
-          def run_pipeline(options)
-            plugin = EmTools::Core::PluginRegistry.fetch(:storefront)
-            runner_opts = {
-              inventory_index: options[:inventory_index],
-              unpublish_index: options[:unpublish_index],
-              sources: options[:sources],
-              batch_size: options[:batch_size],
-              max_evaluated: options[:max_evaluated],
-              refresh: options[:refresh],
-            }
-            runner_opts[:filters] = options[:filters] if options[:filters]
-            plugin.unpublish_candidates(**runner_opts).run!
-          end
-
-          # -- terminal column padding only
           def print_stats(stats)
             puts "Unpublish-candidate run summary:"
             puts "  inventory_scanned:        #{stats[:inventory_scanned]}"
@@ -97,7 +75,6 @@ module EmTools
             puts "  by_reason:"
             stats[:by_reason].sort_by { |_r, n| -n }.each { |reason, n| puts format("    %-26s %d", reason, n) }
           end
-          # rubocop:enable Style/FormatStringToken
         end
       end
     end

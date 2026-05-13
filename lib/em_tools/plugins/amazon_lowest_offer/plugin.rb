@@ -42,8 +42,8 @@ module EmTools
 
         def cli_commands
           {
-            "amazon-lowest-offer:coverage:publish-snapshot" => Cli::PublishSnapshot,
-            "amazon-lowest-offer:coverage:download-and-publish" => Cli::DownloadAndPublish,
+            "coverage publish-snapshot" => Cli::PublishSnapshot,
+            "coverage download-and-publish" => Cli::DownloadAndPublish,
           }
         end
 

@@ -26,7 +26,7 @@ module EmTools
 
         def cli_commands
           {
-            "ssg:products:export" => Cli::ExportProducts,
+            "products export" => Cli::ExportProducts,
           }
         end
 

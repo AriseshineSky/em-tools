@@ -13,7 +13,7 @@ WorkingDirectory=/home/sky/src/em-tools
 
 EnvironmentFile=-/home/sky/src/em-tools/.env
 
-ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools lowest-offer-download-and-publish'
+ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools amazon-lowest-offer coverage download-and-publish'
 
 TimeoutStartSec=10800
 Nice=10

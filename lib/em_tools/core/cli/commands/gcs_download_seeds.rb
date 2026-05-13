@@ -1,36 +1,22 @@
 # frozen_string_literal: true
 
-require "optparse"
+require "dry/cli"
 
 module EmTools
   module Core
     module Cli
       module Commands
-        # Thin CLI wrapper over
+        # +em-tools gcs download-seeds+ — download AMZ marketplace seed files from GCS
+        # into ./tmp (amz_<mp>.txt). Wraps
         # {EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_env!}.
-        class GcsDownloadSeeds
-          def run(argv)
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools gcs-download-seeds
+        class GcsDownloadSeeds < Dry::CLI::Command
+          desc "Download AMZ marketplace seed files from GCS into ./tmp/amz_<mp>.txt"
 
-                Download AMZ marketplace seed files from GCS into ./tmp (amz_<mp>.txt).
-                Requires GCS_SERVICE_ACCOUNT_PATH (or default credentials).
+          example [
+            "                                  # uses GCS_BUCKET, GCS_SEEDS_PREFIX",
+          ]
 
-                Env: GCS_BUCKET (default em-bucket), GCS_SEEDS_PREFIX (default em-analytics).
-              BANNER
-              opts.on_tail("-h", "--help") do
-                puts opts
-                exit(0)
-              end
-            end
-            parser.parse!(argv)
-
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              exit(1)
-            end
-
+          def call(**)
             EmTools::Core::Cli::Runner.run do
               target = File.join(Dir.pwd, "tmp")
               EmTools::Plugins::AmazonLowestOffer::Sources::SeedFiles.sync_from_env!(target_dir: target)

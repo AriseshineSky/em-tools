@@ -35,6 +35,12 @@ default: &default
     lotteon_products:
       cluster: analytics
       index: user1_lotteon_products
+    # Oliveyoung exports filter by source=oliveyoung (see
+    # EmTools::Plugins::Oliveyoung::Queries::ProductsQuery), so this index
+    # can be a shared multi-source product index.
+    oliveyoung_products:
+      cluster: primary
+      index: oliveyoung_products
 
   redis:
     url: redis://localhost:6379/0    # local dev fallback; .env REDIS_URL overrides

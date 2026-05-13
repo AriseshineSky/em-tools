@@ -1,69 +1,43 @@
 # frozen_string_literal: true
 
-require "json"
-require "optparse"
+require "dry/cli"
 require "fileutils"
+require "json"
 
 module EmTools
   module Core
     module Cli
       module Commands
-        # Downloads the blacklist keyword list from the Everymarket admin API and writes it
-        # somewhere useful (stdout, a flat keyword file, or the raw JSON response).
+        # +em-tools blacklist download+ — fetches the keyword blacklist from the
+        # Everymarket admin API and emits it to stdout / a file.
         #
-        # Required env: +BLACKLIST_API_ENDPOINT+, +BLACKLIST_API_PATH+, +BLACKLIST_API_TOKEN+.
-        class BlacklistDownload
-          def run(argv)
-            options = { output_path: nil, raw: false }
+        # Required env: BLACKLIST_API_ENDPOINT, BLACKLIST_API_PATH, BLACKLIST_API_TOKEN.
+        class BlacklistDownload < Dry::CLI::Command
+          desc "Download the keyword blacklist from the admin API"
 
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools blacklist-download [options]
+          option :output, aliases: ["-o"], desc: "Write to file instead of stdout"
+          option :raw,
+            type: :flag,
+            default: false,
+            desc: "Print the raw JSON response (all pages) instead of parsed keywords"
 
-                Download the keyword blacklist from the Everymarket admin API.
+          example [
+            "                                  # one keyword per line on stdout",
+            "-o tmp/blacklist.txt              # write parsed list to a file",
+            "--raw -o tmp/blacklist.json       # full JSON pages dump",
+          ]
 
-                By default prints one keyword per line on stdout. With --raw, prints the full
-                decoded JSON body instead (useful for inspecting schema changes).
-
-                Required env: BLACKLIST_API_ENDPOINT, BLACKLIST_API_PATH, BLACKLIST_API_TOKEN.
-
-                Examples:
-                  em-tools blacklist-download
-                  em-tools blacklist-download -o tmp/blacklist.txt
-                  em-tools blacklist-download --raw -o tmp/blacklist.json
-              BANNER
-
-              opts.on("-o", "--output PATH", "Write to file instead of stdout") do |path|
-                options[:output_path] = path
-              end
-              opts.on("--raw", "Print the raw JSON response instead of parsed keywords") do
-                options[:raw] = true
-              end
-              opts.on_tail("-h", "--help") do
-                puts opts
-                exit(0)
-              end
-            end
-
-            parser.parse!(argv)
-
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              warn(parser.help)
-              exit(1)
-            end
-
+          def call(output: nil, raw: false, **)
             EmTools::Core::Cli::Runner.run do
               loader = EmTools::Core::Blacklist::Loader.new
-
-              if options[:raw]
+              if raw
                 pages = loader.fetch_pages
-                summary = emit(JSON.pretty_generate(pages), options[:output_path])
-                Runner::Result.new(summary: "Wrote #{pages.size} raw blacklist page(s) #{summary}")
+                location = emit(JSON.pretty_generate(pages), output)
+                Runner::Result.new(summary: "Wrote #{pages.size} raw blacklist page(s) #{location}")
               else
                 keywords = loader.fetch_keywords
-                summary = emit(keywords.join("\n") + "\n", options[:output_path])
-                Runner::Result.new(summary: "Downloaded #{keywords.size} blacklist keywords #{summary}")
+                location = emit(keywords.join("\n") + "\n", output)
+                Runner::Result.new(summary: "Downloaded #{keywords.size} blacklist keywords #{location}")
               end
             end
           end
@@ -72,7 +46,8 @@ module EmTools
 
           def emit(text, output_path)
             if output_path
-              FileUtils.mkdir_p(File.dirname(output_path)) unless File.dirname(output_path) == "."
+              dir = File.dirname(output_path)
+              FileUtils.mkdir_p(dir) unless dir == "."
               File.write(output_path, text)
               "to #{output_path}"
             else

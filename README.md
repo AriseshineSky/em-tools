@@ -38,58 +38,45 @@ cd em-tools
 bin/setup                          # bundle install + copy .env.example -> .env
 $EDITOR .env                       # fill in cluster URLs / GCS keys
 
-bundle exec bin/em-tools help
-bundle exec bin/em-tools inventory-sync                                 # all sources from settings YAML
-bundle exec bin/em-tools lowest-offer-publish-snapshot us,ca,jp         # Amazon coverage snapshot
-bundle exec bin/em-tools ebay-listings-publish-snapshot us              # eBay coverage snapshot
+bundle exec bin/em-tools                                                    # top-level command tree
+bundle exec bin/em-tools inventory sync                                     # all sources from settings YAML
+bundle exec bin/em-tools amazon-lowest-offer coverage publish-snapshot us ca jp   # Amazon snapshot
+bundle exec bin/em-tools ebay listings publish-snapshot us                  # eBay snapshot
 ```
 
 ## Running commands
 
-There are three equivalent ways to invoke any command — pick whichever fits
-your shell habits.
+The CLI is a hierarchical subcommand tree (à la `kubectl` / `git`) built on
+[dry-cli](https://dry-rb.org/gems/dry-cli/):
+
+```
+em-tools <area> <action> [options] [arguments]
+```
+
+Three equivalent invocation styles — pick whichever fits your shell habits:
 
 ```bash
 # 1) bundle exec (works in any directory of the repo).
-bundle exec bin/em-tools inventory-sync
+bundle exec bin/em-tools inventory sync
 
 # 2) Run the script directly. `bin/em-tools` does its own `bundler/setup`
 #    and `dotenv/load`, so a bare `./bin/em-tools` works from the repo root.
-./bin/em-tools inventory-sync
+./bin/em-tools inventory sync
 
 # 3) Add a shim once, then forget about paths.
 ln -s "$(pwd)/bin/em-tools" ~/.local/bin/em-tools
-em-tools inventory-sync
+em-tools inventory sync
 ```
 
-Every CLI command supports `--help`:
+### Help / discovery
 
 ```bash
-bundle exec bin/em-tools lowest-offer-publish-snapshot --help
+bundle exec bin/em-tools                                  # top-level subtrees
+bundle exec bin/em-tools <area>                           # subcommand listing
+bundle exec bin/em-tools <area> <action> --help           # per-command help
 ```
 
-### Command names and aliases
-
-The canonical names are hyphenated (`inventory-sync`, `es-dump-index`,
-`lowest-offer-publish-snapshot`, …). For every multi-word built-in command
-there is also a `namespace:command` alias that resolves to the same handler:
-
-| Canonical | Alias |
-|---|---|
-| `inventory-sync` | `inventory:sync` |
-| `inventory-sync-from-gcs` | `inventory:sync-from-gcs` |
-| `gcs-download-seeds` | `gcs:download-seeds` |
-| `es-dump-index` | `es:dump-index` |
-| `es-download-product` | `es:download-product` |
-| `lowest-offer-publish-snapshot` | `lowest-offer:publish-snapshot` |
-| `lowest-offer-download-and-publish` | `lowest-offer:download-and-publish` |
-| `ebay-listings-publish-snapshot` | `ebay-listings:publish-snapshot` |
-
-Aliases are resolved by `EmTools::Core::Cli::CommandRegistry`; pick whichever
-form is more readable in your context. Help and `--help` always print the
-canonical name.
-
-For configuration and individual command reference, see
+For per-command reference and configuration, see
 [`docs/CLI.md`](docs/CLI.md) and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
 
 ---
@@ -98,17 +85,19 @@ For configuration and individual command reference, see
 
 | Capability | Plugin / module | CLI command |
 |---|---|---|
-| Stream an ES index to NDJSON (primary cluster) | `EmTools::Core::Sinks::IndexDumper` | `em-tools es-dump-index` |
-| Stream an ES index to NDJSON (data cluster) | same, `prefer_data_cluster: true` | `em-tools es-download-product` |
-| Sync GCS inventory CSVs into ES (multi-source) | `EmTools::Core::Inventory::*` | `em-tools inventory-sync [path]` |
-| Sync a single GCS CSV into ES | `EmTools::Core::Inventory::SyncRunner` | `em-tools inventory-sync-from-gcs [gs://...]` |
-| Download lowest-offer AMZ seed files from GCS | `Plugins::AmazonLowestOffer::Sources::SeedFiles` | `em-tools gcs-download-seeds` |
-| Amazon lowest-offer coverage snapshot | `Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot` | `em-tools lowest-offer-publish-snapshot [mp,...]` |
-| Seeds + Amazon snapshot in one go | composite of the two above | `em-tools lowest-offer-download-and-publish` |
-| eBay listings coverage snapshot | `Plugins::Ebay::Pipelines::PublishSnapshot` | `em-tools ebay-listings-publish-snapshot [mp]` |
-| Format Amazon uploadable products from a file | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable:format-from-file` |
-| Upload Amazon products from ES | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable:upload-from-es` |
-| Storefront → ES inventory + delisting candidates | `Plugins::Storefront::Runners::*` | `em-tools storefront:sync-inventory` / `storefront:unpublish-candidates` |
+| Stream an ES index to NDJSON (any cluster) | `EmTools::Core::Sinks::IndexDumper` / `Config.elasticsearch_client` | `em-tools dump INDEX` |
+| Env-driven ES dump (primary cluster) | `EmTools::Core::Sinks::IndexDumper.from_env` | `em-tools es dump-index` |
+| Env-driven ES dump (data cluster) + blacklist policy | `EmTools::Core::Pipelines::ProductDownload` | `em-tools es download-product` |
+| Sync GCS inventory CSVs into ES (multi-source) | `EmTools::Core::Inventory::*` | `em-tools inventory sync [path]` |
+| Sync a single GCS CSV into ES | `EmTools::Core::Inventory::SyncRunner` | `em-tools inventory sync-from-gcs [gs://...]` |
+| Download lowest-offer AMZ seed files from GCS | `Plugins::AmazonLowestOffer::Sources::SeedFiles` | `em-tools gcs download-seeds` |
+| Amazon lowest-offer coverage snapshot | `Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot` | `em-tools amazon-lowest-offer coverage publish-snapshot [mp ...]` |
+| Seeds + Amazon snapshot in one go | composite of the two above | `em-tools amazon-lowest-offer coverage download-and-publish` |
+| eBay listings coverage snapshot | `Plugins::Ebay::Pipelines::PublishSnapshot` | `em-tools ebay listings publish-snapshot [mp]` |
+| Format Amazon uploadable products from a file | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable format-from-file` |
+| Upload Amazon products from ES | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable upload-from-es` |
+| Storefront → ES inventory + delisting candidates | `Plugins::Storefront::Runners::*` | `em-tools storefront sync-inventory` / `storefront unpublish-candidates` |
+| Refresh keyword blacklist | `EmTools::Core::Blacklist::Loader` | `em-tools blacklist download` |
 
 A full per-command reference lives in [`docs/CLI.md`](docs/CLI.md).
 
@@ -221,10 +210,10 @@ The example schedule:
 
 | Time (system TZ) | Job |
 |---|---|
-| 03:30 | `em-tools inventory-sync` (full sync) |
-| 04:00 | `em-tools lowest-offer-download-and-publish` (Amazon snapshot) |
-| 04:30 | `em-tools ebay-listings-publish-snapshot us` (eBay snapshot) |
-| 05:00 | `em-tools storefront:unpublish-candidates` (delisting candidates) |
+| 03:30 | `em-tools inventory sync` (full sync) |
+| 04:00 | `em-tools amazon-lowest-offer coverage download-and-publish` (Amazon snapshot) |
+| 04:30 | `em-tools ebay listings publish-snapshot us` (eBay snapshot) |
+| 05:00 | `em-tools storefront unpublish-candidates` (delisting candidates) |
 
 See [`schedule/README.md`](schedule/README.md) for the full guide.
 

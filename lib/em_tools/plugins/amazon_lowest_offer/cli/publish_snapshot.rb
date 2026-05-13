@@ -1,21 +1,29 @@
 # frozen_string_literal: true
 
+require "dry/cli"
+
 module EmTools
   module Plugins
     module AmazonLowestOffer
       module Cli
-        class PublishSnapshot < EmTools::Core::Plugin::Cli::Base
-          def banner
-            <<~BANNER
-              Usage: em-tools amazon-lowest-offer:coverage:publish-snapshot [marketplace ...]
+        # +em-tools amazon-lowest-offer coverage publish-snapshot [marketplace ...]+ —
+        # publish lowest-offer coverage to Elasticsearch, optionally constrained to a
+        # subset of marketplaces.
+        class PublishSnapshot < Dry::CLI::Command
+          desc "Publish lowest-offer coverage snapshot to Elasticsearch"
 
-              Publish the lowest-offer coverage snapshot to Elasticsearch.
-              Optional marketplace codes: us ca jp or us,ca; otherwise LOWEST_OFFER_MARKETPLACES or default nine markets.
-            BANNER
-          end
+          argument :marketplaces,
+            type: :array,
+            desc: "Optional marketplace codes (e.g. us ca jp); defaults to LOWEST_OFFER_MARKETPLACES"
 
-          def execute!(_options, argv)
-            cli_mps = argv.flat_map { |a| a.split(",") }.map(&:strip).reject(&:empty?).map(&:downcase).join(",")
+          example [
+            "                                  # default markets",
+            "us ca jp                          # subset of markets",
+          ]
+
+          def call(marketplaces: [], **)
+            cli_mps = Array(marketplaces).flat_map { |a| a.to_s.split(",") }
+              .map(&:strip).reject(&:empty?).map(&:downcase).join(",")
             cli_mps = nil if cli_mps.empty?
 
             EmTools::Core::Cli::Runner.run do

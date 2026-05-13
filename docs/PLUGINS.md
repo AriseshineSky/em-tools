@@ -50,8 +50,8 @@ flowchart LR
 | Transforms | `#transforms` | `Array` of classes responding to `.new.call(record) -> record` | `PipelineEngine` |
 | Source | `#source(**opts)` | object responding to `#each` | pipelines / engine |
 | Sink | `#sink(**opts)` | object responding to `#index(record)` (and optional `#flush!`) | pipelines / engine |
-| CLI namespace | `.cli_namespace` | `String` prefix every CLI command must use (default: kebab-case of plugin name) | `Core::Cli::CommandRegistry` |
-| CLI commands | `#cli_commands` | `Hash<String, CommandClass>` (`"<namespace>:cmd" => Cli::Cmd`) | `Core::Cli::App` |
+| CLI namespace | `.cli_namespace` | `String` (top-level subcommand name; default: kebab-case of plugin name) | `Core::Cli::Registry` |
+| CLI commands | `#cli_commands` | `Hash<String, Dry::CLI::Command class>` (path *relative* to `cli_namespace`) | `Core::Cli::App` |
 | Operations | any plain instance method | whatever the caller needs | other plugins / specs / scripts |
 
 The "operation methods" slot is the escape hatch for workflows that do not
@@ -69,7 +69,7 @@ See {EmTools::Plugins::AmazonUploadable::Plugin} and
 ```
 lib/em_tools/plugins/<name>/
   plugin.rb                          # class Plugin < Base + register
-  cli/                               # OptionParser scripts; delegate to pipelines/runners
+  cli/                               # Dry::CLI::Command classes
     my_command.rb                    # EmTools::Plugins::<Name>::Cli::MyCommand
   pipelines/                         # multi-stage orchestrations
     do_thing.rb
@@ -91,18 +91,27 @@ spec/em_tools/plugins/<name>/        # mirror of the above
 The names above match what is already in tree — if your contribution doesn't
 need a particular subdirectory, omit it. Zeitwerk discovers everything.
 
-## Plugin CLI naming contract
+## CLI naming contract (hierarchical)
 
-Every command a plugin contributes **must** be prefixed with its
-`cli_namespace`. `CommandRegistry` enforces this at boot — a violation raises
-{EmTools::Core::Cli::CommandRegistry::InvalidPluginCommandError} so the
-mistake never reaches users.
+The CLI is a hierarchical subcommand tree powered by [dry-cli], shaped like
+`kubectl` / `git`:
 
-| Plugin | `cli_namespace` | Example command |
+```
+em-tools <area> <action> [options] [arguments]
+```
+
+[dry-cli]: https://dry-rb.org/gems/dry-cli/
+
+A plugin contributes commands under a single top-level token — its
+**`cli_namespace`** — and supplies a hash of *subcommand-relative* paths to
+`Dry::CLI::Command` classes. The registry prepends `cli_namespace` at boot.
+
+| Plugin | `cli_namespace` | Example invocation |
 |---|---|---|
-| `:storefront` | `storefront` (default) | `storefront:import-products` |
-| `:amazon_uploadable` | `amz-uploadable` (override) | `amz-uploadable:filter` |
-| `:ebay` | `ebay` (default) | `ebay:listings-publish-snapshot` |
+| `:storefront` | `storefront` (default) | `em-tools storefront import-products …` |
+| `:amazon_uploadable` | `amz-uploadable` (override) | `em-tools amz-uploadable filter …` |
+| `:ebay` | `ebay` (default) | `em-tools ebay listings publish-snapshot …` |
+| `:amazon_lowest_offer` | `amazon-lowest-offer` (default) | `em-tools amazon-lowest-offer coverage publish-snapshot …` |
 
 Default namespace: kebab-case of `plugin_name` (so `:amazon_lowest_offer`
 becomes `"amazon-lowest-offer"`). Override `self.cli_namespace` if you want
@@ -117,32 +126,40 @@ end
 ```
 
 The project does **not** carry legacy command aliases. Renaming a plugin
-command is a one-shot rename: change `cli_commands`, update the banner,
-update any docs / cron / scripts in the same commit.
+command is a one-shot rename: change `cli_commands`, update any docs / cron
+/ scripts in the same commit.
 
 ## Adding a CLI command to an existing plugin
 
-1. Add a command class under `cli/`. The lightweight, manual way:
+1. Add a `Dry::CLI::Command` subclass under `cli/`:
 
    ```ruby
-   # lib/em_tools/plugins/my_plugin/cli/my_command.rb
-   require "optparse"
+   # lib/em_tools/plugins/my_plugin/cli/do_thing.rb
+   require "dry/cli"
 
    module EmTools
      module Plugins
        module MyPlugin
          module Cli
-           class MyCommand
-             def run(argv)
-               parser = OptionParser.new do |opts|
-                 opts.banner = "Usage: em-tools my-plugin:my-command [options]"
-                 opts.on_tail("-h", "--help") { puts opts; exit 0 }
-               end
-               parser.parse!(argv)
+           class DoThing < Dry::CLI::Command
+             desc "Run the my_plugin do-thing pipeline"
 
+             argument :input_path, required: true, desc: "Local NDJSON to consume"
+             option :dry_run, type: :flag, default: false, desc: "Resolve only; skip side effects"
+             option :batch_size, default: "500", desc: "Docs per request (default: 500)"
+
+             example [
+               "tmp/products.ndjson",
+               "tmp/products.ndjson --dry-run",
+             ]
+
+             def call(input_path:, dry_run: false, batch_size: "500", **)
                EmTools::Core::Cli::Runner.run do
-                 # ... do work; return a Cli::Runner::Result for the summary line.
-                 EmTools::Plugins::MyPlugin::Pipelines::DoThing.new.run!
+                 EmTools::Plugins::MyPlugin::Pipelines::DoThing.new(
+                   path: input_path,
+                   dry_run: dry_run,
+                   batch_size: Integer(batch_size),
+                 ).run!
                end
              end
            end
@@ -152,46 +169,35 @@ update any docs / cron / scripts in the same commit.
    end
    ```
 
-   Or use the optional {EmTools::Core::Plugin::Cli::Base} SDK to skip the
-   boilerplate (banner / `--help` / `ConfigurationError` translation):
+   Notes:
+   - `desc` is the one-line summary shown in the parent's subcommand listing.
+   - `option …, type: :flag` produces a single `--dry-run` switch; `:boolean`
+     produces `--[no-]dry-run`. Use `:flag` unless you actually want the
+     negative form.
+   - dry-cli does not coerce option types beyond `:flag`/`:boolean`/`:array`;
+     wrap with `Integer(...)` / `Float(...)` in `call`.
+   - Wrap business work in {EmTools::Core::Cli::Runner.run} to translate
+     `ConfigurationError` / `EmptyResultError` into a one-line stderr message
+     and `exit 1`.
 
-   ```ruby
-   class MyCommand < EmTools::Core::Plugin::Cli::Base
-     def banner
-       <<~B
-         Usage: em-tools my-plugin:my-command [--dry-run] PATH
-
-         Imports a CSV into the my_plugin index.
-       B
-     end
-
-     def configure(opts, options)
-       opts.on("--dry-run") { options[:dry_run] = true }
-     end
-
-     def execute!(options, argv)
-       EmTools::Plugins::MyPlugin::Pipelines::DoThing.new(
-         path: argv.first, dry_run: options[:dry_run],
-       ).run!
-     end
-   end
-   ```
-
-2. Wire it into the plugin's `cli_commands`, prefixed with the namespace:
+2. Wire it into the plugin's `cli_commands` (path **relative** to the
+   namespace — the registry prepends `cli_namespace`):
 
    ```ruby
    def cli_commands
      {
-       "my-plugin:my-command" => Cli::MyCommand,
+       "do-thing" => Cli::DoThing,
+       # multi-level paths are allowed:
+       "products do-thing" => Cli::DoThing,
      }
    end
    ```
 
 3. (Optional) Mention the command in [`docs/CLI.md`](CLI.md).
 
-The command shows up in `bundle exec bin/em-tools help` automatically under a
-section titled `Plugin: my_plugin (my-plugin:*)`. Built-in command grouping
-and section ordering live in {EmTools::Core::Cli::CommandRegistry}.
+The command appears in `bundle exec bin/em-tools <namespace>` automatically.
+Top-level discovery (`bundle exec bin/em-tools`) shows every namespace as a
+subtree.
 
 ## Adding a brand-new plugin
 
@@ -211,7 +217,8 @@ Then:
    ```bash
    bundle exec rspec
    bundle exec rubocop
-   bundle exec bin/em-tools help    # smoke-test the new commands
+   bundle exec bin/em-tools           # smoke-test the new namespace
+   bundle exec bin/em-tools my-plugin # subtree listing
    ```
 
 5. Update [`CHANGELOG.md`](../CHANGELOG.md) and, if this plugin warrants one,
@@ -237,6 +244,8 @@ failures (HTTP, IO, etc).
 ## Testing
 
 - Mirror the production layout under `spec/em_tools/plugins/<name>/`.
+- Test command classes via the dry-cli interface: instantiate the class and
+  call `#call(**)` with the kwargs you'd expect after option parsing.
 - Use real classes and real ES query payloads; mock external HTTP / GCS at
   the client boundary, not in the plugin itself.
 - Use `EmTools::Core::Logger.silent!` (already wired in `spec_helper.rb`)

@@ -3,25 +3,36 @@
 require "spec_helper"
 
 RSpec.describe(EmTools::Core::Cli::App) do
-  describe "#start" do
-    it "dispatches through the supplied command registry" do
-      stub_const("CoreCliAppSpecCommand", Class.new { def run(_argv); end })
-      command = class_double(CoreCliAppSpecCommand)
-      command_instance = instance_double(CoreCliAppSpecCommand)
-      registry = instance_double(EmTools::Core::Cli::CommandRegistry)
+  describe ".start" do
+    it "dispatches to the dry-cli registry" do
+      registry = Module.new
+      runner = instance_double(Dry::CLI)
 
-      allow(registry).to(receive(:fetch).with("inventory-sync").and_return(
-        EmTools::Core::Cli::CommandRegistry::Command.new(
-          name: "inventory-sync",
-          klass: command,
-          section: "Inventory & object storage",
-          source: :core,
-        ),
+      expect(EmTools::Core::Cli::Registry).to(receive(:build).and_return(registry))
+      expect(Dry::CLI).to(receive(:new).with(registry).and_return(runner))
+      expect(runner).to(receive(:call).with(arguments: ["inventory", "sync", "--data"]))
+
+      described_class.start(["inventory", "sync", "--data"])
+    end
+
+    it "translates ConfigurationError to a single-line stderr + exit 1" do
+      allow(Dry::CLI).to(receive(:new).and_raise(
+        EmTools::Core::Errors::ConfigurationError, "INVENTORY_INDEX is not set"
       ))
-      allow(command).to(receive(:new).and_return(command_instance))
-      expect(command_instance).to(receive(:run).with(["--dry-run"]))
 
-      described_class.new(["inventory-sync", "--dry-run"], registry: registry).start
+      expect { described_class.start([]) }.to(raise_error(SystemExit) do |e|
+        expect(e.status).to(eq(1))
+      end.and(output(/error: INVENTORY_INDEX is not set/).to_stderr))
+    end
+
+    it "translates EmptyResultError the same way" do
+      allow(Dry::CLI).to(receive(:new).and_raise(
+        EmTools::Core::Errors::EmptyResultError, "no products matched"
+      ))
+
+      expect { described_class.start([]) }.to(raise_error(SystemExit) do |e|
+        expect(e.status).to(eq(1))
+      end.and(output(/error: no products matched/).to_stderr))
     end
   end
 end

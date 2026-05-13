@@ -1,39 +1,33 @@
 # frozen_string_literal: true
 
+require "dry/cli"
+
 module EmTools
   module Plugins
     module Ssg
       module Cli
-        class ExportProducts < EmTools::Core::Plugin::Cli::Base
-          def banner
-            <<~BANNER
-              Usage: em-tools ssg:products:export [options]
+        # +em-tools ssg products export+ — stream SSG products from Elasticsearch as NDJSON.
+        class ExportProducts < Dry::CLI::Command
+          desc "Stream SSG products from Elasticsearch as NDJSON"
 
-              Stream SSG products from Elasticsearch and write them as NDJSON.
-              Defaults to the configured SSG exporter cluster and index.
-            BANNER
-          end
+          option :output, aliases: ["-o"], desc: "Write NDJSON to file instead of stdout"
+          option :batch_size,
+            aliases: ["-b"],
+            default: "1000",
+            desc: "Documents per request (default: 1000)"
 
-          def defaults
-            { output_path: nil, batch_size: 1000 }
-          end
+          example [
+            "                                  # NDJSON to stdout",
+            "-o ssg_products.ndjson -b 2000",
+          ]
 
-          def configure(opts, options)
-            opts.on("-o", "--output PATH", String, "Write NDJSON to file instead of stdout.") do |value|
-              options[:output_path] = value
-            end
-            opts.on("-b", "--batch-size N", Integer, "Documents per request (default: 1000).") do |value|
-              options[:batch_size] = value
-            end
-          end
-
-          def execute!(options, _argv)
+          def call(output: nil, batch_size: "1000", **)
             plugin = EmTools::Core::PluginRegistry.fetch(:ssg)
             exporter = plugin.products_exporter
-            if options[:output_path]
-              exporter.to_jsonl(options[:output_path], batch_size: options[:batch_size])
+            if output
+              exporter.to_jsonl(output, batch_size: Integer(batch_size))
             else
-              exporter.write_jsonl($stdout, batch_size: options[:batch_size])
+              exporter.write_jsonl($stdout, batch_size: Integer(batch_size))
             end
           end
         end

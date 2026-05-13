@@ -43,9 +43,9 @@ read the parts that apply to your task.
 | Application | always | `APP_ENV` |
 | Logging | always | `EM_TOOLS_LOG_LEVEL`, `EM_TOOLS_LOG_OUTPUT`, `EM_TOOLS_LOG_FORMAT` |
 | Elasticsearch (primary) | most commands | `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD`, `ELASTICSEARCH_API_KEY` |
-| Elasticsearch (data) | `es-download-product` | `DATA_ELASTICSEARCH_URL` |
+| Elasticsearch (data) | `es download-product` | `DATA_ELASTICSEARCH_URL` |
 | Per-cluster | dynamic routing | `ELASTICSEARCH_CLUSTER_<NAME>_URL` |
-| ES dump | `es-dump-index` | `ES_DUMP_*` |
+| ES dump | `es dump-index` | `ES_DUMP_*` |
 | GCS | inventory + seeds | `GCS_SERVICE_ACCOUNT_PATH` (or `GCS_CREDENTIALS` + `GCS_PROJECT_ID`) |
 | GCS routing | seeds + inventory | `GCS_BUCKET`, `GCS_SEEDS_PREFIX` |
 | Inventory | inventory sync | `INVENTORY_INDEX`, `INVENTORY_GS_URI` / `INVENTORY_GCS_*`, `INVENTORY_REFRESH`, `INVENTORY_PRUNE_OBSOLETE`, `INVENTORY_FEED_ID` |

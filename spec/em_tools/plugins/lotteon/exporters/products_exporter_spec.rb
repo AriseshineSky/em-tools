@@ -13,9 +13,9 @@ class LotteonProductsExporterSpecClient
     @calls = []
   end
 
-  def iterate_all(index:, batch_size:)
+  def iterate_all(index:, batch_size:, &block)
     @calls << { index: index, batch_size: batch_size }
-    @docs.each { |doc| yield doc }
+    @docs.each(&block)
   end
 end
 

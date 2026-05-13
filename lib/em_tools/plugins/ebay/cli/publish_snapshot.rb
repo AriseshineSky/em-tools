@@ -1,28 +1,27 @@
 # frozen_string_literal: true
 
+require "dry/cli"
+
 module EmTools
   module Plugins
     module Ebay
       module Cli
-        class PublishSnapshot < EmTools::Core::Plugin::Cli::Base
-          def banner
-            <<~BANNER
-              Usage: em-tools ebay:listings:publish-snapshot [marketplace]
+        # +em-tools ebay listings publish-snapshot [marketplace]+ — publish an eBay
+        # listings coverage snapshot for the given marketplace.
+        class PublishSnapshot < Dry::CLI::Command
+          desc "Publish an eBay listings coverage snapshot to Elasticsearch"
 
-              Publish an eBay listings coverage snapshot.
-              Optional marketplace argument (e.g. us); otherwise EBAY_LISTINGS_COVERAGE_MARKETPLACE or default us.
-            BANNER
-          end
+          argument :marketplace,
+            desc: "Marketplace (e.g. us); defaults to EBAY_LISTINGS_COVERAGE_MARKETPLACE or 'us'"
 
-          def execute!(_options, argv)
-            mp = argv.shift
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              exit(1)
-            end
+          example [
+            "                                  # default marketplace",
+            "us                                # explicit marketplace",
+          ]
 
+          def call(marketplace: nil, **)
             EmTools::Core::Cli::Runner.run do
-              EmTools::Core::PluginRegistry.fetch(:ebay).publish_snapshot(cli_marketplace: mp).run!
+              EmTools::Core::PluginRegistry.fetch(:ebay).publish_snapshot(cli_marketplace: marketplace).run!
             end
           end
         end

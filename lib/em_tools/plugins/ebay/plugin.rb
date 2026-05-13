@@ -26,7 +26,7 @@ module EmTools
 
         def cli_commands
           {
-            "ebay:listings:publish-snapshot" => Cli::PublishSnapshot,
+            "listings publish-snapshot" => Cli::PublishSnapshot,
           }
         end
 

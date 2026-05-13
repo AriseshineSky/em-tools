@@ -149,7 +149,7 @@ sequenceDiagram
     participant ES as Elasticsearch
     participant SNK as CoverageSnapshot sink
 
-    U->>CLI: em-tools lowest-offer-publish-snapshot us,ca,jp
+    U->>CLI: em-tools amazon-lowest-offer coverage publish-snapshot us ca jp
     CLI->>P: PublishSnapshot.new(cli_marketplaces: 'us,ca,jp').run!
     alt LOWEST_OFFER_ID_SOURCE=inventory
         P->>ES: query em_inventory for ASINs

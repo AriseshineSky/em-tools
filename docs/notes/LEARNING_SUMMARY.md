@@ -83,17 +83,17 @@ OptionParser 块天然偏长。项目在 `.rubocop.yml` 里对 `lib/em_tools/cor
 
 | 命令 | 作用 |
 |------|------|
-| `em-tools amz-uploadable:filter` | ASIN 流 + 完整 stream 相关 CLI 选项（与 em-tasks 对齐最多）。 |
-| `em-tools amz-uploadable:upload-from-es` | 与 Celery 脚本一致的 `-m` / `-i` / `-t` 入口 + 价格规则 YAML + ASIN 流；`--dry-run` 输出 manifest JSON。 |
+| `em-tools amz-uploadable filter` | ASIN 流 + 完整 stream 相关 CLI 选项（与 em-tasks 对齐最多）。 |
+| `em-tools amz-uploadable upload-from-es` | 与 Celery 脚本一致的 `-m` / `-i` / `-t` 入口 + 价格规则 YAML + ASIN 流；`--dry-run` 输出 manifest JSON。 |
 
-更多用法见各命令类内 `OptionParser` 的 `--help` 文案。
+更多用法见各命令的 `--help` 文案（dry-cli 自动生成）。
 
 ---
 
 ## 延伸阅读（仓库外）
 
 - [Zeitwerk README](https://github.com/fxn/zeitwerk)
-- [Ruby OptionParser](https://docs.ruby-lang.org/en/master/OptionParser.html)
+- [dry-cli](https://dry-rb.org/gems/dry-cli/)
 
 ---
 

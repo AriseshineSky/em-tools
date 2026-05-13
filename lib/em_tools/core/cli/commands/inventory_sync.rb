@@ -1,47 +1,40 @@
 # frozen_string_literal: true
 
-require "optparse"
+require "dry/cli"
 
 module EmTools
   module Core
     module Cli
       module Commands
-        # Thin CLI wrapper over {EmTools::Core::Inventory::SyncRunner.run_from_settings!}.
-        class InventorySync
-          def run(argv)
-            options = { use_data_cluster: false }
+        # +em-tools inventory sync [config_path]+ — multi-source GCS-CSV -> Elasticsearch sync,
+        # delegated to {EmTools::Core::Inventory::SyncRunner.run_from_settings!}.
+        #
+        # Cluster selection precedence (highest -> lowest):
+        #   per-source +cluster:+ in YAML
+        #   +inventory_sync.cluster:+ section default
+        #   +--data+ flag (defaults sources without +cluster:+ to DATA_ELASTICSEARCH_URL)
+        #   ELASTICSEARCH_URL
+        class InventorySync < Dry::CLI::Command
+          desc "Sync all GCS inventory CSV sources from settings YAML"
 
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools inventory-sync [--data] [path/to/settings.yml]
+          argument :config_path, desc: "Optional path to a settings YAML (default: config/settings.yml)"
 
-                Sync all GCS inventory CSV sources listed in the merged settings YAML.
+          option :data,
+            type: :flag,
+            default: false,
+            desc: "Default sources without cluster: to DATA_ELASTICSEARCH_URL"
 
-                Each source can declare its own cluster in YAML:
-                  - per-source `cluster: primary|data|<name>` (always wins)
-                  - `inventory_sync.cluster: ...`             (section default)
-                  - --data                                    (runtime default for sources without `cluster:`)
-                  - otherwise falls back to ELASTICSEARCH_URL.
-              BANNER
-              opts.on("--data", "Default to DATA_ELASTICSEARCH_URL for sources without cluster:") do
-                options[:use_data_cluster] = true
-              end
-              opts.on_tail("-h", "--help") do
-                puts opts
-                exit(0)
-              end
-            end
-            parser.parse!(argv)
+          example [
+            "                                  # default config/settings.yml",
+            "config/staging.yml                # alternate settings file",
+            "--data                            # default to data cluster for unmarked sources",
+          ]
 
-            if argv.size > 1
-              warn("error: at most one optional path to settings YAML")
-              exit(1)
-            end
-
+          def call(config_path: nil, data: false, **)
             EmTools::Core::Cli::Runner.run do
               EmTools::Core::Inventory::SyncRunner.run_from_settings!(
-                config_path: argv.shift,
-                prefer_data_cluster: options[:use_data_cluster],
+                config_path: config_path,
+                prefer_data_cluster: data,
               )
             end
           end

@@ -33,18 +33,17 @@ module EmTools
           }
         end
 
-        # Shorter prefix than the auto-derived "amazon-uploadable"; kept consistent with the
-        # historical +amz-*+ naming so the alias map below stays small.
+        # Shorter prefix than the auto-derived "amazon-uploadable".
         def self.cli_namespace
           "amz-uploadable"
         end
 
         def cli_commands
           {
-            "amz-uploadable:filter" => Cli::UploadableProductFilter,
-            "amz-uploadable:upload-from-es" => Cli::AmzUploadProductsFromEs,
-            "amz-uploadable:format-from-file" => Cli::AmzUploadableProductsFormatterFromFile,
-            "amz-uploadable:asin-to-es" => Cli::AsinProductsToEs,
+            "filter" => Cli::UploadableProductFilter,
+            "upload-from-es" => Cli::AmzUploadProductsFromEs,
+            "format-from-file" => Cli::AmzUploadableProductsFormatterFromFile,
+            "asin-to-es" => Cli::AsinProductsToEs,
           }
         end
 

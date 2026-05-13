@@ -172,13 +172,15 @@ classDiagram
   record stream and writes to the plugin's sink. Used by the simpler
   per-record plugins; multi-stage workflows skip it and use a dedicated
   pipeline class instead.
-- `Core::Cli::CommandRegistry` owns core command definitions, scans plugin
-  `cli_commands` once, caches the resulting dispatch table, and resolves
-  namespace-style aliases such as `inventory:sync`.
-- `Core::Cli::HelpRenderer` renders usage text from the registry; `App` no
-  longer owns presentation concerns.
-- `Core::Cli::App` is now a thin lifecycle wrapper: detect help, validate the
-  first argument, fetch a command definition from the registry, and dispatch.
+- `Core::Cli::Registry` builds a [dry-cli](https://dry-rb.org/gems/dry-cli/)
+  command tree from the static core command map plus every plugin's
+  `cli_commands` (prefixed by its `cli_namespace`). The tree is hierarchical
+  (`em-tools <area> <action>`), like `kubectl` / `git`.
+- Per-command help / option parsing / subcommand discovery are owned by
+  `dry-cli` itself — there's no project-local help renderer.
+- `Core::Cli::App` is a thin lifecycle wrapper: build the tree, hand `ARGV`
+  to `Dry::CLI`, translate top-level `EmTools::Error` subclasses into
+  `error: <msg>` + exit 1.
 
 See [`PLUGINS.md`](PLUGINS.md) for the contributor-facing contract.
 
@@ -189,9 +191,10 @@ See [`PLUGINS.md`](PLUGINS.md) for the contributor-facing contract.
 ```mermaid
 flowchart LR
     Argv[ARGV] --> App[Core::Cli::App]
-    App -->|fetch command| Registry[Core::Cli::CommandRegistry]
-    App -->|help| Help[Core::Cli::HelpRenderer]
-    Registry -->|dispatch| Cmd[Cli::Commands::* / Plugins::*::Cli::*]
+    App -->|build tree| Registry[Core::Cli::Registry]
+    Registry -->|register| DryCli[Dry::CLI registry]
+    App -->|call arguments:| DryCli
+    DryCli -->|dispatch| Cmd[Cli::Commands::* / Plugins::*::Cli::*]
     Cmd --> Runner[Cli::Runner.run { ... }]
     Runner -->|ConfigurationError, EmptyResultError| Warn[warn 'error: ...' + exit 1]
     Runner -->|Result.summary| Stdout[puts result.summary]
@@ -219,7 +222,7 @@ pipeline / runner class under `lib/em_tools/<plugin>/pipelines/` (or
 
 ```mermaid
 sequenceDiagram
-    participant CLI as em-tools inventory-sync
+    participant CLI as em-tools inventory sync
     participant SS as SyncSources
     participant SR as SyncRunner
     participant GCS as GcsBlobFetcher

@@ -15,7 +15,7 @@ EnvironmentFile=-/home/sky/src/em-tools/.env
 
 # Replace 'us' with the marketplace you want, or remove to use
 # EBAY_LISTINGS_COVERAGE_MARKETPLACE from .env.
-ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay-listings-publish-snapshot us'
+ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay listings publish-snapshot us'
 
 TimeoutStartSec=3600
 Nice=10

@@ -1,47 +1,34 @@
 # frozen_string_literal: true
 
-require "optparse"
+require "dry/cli"
 
 module EmTools
   module Core
     module Cli
       module Commands
-        # Thin CLI wrapper over {EmTools::Core::Inventory::SyncRunner.run_one_from_env!}.
-        class InventorySyncFromGcs
-          def run(argv)
-            options = { use_data_cluster: false }
+        # +em-tools inventory sync-from-gcs [gs://bucket/path.csv]+ — single-CSV variant.
+        # Reads INVENTORY_* env vars; +--data+ targets DATA_ELASTICSEARCH_URL.
+        class InventorySyncFromGcs < Dry::CLI::Command
+          desc "Sync one inventory CSV from GCS into Elasticsearch (env-driven)"
 
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools inventory-sync-from-gcs [--data] [gs://bucket/path.csv]
+          argument :gs_uri,
+            desc: "gs://... URI (overrides INVENTORY_GS_URI / INVENTORY_GCS_BUCKET+OBJECT)"
 
-                Sync one inventory CSV from GCS into Elasticsearch.
-                URI: argument, or INVENTORY_GS_URI, or INVENTORY_GCS_BUCKET + INVENTORY_GCS_OBJECT.
+          option :data,
+            type: :flag,
+            default: false,
+            desc: "Bulk-index into DATA_ELASTICSEARCH_URL (falls back to ELASTICSEARCH_URL)"
 
-                Cluster: defaults to ELASTICSEARCH_URL. Pass --data to target
-                DATA_ELASTICSEARCH_URL instead (falls back to ELASTICSEARCH_URL when unset).
+          example [
+            "gs://em-bucket/Ebay_US-Inv.csv --data",
+            "                                          # uses INVENTORY_GS_URI",
+          ]
 
-                Env: INVENTORY_INDEX, INVENTORY_REFRESH=1, INVENTORY_PRUNE_OBSOLETE=1,
-                     INVENTORY_FEED_ID, INVENTORY_DROP_FIELDS (comma-separated; e.g. "handle,variants").
-              BANNER
-              opts.on("--data", "Bulk-index into DATA_ELASTICSEARCH_URL") { options[:use_data_cluster] = true }
-              opts.on_tail("-h", "--help") do
-                puts opts
-                exit(0)
-              end
-            end
-            parser.parse!(argv)
-
-            gs_uri_arg = argv.shift
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              exit(1)
-            end
-
+          def call(gs_uri: nil, data: false, **)
             EmTools::Core::Cli::Runner.run do
               EmTools::Core::Inventory::SyncRunner.run_one_from_env!(
-                cli_gs_uri: gs_uri_arg,
-                prefer_data_cluster: options[:use_data_cluster],
+                cli_gs_uri: gs_uri,
+                prefer_data_cluster: data,
               )
             end
           end

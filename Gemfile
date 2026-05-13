@@ -9,7 +9,9 @@ ruby File.read(File.expand_path(".ruby-version", __dir__)).strip
 
 # Runtime
 gem "ahocorasick-rust", "~> 2.0"
+gem "bigdecimal"
 gem "csv"
+gem "dry-cli", "~> 1.0"
 gem "elasticsearch", "~> 7.17"
 gem "google-cloud-storage"
 gem "nokogiri", "~> 1.19"

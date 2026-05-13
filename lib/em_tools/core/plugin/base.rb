@@ -18,15 +18,13 @@ module EmTools
       #
       #   capabilities  -> nested hash of capability name => class or callable
       #   dependencies  -> shared runtime objects injected into capabilities / CLI
-      #   cli_commands -> { 'cli-name' => CommandClass } merged into the +em-tools+ binary
+      #   cli_commands -> { 'subcommand path' => Dry::CLI::Command class } merged into the
+      #                   +em-tools+ binary under the plugin's +cli_namespace+ subtree.
       class Base
         # Default plugin identifier: snake_cased namespace under EmTools::Plugins.
         #
         #   EmTools::Plugins::AmazonUploadable::Plugin -> :amazon_uploadable
         #   EmTools::Plugins::Storefront::Plugin       -> :storefront
-        #
-        # When the final class is literally +Plugin+ (the convention this project uses), we
-        # take the parent module's short name; otherwise we fall back to the class itself.
         def self.plugin_name
           parts = name.to_s.split("::")
           short = parts.last == "Plugin" && parts.length >= 2 ? parts[-2] : parts.last
@@ -36,11 +34,16 @@ module EmTools
           underscored.to_sym
         end
 
-        # Namespace prefix every CLI command in this plugin must use.
-        # Default: kebab-case of +plugin_name+ (e.g. +:amazon_uploadable+ -> +"amazon-uploadable"+).
-        # Override to choose a shorter / more memorable prefix:
+        # Subcommand subtree every CLI command in this plugin lives under. Default is
+        # the kebab-case +plugin_name+; override for a shorter, friendlier prefix:
         #
-        #   def self.cli_namespace = "amz"
+        #   def self.cli_namespace = "amz-uploadable"
+        #
+        # Plugin command paths (declared in +cli_commands+) are merged under this prefix:
+        #
+        #   cli_namespace = "amz-uploadable"
+        #   cli_commands   = { "filter" => SomeCommand }
+        #   # invoked as: em-tools amz-uploadable filter
         def self.cli_namespace
           plugin_name.to_s.tr("_", "-")
         end
@@ -77,8 +80,21 @@ module EmTools
           {}
         end
 
-        # Hash of <tt>"namespace:command"</tt> -> CommandClass entries surfaced by +em-tools+.
-        # Names MUST start with +"#{cli_namespace}:"+; +CommandRegistry+ enforces this at boot.
+        # Hash of <tt>"subcommand path"</tt> -> +Dry::CLI::Command+ class entries surfaced
+        # by +em-tools+. Keys are space-separated subcommand paths *relative* to
+        # +cli_namespace+; the registry prepends the namespace at boot.
+        #
+        #   cli_namespace = "amz-uploadable"
+        #   cli_commands  = {
+        #     "filter"          => Cli::UploadableProductFilter,
+        #     "upload-from-es"  => Cli::AmzUploadProductsFromEs,
+        #     # multi-level paths are allowed:
+        #     "products filter" => Cli::SomeNestedCommand,
+        #   }
+        #
+        #   # -> em-tools amz-uploadable filter
+        #   # -> em-tools amz-uploadable upload-from-es
+        #   # -> em-tools amz-uploadable products filter
         def cli_commands
           {}
         end

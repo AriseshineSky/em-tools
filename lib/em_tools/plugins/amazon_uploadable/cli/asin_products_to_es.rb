@@ -1,172 +1,86 @@
 # frozen_string_literal: true
 
+require "dry/cli"
 require "json"
-require "optparse"
-require "yaml"
 
 module EmTools
   module Plugins
     module AmazonUploadable
       module Cli
-        # Streams ASINs from an ASIN index, mgets product docs, filters, bulk-writes to a sink ES index.
-        class AsinProductsToEs
-          def run(argv)
-            options = {
-              marketplace: "us",
-              product_index: nil,
-              sink_index: nil,
-              config_path: nil,
-              min_price: nil,
-              max_price: nil,
-              require_fields: nil,
-              keywords_path: nil,
-              title_field: "title",
-              asin_batch_size: 100,
-              bulk_chunk: 200,
-              dry_run: false,
-              max_asin_hits: nil,
-              asin_since_days: 7,
-              asin_time_field: nil,
-              asin_cutoff: nil,
-              asin_label: nil,
-              asin_label_field: nil,
-            }
+        # +em-tools amz-uploadable asin-to-es+ — stream ASINs from the ASIN index, mget
+        # product docs, filter, then bulk-write enriched docs to a sink ES index.
+        class AsinProductsToEs < Dry::CLI::Command
+          desc "Enrich ASINs with product docs (mget) and bulk-write to a sink index"
 
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:asin-to-es [options]
+          option :marketplace, aliases: ["-m"], default: "us", desc: "Marketplace (default: us)"
+          option :product_index, desc: "Product API index (default: amz_products_api_<mp>_v2)"
+          option :sink_index, desc: "Required. Destination index for enriched documents"
+          option :config, desc: "YAML merged into ASIN stream resolution"
+          option :min_price, desc: "Minimum numeric price after resolution"
+          option :max_price, desc: "Maximum numeric price"
+          option :require_fields, desc: "Comma-separated _source fields that must be non-empty"
+          option :keywords_path, desc: "Optional blacklist keywords (title substring match)"
+          option :title_field, default: "title", desc: "Product field for blacklist scan (default: title)"
+          option :asin_batch_size, default: "100", desc: "ASINs per mget batch (default: 100)"
+          option :bulk_chunk, default: "200", desc: "Docs per bulk request (default: 200)"
+          option :dry_run, type: :flag, default: false, desc: "Resolve + filter but skip bulk index"
+          option :max_asin_hits, desc: "Stop after N ASIN hits (testing)"
+          option :asin_since_days, default: "7", desc: "ASIN stream relative window (default: 7)"
+          option :asin_time_field, desc: "auto|timestamp|created_at|time"
+          option :asin_cutoff, desc: "Absolute ISO8601 cutoff"
+          option :asin_label, desc: "Optional term filter on label field"
+          option :asin_label_field, desc: "ES field for label term"
 
-                Stream ASINs from the ASIN index (same time/label options as amz-uploadable:filter),
-                load matching documents from the product API index (mget by ASIN _id),
-                resolve price from configurable _source paths, apply min/max price, optional title keyword
-                blacklist (substring, same spirit as storefront:import-products), optional required fields,
-                then bulk-index enriched docs into --sink-index (document _id = ASIN).
+          example [
+            "-m de --sink-index amz_enriched_products_de --min-price 10 --max-price 500 --dry-run",
+            "-m de --sink-index amz_enriched_products_de --config tmp/pipeline.yml --max-asin-hits 500",
+          ]
 
-                Set ELASTICSEARCH_URL. Create sink index beforehand or rely on dynamic mapping.
-
-                Examples:
-                  em-tools amz-uploadable:asin-to-es -m de --sink-index amz_enriched_products_de \\
-                    --min-price 10 --max-price 500 --dry-run
-                  em-tools amz-uploadable:asin-to-es -m de --sink-index amz_enriched_products_de \\
-                    --config examples/config/amazon_asin_product_pipeline.example.yml --max-asin-hits 500
-              BANNER
-
-              opts.on("-m", "--marketplace CODE", String, "Marketplace code (default us).") do |v|
-                options[:marketplace] = v
-              end
-              opts.on("--product-index NAME", String, "Product API index (default amz_products_api_<mp>_v2).") do |v|
-                options[:product_index] = v
-              end
-              opts.on("--sink-index NAME", String, "Required. Destination index for enriched documents.") do |v|
-                options[:sink_index] = v
-              end
-              opts.on(
-                "--config PATH",
-                String,
-                "Optional YAML merged into ASIN stream resolution (asin_stream block).",
-              ) do |v|
-                options[:config_path] = v
-              end
-              opts.on("--min-price N", Float, "Minimum numeric price after resolution (optional).") do |v|
-                options[:min_price] = v
-              end
-              opts.on("--max-price N", Float, "Maximum numeric price (optional).") do |v|
-                options[:max_price] = v
-              end
-              opts.on(
-                "--require-fields CSV",
-                String,
-                "Comma-separated product _source fields that must be non-empty.",
-              ) do |v|
-                options[:require_fields] = v
-              end
-              opts.on("--keywords-path PATH", String, "Optional blacklist keywords (title substring match).") do |v|
-                options[:keywords_path] = v
-              end
-              opts.on("--title-field NAME", String, "Product field for blacklist scan (default title).") do |v|
-                options[:title_field] = v
-              end
-              opts.on("--asin-batch-size N", Integer, "ASINs per mget batch (default 100).") do |v|
-                options[:asin_batch_size] = v
-              end
-              opts.on("--bulk-chunk N", Integer, "Documents per bulk request (default 200).") do |v|
-                options[:bulk_chunk] = v
-              end
-              opts.on("--dry-run", "Resolve and filter but do not call bulk index.") { options[:dry_run] = true }
-              opts.on("--max-asin-hits N", Integer, "Stop after N ASIN index hits (testing).") do |v|
-                options[:max_asin_hits] = v
-              end
-              opts.on("--asin-since-days N", Integer, "ASIN stream relative window (default 7).") do |v|
-                options[:asin_since_days] = v
-              end
-              opts.on("--asin-time-field FIELD", String) { |v| options[:asin_time_field] = v }
-              opts.on("--asin-cutoff ISO8601", String) { |v| options[:asin_cutoff] = v }
-              opts.on("--asin-label VALUE", String) { |v| options[:asin_label] = v }
-              opts.on("--asin-label-field FIELD", String) { |v| options[:asin_label_field] = v }
-            end
-            # rubocop:enable Metrics/BlockLength
-
-            parser.parse!(argv)
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              usage!(parser)
-            end
-
-            if options[:sink_index].to_s.strip.empty?
+          def call(marketplace: "us", product_index: nil, sink_index: nil, config: nil,
+            min_price: nil, max_price: nil, require_fields: nil, keywords_path: nil,
+            title_field: "title", asin_batch_size: "100", bulk_chunk: "200",
+            dry_run: false, max_asin_hits: nil, asin_since_days: "7",
+            asin_time_field: nil, asin_cutoff: nil, asin_label: nil, asin_label_field: nil, **)
+            if sink_index.to_s.strip.empty?
               warn("error: --sink-index is required")
-              usage!(parser)
+              exit(1)
             end
 
-            Support.require_elasticsearch_url!
+            EmTools::Core::Cli::Support.require_elasticsearch_url!
+            cfg = config ? EmTools::Core::Cli::Support.load_yaml_file!(config) : {}
+            keywords = keywords_path ? EmTools::Core::Cli::Support.load_keywords(keywords_path) : []
+            req = require_fields.to_s.split(",").map(&:strip).reject(&:empty?)
 
-            cfg =
-              if options[:config_path]
-                Support.load_yaml_file!(options[:config_path])
-              else
-                {}
-              end
-
-            filter_opts = {
-              marketplace: options[:marketplace],
-              config: cfg,
-              asin_since_days: options[:asin_since_days],
-              asin_time_field: options[:asin_time_field],
-              asin_cutoff: options[:asin_cutoff],
-              asin_label: options[:asin_label],
-              asin_label_field: options[:asin_label_field],
-            }
             plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
-            filter = plugin.uploadable_product_filter(**filter_opts)
-
-            keywords = options[:keywords_path] ? Support.load_keywords(options[:keywords_path]) : []
-            req = options[:require_fields].to_s.split(",").map(&:strip).reject(&:empty?)
-
-            pipeline = plugin.asin_product_pipeline(
-              marketplace: options[:marketplace],
-              sink_index: options[:sink_index],
-              product_index: options[:product_index],
-              filter: filter,
-              min_price: options[:min_price],
-              max_price: options[:max_price],
-              require_product_fields: req,
-              keywords: keywords,
-              title_field: options[:title_field],
-              asin_batch_size: options[:asin_batch_size],
-              bulk_chunk_lines: options[:bulk_chunk],
-              max_asin_hits: options[:max_asin_hits],
+            filter = plugin.uploadable_product_filter(
+              marketplace: marketplace,
+              config: cfg,
+              asin_since_days: Integer(asin_since_days),
+              asin_time_field: asin_time_field,
+              asin_cutoff: asin_cutoff,
+              asin_label: asin_label,
+              asin_label_field: asin_label_field,
             )
 
-            stats = pipeline.run!(client: plugin.dependencies[:es_client], dry_run: options[:dry_run])
+            pipeline = plugin.asin_product_pipeline(
+              marketplace: marketplace,
+              sink_index: sink_index,
+              product_index: product_index,
+              filter: filter,
+              min_price: min_price ? Float(min_price) : nil,
+              max_price: max_price ? Float(max_price) : nil,
+              require_product_fields: req,
+              keywords: keywords,
+              title_field: title_field,
+              asin_batch_size: Integer(asin_batch_size),
+              bulk_chunk_lines: Integer(bulk_chunk),
+              max_asin_hits: max_asin_hits ? Integer(max_asin_hits) : nil,
+            )
 
+            stats = pipeline.run!(client: plugin.dependencies[:es_client], dry_run: dry_run)
             $stdout.puts(JSON.generate(stats.to_h))
           end
-
-          private
-
-          def usage!(parser)
-            warn(parser.help)
-            exit(1)
-          end
+          # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
         end
       end
     end

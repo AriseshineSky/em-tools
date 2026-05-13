@@ -1,152 +1,90 @@
 # frozen_string_literal: true
 
+require "dry/cli"
 require "json"
-require "optparse"
 
 module EmTools
   module Plugins
     module AmazonUploadable
       module Cli
-        class UploadableProductFilter
-          def run(argv)
-            options = {
-              marketplace: "us",
-              ttl: 30,
-              asin_since_days: 7,
-              asin_time_field: nil,
-              asin_cutoff: nil,
-              asin_label: nil,
-              asin_label_field: nil,
-              config_path: nil,
-              dry_run: false,
-              max_asins: nil,
-              to_es: false,
-              sink_index: nil,
-              bulk_chunk: EmTools::Plugins::AmazonUploadable::Filters::UploadableProductFilter::DEFAULT_BULK_CHUNK_LINES,
-              refresh: false,
-            }
+        # +em-tools amz-uploadable filter+ — phase-1 Ruby port of em-tasks
+        # +amazon.uploadable_product_filter+. Streams ASINs from
+        # +amz_asins_<marketplace>+ and either prints them or bulk-indexes them.
+        class UploadableProductFilter < Dry::CLI::Command
+          desc "Stream uploadable ASINs from the Amazon ASIN index"
 
-            # -- mirrors many Python CLI flags
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:filter [options]
+          option :marketplace, aliases: ["-m"], default: "us", desc: "Amazon marketplace (default: us)"
+          option :ttl, aliases: ["-t"], default: "30", desc: "Offer TTL days (default: 30, informational)"
+          option :asin_since_days, default: "7", desc: "Relative window without absolute cutoff (default: 7)"
+          option :asin_time_field, desc: "auto|timestamp|created_at|time"
+          option :asin_cutoff, desc: "Absolute cutoff (time_field > cutoff)"
+          option :asin_label, desc: "Optional term filter on label field"
+          option :asin_label_field, desc: "ES field for label term (default: label)"
+          option :config, desc: "YAML file merged into stream option resolution"
+          option :dry_run,
+            type: :flag,
+            default: false,
+            desc: "Skip side effects (stdout: print resolved config; --to-es: skip bulk)"
+          option :max_asins, desc: "Stop after N ASINs (testing)"
+          option :to_es,
+            type: :flag,
+            default: false,
+            desc: "Bulk-index matched ASINs into Elasticsearch instead of stdout"
+          option :sink_index, desc: "Destination ES index for --to-es (default: amz_uploadable_asins_<mp>)"
+          option :bulk_chunk, default: "500", desc: "Documents per bulk request (default: 500)"
+          option :refresh, type: :flag, default: false, desc: "Refresh sink index after run (--to-es only)"
 
-                Phase-1 Ruby port of: python -m em_tasks.applications.tools.amazon.uploadable_product_filter
-                Streams ASINs from amz_asins_<marketplace> using time range + optional label (see em-tasks asin_stream_options).
+          example [
+            "-m de --asin-since-days 1",
+            "-m de --dry-run",
+            "-m de --to-es --sink-index amz_uploadable_asins_de --bulk-chunk 1000 --refresh",
+          ]
 
-                Output: STDOUT (one ASIN per line) by default, or bulk-index into Elasticsearch with --to-es.
+          def call(marketplace: "us", ttl: "30", asin_since_days: "7", asin_time_field: nil,
+            asin_cutoff: nil, asin_label: nil, asin_label_field: nil, config: nil,
+            dry_run: false, max_asins: nil, to_es: false, sink_index: nil,
+            bulk_chunk: "500", refresh: false, **)
+            EmTools::Core::Cli::Support.require_elasticsearch_url!
+            cfg = config ? EmTools::Core::Cli::Support.load_yaml_file!(config) : {}
 
-                Set ELASTICSEARCH_URL. Optional YAML config (--config) with keys like amz.uploadable_filter.asin_stream.
-
-                Examples:
-                  em-tools amz-uploadable:filter -m de --asin-since-days 1
-                  em-tools amz-uploadable:filter -m de --dry-run
-                  em-tools amz-uploadable:filter -m de --to-es
-                  em-tools amz-uploadable:filter -m de --to-es \\
-                    --sink-index amz_uploadable_asins_de --bulk-chunk 1000 --refresh
-              BANNER
-
-              opts.on("-m", "--marketplace CODE", String, "Amazon marketplace (default us).") do |v|
-                options[:marketplace] = v
-              end
-              opts.on("-t", "--ttl N", Integer, "Offer TTL days (informational; default 30).") { |v| options[:ttl] = v }
-              opts.on("--asin-since-days N", Integer, "Relative window when no absolute cutoff (default 7).") do |v|
-                options[:asin_since_days] = v
-              end
-              opts.on("--asin-time-field FIELD", String, "auto|timestamp|created_at|time") do |v|
-                options[:asin_time_field] = v
-              end
-              opts.on("--asin-cutoff ISO8601", String, "Absolute cutoff (time_field > cutoff).") do |v|
-                options[:asin_cutoff] = v
-              end
-              opts.on("--asin-label VALUE", String, "Optional term filter on label field.") do |v|
-                options[:asin_label] = v
-              end
-              opts.on("--asin-label-field FIELD", String, "ES field for label term (default label).") do |v|
-                options[:asin_label_field] = v
-              end
-              opts.on("--config PATH", String, "YAML file merged into stream option resolution.") do |v|
-                options[:config_path] = v
-              end
-              opts.on("--dry-run", "Skip side effects: stdout mode prints resolved config; --to-es skips bulk.") do
-                options[:dry_run] = true
-              end
-              opts.on("--max-asins N", Integer, "Stop after N documents (testing).") { |v| options[:max_asins] = v }
-              opts.on("--to-es", "Write matched ASINs into Elasticsearch instead of stdout.") do
-                options[:to_es] = true
-              end
-              opts.on(
-                "--sink-index NAME",
-                String,
-                "Destination ES index for --to-es (default amz_uploadable_asins_<mp>).",
-              ) do |v|
-                options[:sink_index] = v
-              end
-              opts.on("--bulk-chunk N", Integer, "Documents per bulk request (default 500).") do |v|
-                options[:bulk_chunk] = v
-              end
-              opts.on("--refresh", "Refresh sink index after run (--to-es only).") { options[:refresh] = true }
-            end
-            # rubocop:enable Metrics/BlockLength
-
-            parser.parse!(argv)
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              usage!(parser)
-            end
-
-            Support.require_elasticsearch_url!
-
-            cfg =
-              if options[:config_path]
-                Support.load_yaml_file!(options[:config_path])
-              else
-                {}
-              end
-
-            filter_opts = options.slice(
-              :marketplace,
-              :ttl,
-              :asin_since_days,
-              :asin_time_field,
-              :asin_cutoff,
-              :asin_label,
-              :asin_label_field,
-            ).merge(config: cfg)
             plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
-            filter = plugin.uploadable_product_filter(**filter_opts)
+            filter = plugin.uploadable_product_filter(
+              marketplace: marketplace,
+              ttl: Integer(ttl),
+              asin_since_days: Integer(asin_since_days),
+              asin_time_field: asin_time_field,
+              asin_cutoff: asin_cutoff,
+              asin_label: asin_label,
+              asin_label_field: asin_label_field,
+              config: cfg,
+            )
 
-            if options[:dry_run] && !options[:to_es]
+            if dry_run && !to_es
               $stdout.puts(JSON.generate(filter.describe))
               return
             end
 
             client = plugin.dependencies[:es_client]
+            max = max_asins ? Integer(max_asins) : nil
 
-            if options[:to_es]
+            if to_es
               stats = filter.bulk_index_asins!(
                 client: client,
-                sink_index: options[:sink_index],
-                max_asins: options[:max_asins],
-                bulk_chunk_lines: options[:bulk_chunk],
-                dry_run: options[:dry_run],
-                refresh: options[:refresh],
+                sink_index: sink_index,
+                max_asins: max,
+                bulk_chunk_lines: Integer(bulk_chunk),
+                dry_run: dry_run,
+                refresh: refresh,
               )
-              resolved_sink = options[:sink_index].to_s.strip
-              resolved_sink = filter.default_sink_index if resolved_sink.empty?
-              warn(JSON.generate(sink_index: resolved_sink, stats: stats.to_h, dry_run: options[:dry_run]))
+              resolved = sink_index.to_s.strip
+              resolved = filter.default_sink_index if resolved.empty?
+              warn(JSON.generate(sink_index: resolved, stats: stats.to_h, dry_run: dry_run))
               return
             end
 
-            filter.stream_asins!(client: client, max_asins: options[:max_asins])
+            filter.stream_asins!(client: client, max_asins: max)
           end
-
-          private
-
-          def usage!(parser)
-            warn(parser.help)
-            exit(1)
-          end
+          # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
         end
       end
     end

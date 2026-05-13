@@ -16,6 +16,9 @@ schema, or scheduled-job set changes in a way the deployment cares about.
   - `cron.example` (single-file crontab).
   - `systemd/em-tools-*.{service,timer}.example` for inventory sync,
     Amazon lowest-offer snapshot, and eBay listings snapshot.
+- Hierarchical CLI tree (`em-tools <area> <action>`) backed by
+  [dry-cli](https://dry-rb.org/gems/dry-cli/). Top-level discovery shows
+  every namespace as a subtree; per-command help is auto-generated.
 
 ### Changed
 
@@ -27,13 +30,29 @@ schema, or scheduled-job set changes in a way the deployment cares about.
 - `EmTools::VERSION` is now defined in `lib/em_tools/version.rb`;
   `EmTools::Core::VERSION` is removed (single source of truth).
 - `Rakefile` reduced to `rake spec`. There are no business rake tasks.
-- README, CHANGELOG, CONTRIBUTING, and `docs/*` rewritten for app-mode.
+- **CLI shape: colon-style names → subcommand tree**. Every command moved to
+  hierarchical paths: `inventory-sync` → `inventory sync`, `es-dump-index` →
+  `es dump-index`, `lotteon:products:export` → `lotteon products export`,
+  etc. No back-compat aliases — rename your cron / systemd units to match.
+- Plugin contract: `Plugin#cli_commands` keys are now subcommand paths
+  *relative* to `cli_namespace` (the registry prepends the namespace).
+  `Plugin::Cli::Base` is removed; plugin commands inherit from
+  `Dry::CLI::Command` directly.
+- README, CHANGELOG, CONTRIBUTING, and `docs/*` rewritten for app-mode and
+  the new CLI shape.
 
 ### Removed
 
 - `em-tools.gemspec` and the `bundler/gem_tasks` derived `rake build/install/release` tasks.
 - `exe/` directory.
 - `EmTools::Core::VERSION` constant.
+- `Core::Cli::CommandRegistry`, `Core::Cli::HelpRenderer`,
+  `Core::Cli::CommandNames`, `Core::Plugin::Cli::Base` — replaced wholesale
+  by `Core::Cli::Registry` (a `Dry::CLI::Registry` builder) and the
+  `Dry::CLI::Command` DSL on each command class.
+- Core CLI duplicates of plugin commands (`lowest-offer-*`,
+  `ebay-listings-*`); these are now reached via the plugin subtrees
+  (`amazon-lowest-offer coverage *`, `ebay listings *`).
 
 ## Earlier milestones
 

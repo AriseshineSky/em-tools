@@ -1,101 +1,60 @@
 # frozen_string_literal: true
 
+require "dry/cli"
 require "json"
-require "optparse"
 
 module EmTools
   module Plugins
     module AmazonUploadable
       module Cli
-        # Ruby counterpart to +em_celery/tools/spree/amz_upload_products_from_es.py+ (+filter_products+).
-        class AmzUploadProductsFromEs
-          def run(argv)
-            options = {
-              marketplace: "us",
-              ttl: 30,
-              config_path: nil,
-              output_path: nil,
-              dry_run: false,
-              max_asins: nil,
-            }
+        # +em-tools amz-uploadable upload-from-es+ — Ruby port of the Click command in
+        # em-celery +amz_upload_products_from_es.py+ (+filter_products+).
+        class AmzUploadProductsFromEs < Dry::CLI::Command
+          desc "Stream ASINs and write them out (file or stdout); Celery-parity command"
 
-            # -- Celery-parity CLI options
-            parser = OptionParser.new do |opts|
-              opts.banner = <<~BANNER
-                Usage: em-tools amz-uploadable:upload-from-es [options]
+          option :marketplace, aliases: ["-m"], default: "us", desc: "Amazon marketplace (default: us)"
+          option :ttl,
+            aliases: ["-t"],
+            default: "30",
+            desc: "Offer TTL days (default: 30; informational in Ruby)"
+          option :config, desc: "YAML merged into stream + price rule resolution"
+          option :output, aliases: ["-o"], desc: "Write ASINs to file instead of stdout"
+          option :dry_run, type: :flag, default: false, desc: "Print resolved manifest JSON and exit"
+          option :max_asins, desc: "Stop after N ASINs (testing)"
 
-                Ruby port of the Celery/Click command in em-celery +em_celery/tools/spree/amz_upload_products_from_es.py+.
-                Same primary flags as Python: -m / -t. Loads optional YAML (price.rules.amz_<mp>, asin stream keys).
+          example [
+            "-m de",
+            "-m de --dry-run",
+            "-m de -o asins.txt --config examples/config/amz_celery_compat.example.yml",
+          ]
 
-                Implemented today: Elasticsearch ASIN stream (same as Python formatter's id stream inputs).
-                Not in this gem yet: DB +product_service+, +AmzOfferService+, pipelines, rule engine, file exports.
-
-                Set ELASTICSEARCH_URL.
-
-                Examples:
-                  em-tools amz-uploadable:upload-from-es -m de
-                  em-tools amz-uploadable:upload-from-es -m de --dry-run
-                  em-tools amz-uploadable:upload-from-es -m de -o asins.txt \\
-                    --config examples/config/amz_celery_compat.example.yml
-              BANNER
-
-              opts.on("-m", "--marketplace CODE", String, "Amazon marketplace (default us).") do |v|
-                options[:marketplace] = v
-              end
-              opts.on("-t", "--ttl N", Integer, "Offer TTL days (default 30; informational in Ruby).") do |v|
-                options[:ttl] = v
-              end
-              opts.on("--config PATH", String, "YAML merged into stream + price rule resolution.") do |v|
-                options[:config_path] = v
-              end
-              opts.on("-o", "--output PATH", String, "Write ASINs to file instead of stdout.") do |v|
-                options[:output_path] = v
-              end
-              opts.on("--dry-run", "Print resolved manifest JSON and exit.") { options[:dry_run] = true }
-              opts.on("--max-asins N", Integer, "Stop after N ASINs (testing).") { |v| options[:max_asins] = v }
-            end
-            # rubocop:enable Metrics/BlockLength
-
-            parser.parse!(argv)
-            unless argv.empty?
-              warn("error: unexpected arguments: #{argv.join(" ")}")
-              usage!(parser)
-            end
-
-            cfg =
-              if options[:config_path]
-                Support.load_yaml_file!(options[:config_path])
-              else
-                {}
-              end
-
+          def call(marketplace: "us", ttl: "30", config: nil, output: nil,
+            dry_run: false, max_asins: nil, **)
+            cfg = config ? EmTools::Core::Cli::Support.load_yaml_file!(config) : {}
             plugin = EmTools::Core::PluginRegistry.fetch(:amazon_uploadable)
             runner = plugin.upload_runner(
-              marketplace: options[:marketplace],
-              ttl: options[:ttl],
+              marketplace: marketplace,
+              ttl: Integer(ttl),
               config: cfg,
             )
 
-            if options[:dry_run]
+            if dry_run
               $stdout.puts(JSON.generate(runner.describe))
               return
             end
 
-            Support.require_elasticsearch_url!
+            EmTools::Core::Cli::Support.require_elasticsearch_url!
 
-            out = options[:output_path] ? File.open(options[:output_path], "w") : $stdout
+            io = output ? File.open(output, "w") : $stdout
             begin
-            runner.run!(client: plugin.dependencies[:es_client], io: out, max_asins: options[:max_asins])
+              runner.run!(
+                client: plugin.dependencies[:es_client],
+                io: io,
+                max_asins: max_asins ? Integer(max_asins) : nil,
+              )
             ensure
-              out.close if options[:output_path]
+              io.close if output
             end
-          end
-
-          private
-
-          def usage!(parser)
-            warn(parser.help)
-            exit(1)
           end
         end
       end
