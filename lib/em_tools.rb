@@ -35,14 +35,13 @@ module EmTools
 end
 
 loader = Zeitwerk::Loader.new
-loader.tag = "em_tools"
-loader.push_dir(File.expand_path("../lib", __dir__))
-loader.inflector.inflect("version" => "VERSION")
+loader.push_dir(__dir__)
+# Per-plugin Rake tasks live next to plugin source under +lib/em_tools/plugins/<name>/rakelib/+
+# and are loaded by Rake itself, not by Zeitwerk.
 loader.setup
 
 EmTools::Core::SettingsHydrator.apply_if_blank!
 
 # Eagerly load each plugin's +plugin.rb+ so it self-registers with
-# +EmTools::Core::PluginRegistry+ at boot. The remaining plugin code is
 # autoloaded on first reference.
 Dir["#{__dir__}/em_tools/plugins/*/plugin.rb"].sort.each { |path| require(path) }
