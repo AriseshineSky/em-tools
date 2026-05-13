@@ -9,6 +9,12 @@ module EmTools
       class Plugin < EmTools::Core::Plugin::Base
         EmTools::Core::PluginRegistry.register(:lotteon, self)
 
+        def cli_commands
+          {
+            "lotteon:export-products" => Cli::ExportProducts,
+          }
+        end
+
         def products_exporter(**opts)
           Exporters::ProductsExporter.new(**opts)
         end

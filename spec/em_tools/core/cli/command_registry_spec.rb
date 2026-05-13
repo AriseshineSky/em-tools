@@ -12,6 +12,7 @@ RSpec.describe(EmTools::Core::Cli::CommandRegistry) do
         "lowest-offer-publish-snapshot" => EmTools::Core::Cli::Commands::LowestOfferPublishSnapshot,
         "dump" => EmTools::Core::Cli::Commands::Dump,
         "blacklist-download" => EmTools::Core::Cli::Commands::BlacklistDownload,
+        "lotteon:export-products" => EmTools::Plugins::Lotteon::Cli::ExportProducts,
       ))
     end
   end
