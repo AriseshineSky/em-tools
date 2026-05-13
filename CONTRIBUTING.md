@@ -82,9 +82,11 @@ version:
 
 1. Create `lib/em_tools/plugins/<name>/plugin.rb` and have it inherit from
    `EmTools::Core::Plugin::Base`.
-2. Self-register in the plugin file:
+2. Declare the plugin's name and self-register in the plugin file:
    ```ruby
-   EmTools::Core::PluginRegistry.register(:my_plugin, self)
+   def self.plugin_name = :my_plugin
+
+   EmTools::Core::PluginRegistry.register(plugin_name, self)
    ```
 3. Provide CLI commands by overriding `cli_commands` (each command lives under
    `cli/`) and expose business operations via plain instance methods on the

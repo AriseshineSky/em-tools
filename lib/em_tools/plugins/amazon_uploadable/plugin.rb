@@ -12,7 +12,9 @@ module EmTools
       # as "operations" via the convenience helpers below; callers and the CLI invoke them
       # directly (see `cli_commands` for the wired CLI commands).
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:amazon_uploadable, self)
+        def self.plugin_name = :amazon_uploadable
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

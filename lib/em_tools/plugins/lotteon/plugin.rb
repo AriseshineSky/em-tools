@@ -7,7 +7,9 @@ module EmTools
       # ("data" / "analytics") Elasticsearch cluster, configured via the +exporters.lotteon_products+
       # block in settings YAML.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:lotteon, self)
+        def self.plugin_name = :lotteon
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

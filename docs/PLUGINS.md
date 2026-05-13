@@ -21,12 +21,23 @@ module EmTools
   module Plugins
     module MyPlugin
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:my_plugin, self)
+        def self.plugin_name = :my_plugin
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
       end
     end
   end
 end
 ```
+
+Two lines, two responsibilities:
+
+1. **`def self.plugin_name = :my_plugin`** — the plugin declares its
+   identifier itself. It is the single source of truth (used for the CLI
+   namespace, log progname, settings keys, …).
+2. **`PluginRegistry.register(plugin_name, self)`** — the plugin opts in
+   to being discovered. Always pass `plugin_name`, never a raw symbol —
+   that way the symbol literal lives in exactly one place and can't drift.
 
 `lib/em_tools.rb` requires every `plugins/*/plugin.rb` at load time, so the
 registration is automatic. Everything else under your plugin directory is
@@ -50,7 +61,7 @@ flowchart LR
 | Transforms | `#transforms` | `Array` of classes responding to `.new.call(record) -> record` | `PipelineEngine` |
 | Source | `#source(**opts)` | object responding to `#each` | pipelines / engine |
 | Sink | `#sink(**opts)` | object responding to `#index(record)` (and optional `#flush!`) | pipelines / engine |
-| CLI namespace | `.cli_namespace` | `String` (top-level subcommand name; default: kebab-case of plugin name) | `Core::Cli::Registry` |
+| CLI namespace | `.cli_namespace` | `String` (top-level subcommand name; default: kebab-case of the symbol passed to `register(:..., self)`) | `Core::Cli::Registry` |
 | CLI commands | `#cli_commands` | `Hash<String, Dry::CLI::Command class>` (path *relative* to `cli_namespace`) | `Core::Cli::App` |
 | Operations | any plain instance method | whatever the caller needs | other plugins / specs / scripts |
 
@@ -113,17 +124,48 @@ A plugin contributes commands under a single top-level token — its
 | `:ebay` | `ebay` (default) | `em-tools ebay listings publish-snapshot …` |
 | `:amazon_lowest_offer` | `amazon-lowest-offer` (default) | `em-tools amazon-lowest-offer coverage publish-snapshot …` |
 
-Default namespace: kebab-case of `plugin_name` (so `:amazon_lowest_offer`
-becomes `"amazon-lowest-offer"`). Override `self.cli_namespace` if you want
-something shorter:
+### How `plugin_name` and `cli_namespace` are decided
 
-```ruby
-class Plugin < EmTools::Core::Plugin::Base
-  EmTools::Core::PluginRegistry.register(:amazon_uploadable, self)
+The plugin's identifier is **declared on the plugin class itself** with an
+endless method, and then re-used in the registry call. There is **no**
+auto-derivation from the Ruby class name (`EmTools::Plugins::Foo::Plugin`
+→ `:foo`) — that machinery used to exist and is exactly how a copy-pasted
+`register(:ssg, self)` line silently masked a sibling plugin in the past.
 
-  def self.cli_namespace = "amz-uploadable"
-end
-```
+The flow is:
+
+1. **Plugin declares its name on itself:**
+
+   ```ruby
+   def self.plugin_name = :amazon_lowest_offer
+   ```
+
+2. **Plugin registers itself, passing its declared name:**
+
+   ```ruby
+   EmTools::Core::PluginRegistry.register(plugin_name, self)
+   ```
+
+   Always `plugin_name`, never a hard-coded symbol — that keeps the symbol
+   literal in exactly one place per plugin file.
+
+3. **`Plugin.cli_namespace` defaults to `plugin_name.to_s.tr("_", "-")`**,
+   so `:amazon_lowest_offer` → `"amazon-lowest-offer"`. A plugin can
+   override `self.cli_namespace` to a literal string for a shorter prefix:
+
+   ```ruby
+   class Plugin < EmTools::Core::Plugin::Base
+     def self.plugin_name   = :amazon_uploadable
+     def self.cli_namespace = "amz-uploadable"
+
+     EmTools::Core::PluginRegistry.register(plugin_name, self)
+   end
+   ```
+
+If a plugin class is used (e.g. by `Cli::Registry`) without ever declaring
+`plugin_name` *and* without being registered, `Plugin.cli_namespace`
+raises `EmTools::Core::Plugin::NotRegisteredError` at boot — a fast, named
+failure instead of "the plugin silently doesn't appear in the CLI".
 
 The project does **not** carry legacy command aliases. Renaming a plugin
 command is a one-shot rename: change `cli_commands`, update any docs / cron

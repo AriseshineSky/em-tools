@@ -5,7 +5,9 @@ module EmTools
     module Ebay
       # eBay listings coverage pipeline: per-marketplace listings ES query + snapshot writer.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:ebay, self)
+        def self.plugin_name = :ebay
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

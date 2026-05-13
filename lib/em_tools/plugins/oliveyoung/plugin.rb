@@ -17,7 +17,9 @@ module EmTools
       # name "blacklist" at the boundary while talking about a
       # "禁售关键词 / keyword exclusion policy" in plugin-internal code.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:oliveyoung, self)
+        def self.plugin_name = :oliveyoung
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

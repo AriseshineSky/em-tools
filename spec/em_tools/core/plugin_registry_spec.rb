@@ -44,4 +44,21 @@ RSpec.describe(EmTools::Core::PluginRegistry) do
     classes = described_class.each_plugin.to_a.map(&:class)
     expect(classes).to(contain_exactly(PluginRegistrySpecPluginA, PluginRegistrySpecPluginB))
   end
+
+  it "writes plugin_name onto the registered class" do
+    described_class.register(:custom_a, PluginRegistrySpecPluginA)
+    expect(PluginRegistrySpecPluginA.plugin_name).to(eq(:custom_a))
+    expect(PluginRegistrySpecPluginA.new.name).to(eq(:custom_a))
+  end
+
+  it "uses the registry name (not the class name) for cli_namespace" do
+    described_class.register(:a_b_c, PluginRegistrySpecPluginA)
+    expect(PluginRegistrySpecPluginA.cli_namespace).to(eq("a-b-c"))
+  end
+
+  it "tolerates a plain object that doesn't expose plugin_name=" do
+    bare = Object.new
+    described_class.register(:bare, bare)
+    expect(described_class.fetch_class(:bare)).to(equal(bare))
+  end
 end

@@ -44,7 +44,9 @@ module EmTools
             :time_last_24h,
             :time_24_to_48h_ago,
             :time_48_to_72h_ago,
-            :time_older_than_72h,
+            :time_72_to_96h_ago,
+            :time_96_to_120h_ago,
+            :time_older_than_120h,
             :time_at_or_after_now,
             :time_other_window,
             :docs_missing_time,
@@ -307,11 +309,13 @@ module EmTools
                   last_24h: time_range_absolute(clock - 86_400, clock),
                   hours_24_to_48_ago: time_range_absolute(clock - 172_800, clock - 86_400),
                   hours_48_to_72h_ago: time_range_absolute(clock - 259_200, clock - 172_800),
-                  older_than_72h: {
+                  hours_72_to_96h_ago: time_range_absolute(clock - 345_600, clock - 259_200),
+                  hours_96_to_120h_ago: time_range_absolute(clock - 432_000, clock - 345_600),
+                  older_than_120h: {
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { lt: iso8601_z(clock - 259_200) } } },
+                        { range: { @time_field => { lt: iso8601_z(clock - 432_000) } } },
                       ],
                     },
                   },
@@ -329,11 +333,13 @@ module EmTools
                   last_24h: time_range("now-24h", "now"),
                   hours_24_to_48_ago: time_range("now-48h", "now-24h"),
                   hours_48_to_72h_ago: time_range("now-72h", "now-48h"),
-                  older_than_72h: {
+                  hours_72_to_96h_ago: time_range("now-96h", "now-72h"),
+                  hours_96_to_120h_ago: time_range("now-120h", "now-96h"),
+                  older_than_120h: {
                     bool: {
                       must: [
                         { exists: { field: @time_field } },
-                        { range: { @time_field => { lt: "now-72h" } } },
+                        { range: { @time_field => { lt: "now-120h" } } },
                       ],
                     },
                   },
@@ -419,7 +425,9 @@ module EmTools
               time_last_24h: bucket_count(buckets, "last_24h"),
               time_24_to_48h_ago: bucket_count(buckets, "hours_24_to_48_ago"),
               time_48_to_72h_ago: bucket_count(buckets, "hours_48_to_72h_ago"),
-              time_older_than_72h: bucket_count(buckets, "older_than_72h"),
+              time_72_to_96h_ago: bucket_count(buckets, "hours_72_to_96h_ago"),
+              time_96_to_120h_ago: bucket_count(buckets, "hours_96_to_120h_ago"),
+              time_older_than_120h: bucket_count(buckets, "older_than_120h"),
               time_at_or_after_now: bucket_count(buckets, "at_or_after_now"),
               time_other_window: bucket_count(buckets, "other_time_window"),
               docs_missing_time: missing,
@@ -516,7 +524,9 @@ module EmTools
               time_last_24h: 0,
               time_24_to_48h_ago: 0,
               time_48_to_72h_ago: 0,
-              time_older_than_72h: 0,
+              time_72_to_96h_ago: 0,
+              time_96_to_120h_ago: 0,
+              time_older_than_120h: 0,
               time_at_or_after_now: 0,
               time_other_window: 0,
               docs_missing_time: 0,

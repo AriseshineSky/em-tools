@@ -6,7 +6,9 @@ module EmTools
       # Amazon-side lowest-offer freshness pipeline: GCS seed files -> Elasticsearch coverage
       # snapshot -> coverage assessment queries.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:amazon_lowest_offer, self)
+        def self.plugin_name = :amazon_lowest_offer
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

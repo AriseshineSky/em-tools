@@ -20,32 +20,85 @@ module EmTools
       #   dependencies  -> shared runtime objects injected into capabilities / CLI
       #   cli_commands -> { 'subcommand path' => Dry::CLI::Command class } merged into the
       #                   +em-tools+ binary under the plugin's +cli_namespace+ subtree.
+      # Raised when a plugin class is used (e.g. by +Cli::Registry+) before
+      # it has been registered with {EmTools::Core::PluginRegistry.register}.
+      # The canonical plugin file declares its own +plugin_name+ and then
+      # registers itself in one step:
+      #
+      #   def self.plugin_name = :ebay
+      #   EmTools::Core::PluginRegistry.register(plugin_name, self)
+      #
+      # Seeing this error means a +plugin.rb+ skipped that registration line
+      # entirely (or shipped a stale +Plugin::Base+ subclass with neither a
+      # +plugin_name+ override nor a registry call).
+      class NotRegisteredError < StandardError; end
+
       class Base
-        # Default plugin identifier: snake_cased namespace under EmTools::Plugins.
+        # The plugin identifier (a Symbol). Each concrete plugin **declares
+        # its own name** with an endless method, and then passes it to the
+        # registry — no derivation from the Ruby class name, no implicit
+        # naming:
         #
-        #   EmTools::Plugins::AmazonUploadable::Plugin -> :amazon_uploadable
-        #   EmTools::Plugins::Storefront::Plugin       -> :storefront
-        def self.plugin_name
-          parts = name.to_s.split("::")
-          short = parts.last == "Plugin" && parts.length >= 2 ? parts[-2] : parts.last
-          underscored = short.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
-            .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-            .downcase
-          underscored.to_sym
+        #   class Plugin < EmTools::Core::Plugin::Base
+        #     def self.plugin_name = :ebay
+        #
+        #     EmTools::Core::PluginRegistry.register(plugin_name, self)
+        #   end
+        #
+        # The +attr_reader+ below is the fallback when a subclass doesn't
+        # override (e.g. tests that build anonymous plugin classes); the
+        # +plugin_name=+ writer below lets +PluginRegistry.register+ poke
+        # the value into those untyped classes. In the canonical case the
+        # subclass override wins and the writer's @plugin_name ivar is
+        # silently shadowed — that's intentional, the override is the
+        # source of truth.
+        class << self
+          attr_reader :plugin_name
         end
 
-        # Subcommand subtree every CLI command in this plugin lives under. Default is
-        # the kebab-case +plugin_name+; override for a shorter, friendlier prefix:
+        # Fallback writer used by +PluginRegistry.register+ for plugin
+        # classes that don't declare +def self.plugin_name = :sym+. Real
+        # plugins should always declare it (see the docstring above);
+        # this exists so that tests and one-off anonymous plugin classes
+        # can still get a name without boilerplate. Accepts +nil+ to clear,
+        # which is how tests reset state on shared base classes.
+        def self.plugin_name=(name)
+          @plugin_name = name&.to_sym
+        end
+
+        # Subcommand subtree every CLI command in this plugin lives under.
+        # Defaults to kebab-cased +plugin_name+ (so +:amazon_lowest_offer+
+        # becomes +"amazon-lowest-offer"+). Override for a shorter prefix:
         #
-        #   def self.cli_namespace = "amz-uploadable"
+        #   class Plugin < EmTools::Core::Plugin::Base
+        #     def self.plugin_name   = :amazon_uploadable
+        #     def self.cli_namespace = "amz-uploadable"
         #
-        # Plugin command paths (declared in +cli_commands+) are merged under this prefix:
+        #     EmTools::Core::PluginRegistry.register(plugin_name, self)
+        #   end
+        #
+        # Plugin command paths declared in +cli_commands+ are merged under
+        # this prefix:
         #
         #   cli_namespace = "amz-uploadable"
-        #   cli_commands   = { "filter" => SomeCommand }
+        #   cli_commands  = { "filter" => SomeCommand }
         #   # invoked as: em-tools amz-uploadable filter
         def self.cli_namespace
+          require_plugin_name!
           plugin_name.to_s.tr("_", "-")
+        end
+
+        # Asserts that a +plugin_name+ has been set. Called by the default
+        # +cli_namespace+; subclasses that override +cli_namespace+ to a
+        # literal string don't need this guard.
+        def self.require_plugin_name!
+          return unless plugin_name.nil?
+
+          raise NotRegisteredError,
+            "#{self} has no plugin_name set. " \
+              "Declare it in the class body, e.g. " \
+              "`def self.plugin_name = :your_name` and then " \
+              "`EmTools::Core::PluginRegistry.register(plugin_name, self)`."
         end
 
         def name

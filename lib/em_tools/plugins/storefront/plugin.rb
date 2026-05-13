@@ -7,7 +7,9 @@ module EmTools
       # consumed by other plugins; exposes the +product-importer+ CLI for filtering local CSV /
       # JSON product feeds against the rule engine.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:storefront, self)
+        def self.plugin_name = :storefront
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {

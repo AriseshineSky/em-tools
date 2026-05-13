@@ -5,7 +5,9 @@ module EmTools
     module Ssg
       # Korean marketplace - SSG. Bundles the products NDJSON exporter and the keyword scanner.
       class Plugin < EmTools::Core::Plugin::Base
-        EmTools::Core::PluginRegistry.register(:ssg, self)
+        def self.plugin_name = :ssg
+
+        EmTools::Core::PluginRegistry.register(plugin_name, self)
 
         def capabilities
           {
