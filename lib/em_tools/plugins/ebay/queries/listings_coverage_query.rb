@@ -204,7 +204,7 @@ module EmTools
             return unless m
 
             s = m[1].to_s.strip
-            EmTools::Plugins::AmazonLowestOffer::Patterns::AsinPattern.match?(s) || s.match?(/\A\d+\z/) ? s : nil
+            EmTools::Plugins::Amazon::LowestOffer::Patterns::AsinPattern.match?(s) || s.match?(/\A\d+\z/) ? s : nil
           end
 
           def read_seed_text_from_dir

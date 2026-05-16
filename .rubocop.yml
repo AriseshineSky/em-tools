@@ -50,11 +50,12 @@ RSpec/SpecFilePathFormat:
 # CLI option parsing). Keep the exemptions explicit so new code stays inside the defaults.
 Metrics/AbcSize:
   Exclude:
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
-    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon/lowest_offer/queries/listings_coverage_query.rb"
     - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
     - "lib/em_tools/core/cli/commands/**/*"
     - "lib/em_tools/plugins/*/cli/**/*"
+    - "lib/em_tools/plugins/amazon/**/cli/**/*"
 
 Metrics/ClassLength:
   Exclude:
@@ -62,6 +63,7 @@ Metrics/ClassLength:
     - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
     - "lib/em_tools/core/cli/commands/**/*"
     - "lib/em_tools/plugins/*/cli/**/*"
+    - "lib/em_tools/plugins/amazon/**/cli/**/*"
 
 Metrics/MethodLength:
   Exclude:
@@ -69,26 +71,29 @@ Metrics/MethodLength:
     - "lib/em_tools/core/cli/app.rb"
     - "lib/em_tools/core/cli/commands/**/*"
     - "lib/em_tools/plugins/*/cli/**/*"
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/upload_products_from_es/runner.rb"
-    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/amazon/**/cli/**/*"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/upload_products_from_es/runner.rb"
+    - "lib/em_tools/plugins/amazon/lowest_offer/queries/listings_coverage_query.rb"
     - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
     - "lib/em_tools/plugins/ebay/sinks/coverage_snapshot.rb"
 
 Metrics/CyclomaticComplexity:
   Exclude:
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
-    - "lib/em_tools/plugins/amazon_lowest_offer/queries/listings_coverage_query.rb"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon/lowest_offer/queries/listings_coverage_query.rb"
     - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
     - "lib/em_tools/core/cli/commands/**/*"
     - "lib/em_tools/plugins/*/cli/**/*"
+    - "lib/em_tools/plugins/amazon/**/cli/**/*"
 
 Metrics/PerceivedComplexity:
   Exclude:
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/asin_product_index_pipeline.rb"
     - "lib/em_tools/plugins/ebay/queries/listings_coverage_query.rb"
     - "lib/em_tools/core/cli/commands/**/*"
     - "lib/em_tools/plugins/*/cli/**/*"
+    - "lib/em_tools/plugins/amazon/**/cli/**/*"
 
 Metrics/ParameterLists:
   Exclude:
@@ -97,4 +102,4 @@ Metrics/ParameterLists:
 Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
-    - "lib/em_tools/plugins/amazon_uploadable/pipelines/asin_product_index_pipeline.rb"
+    - "lib/em_tools/plugins/amazon/uploadable/pipelines/asin_product_index_pipeline.rb"

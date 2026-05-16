@@ -37,13 +37,20 @@ module EmTools
 
           def normalize_keywords(keywords)
             Array(keywords)
-              .map { |keyword| normalize_text(keyword).strip }
+              .map { |keyword| normalize_keyword(keyword) }
               .reject(&:empty?)
               .uniq
           end
 
+          # Product title/brand (and similar) text: clean token boundaries, then case-fold.
           def normalize_text(text)
-            value = text.to_s
+            cleaned = TextCleaner.clean_separators(text)
+            @case_sensitive ? cleaned : cleaned.downcase
+          end
+
+          # Keywords are stored as-is apart from strip + case-fold (matches Python loader).
+          def normalize_keyword(keyword)
+            value = keyword.to_s.strip
             @case_sensitive ? value : value.downcase
           end
         end

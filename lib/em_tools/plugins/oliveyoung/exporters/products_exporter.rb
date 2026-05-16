@@ -27,6 +27,19 @@ module EmTools
         # here. The {EmTools::Plugins::Oliveyoung::Plugin#products_exporter}
         # factory is the place that wires +Core::Blacklist::Loader+ +
         # +Strategy::TitleBrand+ into a +policy+ — keep it that way.
+        #
+        # == Optional output shaping (+converter+)
+        #
+        # After a document passes +policy+, an optional +converter+ may rewrite
+        # the payload that is written to NDJSON (price math, field renames,
+        # calling an external translator, building rows for
+        # +product-validator-ruby+, etc.). Duck type:
+        #
+        #   converter.call(source_hash)  # => Hash (or any +JSON.generate+-able value),
+        #   or +:skip+ to omit the line (filtered count is surfaced in the return hash).
+        #
+        # Keyword checks still see the **raw** +_source+ from Elasticsearch;
+        # the converter runs only for rows that are not blocked.
         class ProductsExporter
           EXPORTER_KEY = "oliveyoung_products"
 
@@ -41,17 +54,20 @@ module EmTools
           # @param blocked_output_path [String, nil] when both +policy+ and
           #   this are set, every dropped doc is appended to this NDJSON file
           #   so callers can audit *which* products were excluded and *why*.
+          # @param converter [#call, nil] optional; +.call(es_source)+ returns the
+          #   value serialized to each NDJSON line for non-blocked docs, or +:skip+
+          #   to drop the row without writing.
           # @param logger [::Logger, nil]
           def initialize(client: nil, query: nil, index: nil, policy: nil,
-            blocked_output_path: nil, logger: nil)
-            @client = client || EmTools::Clients::ElasticsearchClient.new(
-              url: EmTools::Core::Config.exporter_elasticsearch_url(EXPORTER_KEY),
-            )
-            @index = index || EmTools::Core::Config.exporter_index(EXPORTER_KEY, "oliveyoung_products")
-            @query = (query || Queries::ProductsQuery.new).then { |q| q.respond_to?(:to_h) ? q.to_h : q }
+            blocked_output_path: nil, converter: nil, logger: nil)
+            @client = client
+            @index = index || EXPORTER_KEY
+            resolved_query = query.nil? ? Queries::ProductsQuery.new : query
+            @query = resolved_query.to_h
             @policy = policy
             @blocked_output_path = blocked_output_path
-            @logger = logger || EmTools::Core::Logger.for(progname: "oliveyoung-export")
+            @converter = converter
+            @logger = logger
           end
 
           def to_jsonl(file_path, batch_size: 1000)
@@ -61,7 +77,7 @@ module EmTools
           end
 
           def write_jsonl(io, batch_size: 1000)
-            total = written = blocked = 0
+            total = written = blocked = filtered = 0
             with_blocked_io do |blocked_io|
               each_hit(batch_size: batch_size) do |hit|
                 total += 1
@@ -70,13 +86,18 @@ module EmTools
                   blocked += 1
                   record_blocked!(blocked_io, hit)
                 else
-                  io.puts(source.to_json)
-                  written += 1
+                  payload = ndjson_payload(source)
+                  if skip_ndjson_line?(payload)
+                    filtered += 1
+                  else
+                    io.puts(JSON.generate(payload))
+                    written += 1
+                  end
                 end
               end
             end
-            log_summary!(total: total, written: written, blocked: blocked)
-            { total: total, written: written, blocked: blocked }
+            log_summary!(total: total, written: written, blocked: blocked, filtered: filtered)
+            { total: total, written: written, blocked: blocked, filtered: filtered }
           end
           # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
@@ -90,6 +111,16 @@ module EmTools
 
           def each_hit(batch_size:, &block)
             @client.iterate_query(index: @index, query: @query, batch_size: batch_size, &block)
+          end
+
+          def ndjson_payload(source)
+            return source unless @converter
+
+            @converter.call(source)
+          end
+
+          def skip_ndjson_line?(payload)
+            payload == :skip
           end
 
           def with_blocked_io(&block)
@@ -120,10 +151,12 @@ module EmTools
             }
           end
 
-          def log_summary!(total:, written:, blocked:)
+          def log_summary!(total:, written:, blocked:, filtered:)
+            return unless @logger
+
             keyword_count = @policy.respond_to?(:keyword_count) ? @policy.keyword_count : nil
             @logger.info do
-              base = "[Oliveyoung] index=#{@index} total=#{total} written=#{written} blocked=#{blocked}"
+              base = "[Oliveyoung] index=#{@index} total=#{total} written=#{written} blocked=#{blocked} filtered=#{filtered}"
               keyword_count ? "#{base} keywords=#{keyword_count}" : base
             end
           end

@@ -23,6 +23,21 @@ RSpec.describe(EmTools::Core::Cli::Registry) do
       expect(command.command).to(eq(EmTools::Core::Cli::Commands::BlacklistDownload))
     end
 
+    it "registers es translate-titles under the es subtree" do
+      registry = described_class.build
+      command = registry.get(["es", "translate-titles"])
+
+      expect(command).to(be_found)
+      expect(command.command).to(eq(EmTools::Core::Cli::Commands::EsTranslateTitles))
+    end
+
+    it "registers lazada products commands under lazada subtree" do
+      registry = described_class.build
+      cmd = registry.get(["lazada", "products", "build-upload"])
+      expect(cmd).to(be_found)
+      expect(cmd.command).to(eq(EmTools::Plugins::Lazada::Cli::BuildUpload))
+    end
+
     it "is memoised across calls" do
       first = described_class.build
       second = described_class.build
@@ -41,13 +56,13 @@ RSpec.describe(EmTools::Core::Cli::Registry) do
     it "registers plugin commands under the plugin's cli_namespace" do
       registry = described_class.build
 
-      filter = registry.get(["amz-uploadable", "filter"])
+      filter = registry.get(["amazon", "products", "filter"])
       expect(filter).to(be_found)
-      expect(filter.command).to(eq(EmTools::Plugins::AmazonUploadable::Cli::UploadableProductFilter))
+      expect(filter.command).to(eq(EmTools::Plugins::Amazon::Uploadable::Cli::UploadableProductFilter))
 
-      coverage = registry.get(["amazon-lowest-offer", "coverage", "publish-snapshot"])
+      coverage = registry.get(["amazon", "coverage", "publish-snapshot"])
       expect(coverage).to(be_found)
-      expect(coverage.command).to(eq(EmTools::Plugins::AmazonLowestOffer::Cli::PublishSnapshot))
+      expect(coverage.command).to(eq(EmTools::Plugins::Amazon::LowestOffer::Cli::PublishSnapshot))
     end
   end
 end

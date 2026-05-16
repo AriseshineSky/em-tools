@@ -49,32 +49,36 @@ flowchart LR
 
     Es --> EsDump[es dump-index]
     Es --> EsDl[es download-product]
+    Es --> EsTr[es translate-titles]
     Inv --> InvSync[inventory sync]
     Inv --> InvSyncOne[inventory sync-from-gcs]
     Gcs --> GcsSeeds[gcs download-seeds]
     Bl --> BlDl[blacklist download]
 
     subgraph Plugins
-        Amz[amz-uploadable]
+        Amz[amazon]
         Sf[storefront]
         Ebay[ebay]
-        Alo[amazon-lowest-offer]
         Ssg[ssg]
         Lot[lotteon]
+        Laz[lazada]
     end
 
-    Amz --> AmzF[amz-uploadable filter]
-    Amz --> AmzU[amz-uploadable upload-from-es]
-    Amz --> AmzFmt[amz-uploadable format-from-file]
-    Amz --> AmzA[amz-uploadable asin-to-es]
+    Amz --> AmzF[amazon products filter]
+    Amz --> AmzU[amazon products upload-from-es]
+    Amz --> AmzFmt[amazon products format-file]
+    Amz --> AmzA[amazon products index-asins]
     Sf --> SfImp[storefront import-products]
-    Sf --> SfSync[storefront sync-inventory]
+    Sf --> SfSync[storefront inventory sync]
     Sf --> SfUnp[storefront unpublish-candidates]
     Ebay --> EbayPub[ebay listings publish-snapshot]
-    Alo --> AloPub[amazon-lowest-offer coverage publish-snapshot]
-    Alo --> AloDl[amazon-lowest-offer coverage download-and-publish]
+    Amz --> AloPub[amazon coverage publish-snapshot]
+    Amz --> AloDl[amazon coverage download-and-publish]
     Ssg --> SsgEx[ssg products export]
     Lot --> LotEx[lotteon products export]
+    Lot --> LotUp[lotteon products build-upload-payload]
+    Laz --> LazEx[lazada products export]
+    Laz --> LazBu[lazada products build-upload]
 ```
 
 | Path | Class |
@@ -82,22 +86,27 @@ flowchart LR
 | `dump INDEX` | `Core::Cli::Commands::Dump` |
 | `es dump-index` | `Core::Cli::Commands::EsDumpIndex` |
 | `es download-product` | `Core::Cli::Commands::EsDownloadProduct` |
+| `es translate-titles` | `Core::Cli::Commands::EsTranslateTitles` |
 | `inventory sync [CONFIG_PATH]` | `Core::Cli::Commands::InventorySync` |
 | `inventory sync-from-gcs [GS_URI]` | `Core::Cli::Commands::InventorySyncFromGcs` |
 | `gcs download-seeds` | `Core::Cli::Commands::GcsDownloadSeeds` |
 | `blacklist download` | `Core::Cli::Commands::BlacklistDownload` |
-| `amz-uploadable filter` | `Plugins::AmazonUploadable::Cli::UploadableProductFilter` |
-| `amz-uploadable upload-from-es` | `Plugins::AmazonUploadable::Cli::AmzUploadProductsFromEs` |
-| `amz-uploadable format-from-file PRODUCTS_PATH` | `Plugins::AmazonUploadable::Cli::AmzUploadableProductsFormatterFromFile` |
-| `amz-uploadable asin-to-es` | `Plugins::AmazonUploadable::Cli::AsinProductsToEs` |
+| `amazon products filter` | `Plugins::Amazon::Uploadable::Cli::UploadableProductFilter` |
+| `amazon products upload-from-es` | `Plugins::Amazon::Uploadable::Cli::AmzUploadProductsFromEs` |
+| `amazon products format-file PRODUCTS_PATH` | `Plugins::Amazon::Uploadable::Cli::AmzUploadableProductsFormatterFromFile` |
+| `amazon products index-asins` | `Plugins::Amazon::Uploadable::Cli::AsinProductsToEs` |
+| `amazon products build-feed` | `Plugins::Amazon::Uploadable::Cli::BuildUploadableFeed` |
 | `storefront import-products INPUT_PATH` | `Plugins::Storefront::Cli::ImportProducts` |
-| `storefront sync-inventory` | `Plugins::Storefront::Cli::SyncInventory` |
+| `storefront inventory sync` | `Plugins::Storefront::Cli::SyncInventory` |
 | `storefront unpublish-candidates` | `Plugins::Storefront::Cli::UnpublishCandidates` |
 | `ebay listings publish-snapshot [MARKETPLACE]` | `Plugins::Ebay::Cli::PublishSnapshot` |
-| `amazon-lowest-offer coverage publish-snapshot [MARKETPLACES...]` | `Plugins::AmazonLowestOffer::Cli::PublishSnapshot` |
-| `amazon-lowest-offer coverage download-and-publish` | `Plugins::AmazonLowestOffer::Cli::DownloadAndPublish` |
+| `amazon coverage publish-snapshot [MARKETPLACES...]` | `Plugins::Amazon::LowestOffer::Cli::PublishSnapshot` |
+| `amazon coverage download-and-publish` | `Plugins::Amazon::LowestOffer::Cli::DownloadAndPublish` |
 | `ssg products export` | `Plugins::Ssg::Cli::ExportProducts` |
 | `lotteon products export` | `Plugins::Lotteon::Cli::ExportProducts` |
+| `lotteon products build-upload-payload` | `Plugins::Lotteon::Cli::BuildUploadPayload` |
+| `lazada products export` | `Plugins::Lazada::Cli::ExportProducts` |
+| `lazada products build-upload` | `Plugins::Lazada::Cli::BuildUpload` |
 
 ---
 
@@ -154,6 +163,63 @@ with the doc `_id`, title, brand, and matched keywords.
 | `--title-field FIELD` | Source field for product title (default `title`). |
 | `--brand-field FIELD` | Source field for product brand (default `brand`). |
 | `--blocked-output PATH` | Override the blocked-products side-file path. |
+
+### `es translate-titles`
+
+Scans an index with a point-in-time `match_all` search, reads `--source-field`
+(default `title`), and when the value **looks Korean or Japanese** (Hangul /
+kana / CJK-without-Hangul heuristic; not a full language detector), sends it
+through `EmTools::Core::Translation::BudgetedTranslator`.
+
+**Where results go**
+
+1. **Sidecar translation index** (optional): pass `--translation-index NAME`. Each
+   document uses `_id = SHA256(source NUL source_product_id)` (see
+   `EmTools::Core::Translation::DocId`) and stores `source`, `source_product_id`,
+   original `title`, `title_en`, `target_lang`, `updated_at`, and optional
+   `product_index`. Create the index beforehand (dynamic mapping is fine for
+   prototyping).
+2. **Product index** (optional): partial-updates `--target-field` (default
+   `title_en`) on the scanned index. If you only use a translation index, omit
+   `--also-update-product` (default). Add `--also-update-product` to also patch
+   the product document.
+
+Requires Google Cloud Translation v2 credentials (ADC or `TRANSLATE_KEY` /
+`GOOGLE_CLOUD_KEY`) and a **positive** `EM_TRANSLATE_MAX_CHARS` (or YAML
+`translate.max_billable_chars`). See `.env.example` and
+`examples/config/settings.example.yml`.
+
+```bash
+ELASTICSEARCH_URL='http://localhost:9200' \
+EM_TRANSLATE_MAX_CHARS=500000 \
+bundle exec bin/em-tools es translate-titles user1_oliveyoung_products \
+  --translation-index em_title_translations --dry-run
+
+bundle exec bin/em-tools es translate-titles user1_oliveyoung_products \
+  --translation-index em_title_translations --also-update-product
+```
+
+**Export:** Oliveyoung and Lotteon CLIs accept `--translation-index` (and related
+flags) to `mget` each row’s translation by the same `_id` rule and merge
+`title_en` before upload shaping / NDJSON conversion.
+
+| Flag | Purpose |
+|---|---|
+| `--source-field FIELD` | Field to read (one dot level supported, e.g. `meta.title`; default `title`). |
+| `--target-field FIELD` | Product index partial-update field (default `title_en`; used with `--also-update-product`). |
+| `--langs CODES` | Comma list; title must pass heuristic for one code (default `ko,ja`). |
+| `--to LANG` | Google target language (default `en`). |
+| `--source-lang LANG` | Optional fixed source language; omit for auto-detect per string. |
+| `-b` / `--batch-size` | PIT page size (default `500`). |
+| `--bulk-size` | Bulk actions per HTTP request (default `50`). |
+| `-u` / `--url` | Elasticsearch base URL override. |
+| `--data` | Use `DATA_ELASTICSEARCH_URL` when set. |
+| `--dry-run` | Count and translate in memory only; no bulk writes. |
+| `--overwrite` | When updating the **product** index, skip the usual skip-if-target-nonempty rule. |
+| `--translation-index NAME` | Bulk-**index** translation rows into this sidecar index. |
+| `--source-key-field FIELD` | Product field for `source` stored in translation docs / doc id (default `source`). |
+| `--source-product-id-field FIELD` | Product field for id within source (default `source_product_id`). |
+| `--also-update-product` | When using `--translation-index`, also partial-update the product `--target-field`. |
 
 ---
 
@@ -212,7 +278,7 @@ bundle exec bin/em-tools blacklist download --raw -o tmp/blacklist.json
 ```
 
 Required env: `BLACKLIST_API_ENDPOINT`, `BLACKLIST_API_PATH`,
-`BLACKLIST_API_TOKEN` (or legacy `BLACKLIST_API_KEY`). The loader is
+`BLACKLIST_API_TOKEN`. The loader is
 tolerant of legacy `{"blacklist_keywords":[{"keywords":[...]}]}` payloads as
 well as flatter `{"keywords":[...]}` and bare-array responses, so a
 server-side schema flip will not silently produce an empty list.
@@ -225,21 +291,21 @@ The following commands are **plugin-registered**; their availability depends
 on the plugin being loaded (which it always is, since
 `lib/em_tools.rb` eagerly loads every `plugins/*/plugin.rb`).
 
-### Amazon uploadable (`plugins/amazon_uploadable/`)
+### Amazon uploadable (`plugins/amazon/uploadable/`)
 
 | Command | What it does |
 |---|---|
-| `amz-uploadable filter` | Filter ASINs from one ES index against the rule engine and write the eligible-for-upload list. |
-| `amz-uploadable upload-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
-| `amz-uploadable format-from-file PRODUCTS_PATH` | Format a local file into the upload pipeline's input format. |
-| `amz-uploadable asin-to-es` | Stage / index ASIN-keyed product documents into ES. |
+| `amazon products filter` | Filter ASINs from one ES index against the rule engine and write the eligible-for-upload list. |
+| `amazon products upload-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
+| `amazon products format-file PRODUCTS_PATH` | Format a local file into the upload pipeline's input format. |
+| `amazon products build-feed` | Build final uploadable feed rows from an ASIN source into configured sinks. |
 
-### Amazon lowest-offer (`plugins/amazon_lowest_offer/`)
+### Amazon lowest-offer (`plugins/amazon/lowest_offer/`)
 
 | Command | What it does |
 |---|---|
-| `amazon-lowest-offer coverage publish-snapshot [MARKETPLACES...]` | Publish lowest-offer coverage snapshots (one row per marketplace). |
-| `amazon-lowest-offer coverage download-and-publish` | Composite: `gcs download-seeds` then `coverage publish-snapshot`. |
+| `amazon coverage publish-snapshot [MARKETPLACES...]` | Publish lowest-offer coverage snapshots (one row per marketplace). |
+| `amazon coverage download-and-publish` | Composite: `gcs download-seeds` then `coverage publish-snapshot`. |
 
 ### eBay (`plugins/ebay/`)
 
@@ -252,7 +318,7 @@ on the plugin being loaded (which it always is, since
 | Command | What it does |
 |---|---|
 | `storefront import-products INPUT_PATH` | Filter local NDJSON product feeds against the rule engine. |
-| `storefront sync-inventory` | Download per-source inventory CSVs from Spree and bulk-index into ES. |
+| `storefront inventory sync` | Download per-source inventory CSVs from Spree and bulk-index into ES. |
 | `storefront unpublish-candidates` | Iterate ES inventory, run rules, write delisting candidates to `em_products_to_unpublish`. |
 
 ### SSG / Lotteon (`plugins/ssg/`, `plugins/lotteon/`)
@@ -261,6 +327,27 @@ on the plugin being loaded (which it always is, since
 |---|---|
 | `ssg products export` | Stream SSG products from Elasticsearch as NDJSON. |
 | `lotteon products export` | Stream Lotteon products from Elasticsearch as NDJSON. |
+| `lotteon products build-upload-payload` | Build upload NDJSON; optional `--pipeline` YAML composes **exclusions** and **transforms** (format stage — `format:` + `lotteon_upload_format` — then **refine**: other `transforms:` rows, `refine:`, Ruby `transforms:`). See `examples/config/lotteon_upload_pipeline.example.yml` and {EmTools::Plugins::Lotteon::Pipeline::Registry}. |
+
+### Lazada (`plugins/lazada/` — Thailand / Malaysia)
+
+Marketplace is selected with **`-m th`** or **`-m my`** (or any key you add under `lazada_marketplaces` in settings). Each code resolves:
+
+- **`exporters.<exporter_key>`** — ES cluster (`ELASTICSEARCH_URL` / cluster name) + **index name** (`lazada_th_products` → `user1_lazadacoth_products`, `lazada_my_products` → placeholder index; edit YAML).
+- **`lazada_marketplaces.<code>`** — optional overrides: `inventory_source`, `display_source`, `sku_prefix`, `price_rules`, `formatter_filters` (toggle skip multi-variant / options / uploaded), `products_query` (`source_field`, `source_value`), `extra_es_filters` (extra ES `bool.filter` clauses), `keyword_filter_default`, `translate_by_default`, `translation_index`, `translation_elasticsearch_url`, `keyword_rules_source`, etc. Defaults live in {EmTools::Plugins::Lazada::MarketplaceProfile}.
+
+Keyword policy: YAML **`keyword_filter_default`** applies when neither **`--force-keyword-filter`** nor **`--no-keyword-filter`** is passed. Translation: merge `title_en` when an index is configured **and** (`translate_by_default` **or** `--translation-index …` **or** `--force-translate`), unless **`--no-translate`**.
+
+| Command | What it does |
+|---|---|
+| `lazada products export` | NDJSON stream; `-m`; `--for-upload` applies marketplace formatter + filters; `-u` overrides ES URL. |
+| `lazada products build-upload` | Upload NDJSON (`tmp/lazada_<m>_upload.ndjson` by default). |
+
+```bash
+bundle exec bin/em-tools lazada products build-upload -m th -u 'http://user:pass@host:9200' -o tmp/th.ndjson
+bundle exec bin/em-tools lazada products build-upload -m my --no-keyword-filter
+bundle exec bin/em-tools lazada products export -m my --force-translate --translation-index em_title_translations_my
+```
 
 ---
 
@@ -278,7 +365,7 @@ top-level base class:
 
 ```ruby
 begin
-  EmTools::Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot.new.run!
+  EmTools::Plugins::Amazon::LowestOffer::Pipelines::PublishSnapshot.new.run!
 rescue EmTools::Error => e
   warn "em-tools refused: #{e.message}"
 end

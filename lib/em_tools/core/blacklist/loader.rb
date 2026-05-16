@@ -13,7 +13,7 @@ module EmTools
       #
       #   * +BLACKLIST_API_ENDPOINT+ - scheme+host, e.g. +https://api.everymarket.com+.
       #   * +BLACKLIST_API_PATH+     - request path, e.g. +/api/v1/blacklist_keywords+.
-      #   * +BLACKLIST_API_TOKEN+    - bearer token (also accepted via legacy +BLACKLIST_API_KEY+).
+      #   * +BLACKLIST_API_TOKEN+    - bearer token.
       #
       # The remote endpoint is paginated by an opaque integer +cursor+ and announces +has_more+
       # / +next_cursor+ on every page. Three consumption styles:

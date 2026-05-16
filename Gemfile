@@ -17,6 +17,10 @@ gem "google-cloud-storage"
 gem "nokogiri", "~> 1.19"
 gem "zeitwerk", "~> 2.0"
 
+# Standard product validation (+EmProduct::StandardProduct+), aligned with
+# +em_tasks+ / +format_oliveyoung.py+ and +product-validator-ruby+.
+gem "product_validator", path: "../product-validator-ruby"
+
 group :development, :test do
   gem "debug"
   gem "dotenv"
@@ -27,3 +31,5 @@ group :development, :test do
   gem "rubocop-rspec", require: false
   gem "rubocop-shopify", require: false
 end
+
+gem "google-cloud-translate", "~> 3.6"

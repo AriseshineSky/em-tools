@@ -72,7 +72,7 @@ those as instance methods on your plugin (`def upload_runner(**opts) =
 Pipelines::UploadProductsFromEs::Runner.new(**opts) end`) so callers and the
 CLI can grab one without reaching into your internals.
 
-See {EmTools::Plugins::AmazonUploadable::Plugin} and
+See {EmTools::Plugins::Amazon::Uploadable::Plugin} and
 {EmTools::Plugins::Storefront::Plugin} for canonical examples.
 
 ## Recommended directory layout
@@ -120,9 +120,9 @@ A plugin contributes commands under a single top-level token — its
 | Plugin | `cli_namespace` | Example invocation |
 |---|---|---|
 | `:storefront` | `storefront` (default) | `em-tools storefront import-products …` |
-| `:amazon_uploadable` | `amz-uploadable` (override) | `em-tools amz-uploadable filter …` |
+| `:amazon` | `amazon` (default) | `em-tools amazon products filter …` / `em-tools amazon coverage publish-snapshot …` |
 | `:ebay` | `ebay` (default) | `em-tools ebay listings publish-snapshot …` |
-| `:amazon_lowest_offer` | `amazon-lowest-offer` (default) | `em-tools amazon-lowest-offer coverage publish-snapshot …` |
+| `:lazada` | `lazada` (default) | `em-tools lazada products build-upload …` |
 
 ### How `plugin_name` and `cli_namespace` are decided
 
@@ -137,7 +137,7 @@ The flow is:
 1. **Plugin declares its name on itself:**
 
    ```ruby
-   def self.plugin_name = :amazon_lowest_offer
+   def self.plugin_name = :my_plugin
    ```
 
 2. **Plugin registers itself, passing its declared name:**
@@ -150,13 +150,13 @@ The flow is:
    literal in exactly one place per plugin file.
 
 3. **`Plugin.cli_namespace` defaults to `plugin_name.to_s.tr("_", "-")`**,
-   so `:amazon_lowest_offer` → `"amazon-lowest-offer"`. A plugin can
-   override `self.cli_namespace` to a literal string for a shorter prefix:
+   so `:storefront` → `"storefront"`. A plugin can override `self.cli_namespace`
+   to a literal string when the default kebab-case is not what you want:
 
    ```ruby
    class Plugin < EmTools::Core::Plugin::Base
-     def self.plugin_name   = :amazon_uploadable
-     def self.cli_namespace = "amz-uploadable"
+     def self.plugin_name   = :acme_feed
+     def self.cli_namespace = "acme"
 
      EmTools::Core::PluginRegistry.register(plugin_name, self)
    end

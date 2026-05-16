@@ -38,11 +38,19 @@ schema, or scheduled-job set changes in a way the deployment cares about.
   *relative* to `cli_namespace` (the registry prepends the namespace).
   `Plugin::Cli::Base` is removed; plugin commands inherit from
   `Dry::CLI::Command` directly.
-- README, CHANGELOG, CONTRIBUTING, and `docs/*` rewritten for app-mode and
-  the new CLI shape.
+- **Amazon plugins merged (breaking)**. `:amazon_uploadable` and
+  `:amazon_lowest_offer` are a single `:amazon` plugin (`plugins/amazon/plugin.rb`);
+  implementation modules live under `EmTools::Plugins::Amazon::Uploadable::*` and
+  `EmTools::Plugins::Amazon::LowestOffer::*`. CLI: `amz-uploadable …` and
+  `amazon-lowest-offer …` are replaced by `em-tools amazon products …` and
+  `em-tools amazon coverage …`. Use `PluginRegistry.fetch(:amazon)` for both areas.
+- **Storefront inventory CLI (breaking)**: `storefront sync-inventory` →
+  `storefront inventory sync` (resource/action ordering).
 
 ### Removed
 
+- **`BLACKLIST_API_KEY`**: no longer read or used as a fallback for
+  `Config.blacklist_api_token`; set `BLACKLIST_API_TOKEN` only.
 - `em-tools.gemspec` and the `bundler/gem_tasks` derived `rake build/install/release` tasks.
 - `exe/` directory.
 - `EmTools::Core::VERSION` constant.
@@ -52,12 +60,12 @@ schema, or scheduled-job set changes in a way the deployment cares about.
   `Dry::CLI::Command` DSL on each command class.
 - Core CLI duplicates of plugin commands (`lowest-offer-*`,
   `ebay-listings-*`); these are now reached via the plugin subtrees
-  (`amazon-lowest-offer coverage *`, `ebay listings *`).
+  (`amazon coverage *`, `ebay listings *`).
 
 ## Earlier milestones
 
 - Plugin-based architecture: core engine + per-marketplace plugins
-  (`amazon_uploadable`, `amazon_lowest_offer`, `ebay`, `storefront`,
+  (`amazon/uploadable`, `amazon/lowest_offer`, `ebay`, `storefront`,
   `lotteon`, `ssg`); inventory sync stays core.
 - Centralised CLI runner shim (`EmTools::Core::Cli::Runner`) that turns
   `ConfigurationError` / `EmptyResultError` into a clean `error: <msg>` +

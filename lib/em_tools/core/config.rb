@@ -169,12 +169,68 @@ module EmTools
         string_present(ENV["BLACKLIST_API_PATH"])
       end
 
-      def self.blacklist_api_key
-        string_present(ENV["BLACKLIST_API_KEY"])
+      def self.blacklist_api_token
+        string_present(ENV["BLACKLIST_API_TOKEN"])
       end
 
-      def self.blacklist_api_token
-        string_present(ENV["BLACKLIST_API_TOKEN"]) || blacklist_api_key
+      # --- Cloud Translation (Basic / v2) — optional caps in YAML + .env overrides ---
+      #
+      # Billing is per **source character**; {EmTools::Core::Translation::BudgetedTranslator}
+      # enforces caps. When +max_billable_chars+ resolves to 0, translation is treated as disabled.
+      def self.translate_settings
+        s = settings["translate"]
+        s.is_a?(Hash) ? s : {}
+      end
+
+      def self.translate_max_billable_chars
+        integer_setting(
+          ENV["EM_TRANSLATE_MAX_CHARS"],
+          translate_settings["max_billable_chars"],
+          default: 0,
+        )
+      end
+
+      def self.translate_daily_char_cap
+        integer_setting(
+          ENV["EM_TRANSLATE_DAILY_CAP"],
+          translate_settings["daily_char_cap"],
+          default: 0,
+        )
+      end
+
+      def self.translate_state_path
+        string_present(ENV["EM_TRANSLATE_STATE_PATH"]) ||
+          string_present(translate_settings["state_path"]) ||
+          File.join("tmp", "translate_usage_state.json")
+      end
+
+      def self.translate_cache_dir
+        string_present(ENV["EM_TRANSLATE_CACHE_DIR"]) ||
+          string_present(translate_settings["cache_dir"])
+      end
+
+      def self.translate_min_interval_seconds
+        float_setting(
+          ENV["EM_TRANSLATE_MIN_INTERVAL"],
+          translate_settings["min_interval_seconds"],
+          default: 0.35,
+        )
+      end
+
+      def self.translate_max_chars_per_request
+        integer_setting(
+          ENV["EM_TRANSLATE_MAX_PER_REQUEST"],
+          translate_settings["max_chars_per_request"],
+          default: 4500,
+        )
+      end
+
+      def self.translate_max_retries
+        integer_setting(
+          ENV["EM_TRANSLATE_MAX_RETRIES"],
+          translate_settings["max_retries"],
+          default: 3,
+        )
       end
 
       # Path to a GCS service account JSON key (optional; used by gcs rake tasks /
@@ -240,6 +296,26 @@ module EmTools
         false
       end
       private_class_method :url_has_embedded_credentials?
+
+      def self.integer_setting(env_val, yaml_val, default:)
+        v = string_present(env_val) || yaml_val&.to_s&.strip
+        return default if v.nil? || v.empty?
+
+        Integer(v)
+      rescue ArgumentError
+        default
+      end
+      private_class_method :integer_setting
+
+      def self.float_setting(env_val, yaml_val, default:)
+        v = string_present(env_val) || yaml_val&.to_s&.strip
+        return default if v.nil? || v.empty?
+
+        Float(v)
+      rescue ArgumentError
+        default
+      end
+      private_class_method :float_setting
 
       # GCS bucket name routing from merged settings (+gcs.buckets+). Project ID and
       # credentials path are NEVER read from YAML — use +.env+ +GCS_PROJECT_ID+ /

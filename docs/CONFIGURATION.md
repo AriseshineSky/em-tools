@@ -52,7 +52,7 @@ read the parts that apply to your task.
 | Amazon lowest-offer | snapshot | `LOWEST_OFFER_*`, `MONITORING_LOWEST_OFFER_SNAPSHOT_INDEX`, `MONITORING_ES_INDEX_REFRESH` |
 | eBay coverage | snapshot | `EBAY_LISTINGS_COVERAGE_*` |
 | Redis | optional | `REDIS_URL` |
-| Blacklist API | uploadable filter | `BLACKLIST_API_ENDPOINT`, `BLACKLIST_API_PATH`, `BLACKLIST_API_KEY`, `BLACKLIST_API_TOKEN` |
+| Blacklist API | uploadable filter | `BLACKLIST_API_ENDPOINT`, `BLACKLIST_API_PATH`, `BLACKLIST_API_TOKEN` |
 | Per-site | partner sites | `EM_TOOLS_SITE_<NAME>_BASE_URL`, `_ENDPOINT`, `_TOKEN` |
 | Settings overrides | rare | `EM_TOOLS_SETTINGS_PATH`, `EM_TOOLS_SKIP_SETTINGS_HYDRATE` |
 
@@ -88,6 +88,20 @@ default: &default
     lotteon_products:
       cluster: analytics
       index: user1_lotteon_products
+    lazada_th_products:
+      cluster: primary
+      index: user1_lazadacoth_products
+    lazada_my_products:
+      cluster: primary
+      index: user1_lazadamys_products
+
+  # Per-marketplace Lazada CLI (+em-tools lazada -m th|my+). Optional YAML overrides.
+  lazada_marketplaces:
+    # my:
+    #   translate_by_default: true
+    #   translation_index: em_title_translations_my
+    #   extra_es_filters:
+    #     - term: { marketplace: "MY" }
 
   redis:
     url: redis://localhost:6379/0    # .env REDIS_URL overrides

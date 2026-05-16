@@ -31,6 +31,12 @@ RSpec.describe(EmTools::Core::Blacklist::Engine::AhoCorasick) do
 
       expect(engine.keyword_count).to(eq(1))
     end
+
+    it "treats ® as a separator when matching product text" do
+      engine = described_class.new(["biting"])
+
+      expect(engine.blocked?("ARK® Biting and Chewing")).to(be(true))
+    end
   end
 
   describe "#lookup" do

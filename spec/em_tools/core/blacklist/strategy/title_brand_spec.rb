@@ -28,6 +28,12 @@ RSpec.describe(EmTools::Core::Blacklist::Strategy::TitleBrand) do
       expect(strategy.allow?(hit)).to(be(true))
     end
 
+    it "matches across ® in the title after separator cleaning" do
+      strategy = described_class.new(["biting"])
+
+      expect(strategy.blocked?({ "title" => "ARK® Biting and Chewing", "brand" => "Acme" })).to(be(true))
+    end
+
     it "returns false when title and brand are both missing/blank" do
       expect(strategy.blocked?({ "title" => "", "brand" => nil })).to(be(false))
       expect(strategy.blocked?({})).to(be(false))

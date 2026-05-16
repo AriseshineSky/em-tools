@@ -3,8 +3,10 @@
 **em-tools** is the [Everymarket](https://github.com/AriseshineSky)
 **data-management platform** — a personal Ruby application that drives
 Elasticsearch dumps, GCS-backed inventory sync, and per-marketplace coverage
-snapshots (Amazon lowest-offer, Amazon uploadable, eBay listings, Korean
-storefronts) through:
+snapshots. The **Amazon** workstreams share one `:amazon` plugin (uploadable
+products + lowest-offer coverage); **eBay** listings, **storefront** (Spree),
+and Korean marketplace exporters (**SSG**, **Lotteon**, **Oliveyoung**) each
+have their own plugin scopes. Everything is exposed through:
 
 1. **A single CLI** at [`bin/em-tools`](bin/em-tools) for ad-hoc /
    interactive use.
@@ -40,7 +42,7 @@ $EDITOR .env                       # fill in cluster URLs / GCS keys
 
 bundle exec bin/em-tools                                                    # top-level command tree
 bundle exec bin/em-tools inventory sync                                     # all sources from settings YAML
-bundle exec bin/em-tools amazon-lowest-offer coverage publish-snapshot us ca jp   # Amazon snapshot
+bundle exec bin/em-tools amazon coverage publish-snapshot us ca jp   # Amazon snapshot
 bundle exec bin/em-tools ebay listings publish-snapshot us                  # eBay snapshot
 ```
 
@@ -83,23 +85,60 @@ For per-command reference and configuration, see
 
 ## What is in the box
 
-| Capability | Plugin / module | CLI command |
-|---|---|---|
-| Stream an ES index to NDJSON (any cluster) | `EmTools::Core::Sinks::IndexDumper` / `Config.elasticsearch_client` | `em-tools dump INDEX` |
-| Env-driven ES dump (primary cluster) | `EmTools::Core::Sinks::IndexDumper.from_env` | `em-tools es dump-index` |
-| Env-driven ES dump (data cluster) + blacklist policy | `EmTools::Core::Pipelines::ProductDownload` | `em-tools es download-product` |
-| Sync GCS inventory CSVs into ES (multi-source) | `EmTools::Core::Inventory::*` | `em-tools inventory sync [path]` |
-| Sync a single GCS CSV into ES | `EmTools::Core::Inventory::SyncRunner` | `em-tools inventory sync-from-gcs [gs://...]` |
-| Download lowest-offer AMZ seed files from GCS | `Plugins::AmazonLowestOffer::Sources::SeedFiles` | `em-tools gcs download-seeds` |
-| Amazon lowest-offer coverage snapshot | `Plugins::AmazonLowestOffer::Pipelines::PublishSnapshot` | `em-tools amazon-lowest-offer coverage publish-snapshot [mp ...]` |
-| Seeds + Amazon snapshot in one go | composite of the two above | `em-tools amazon-lowest-offer coverage download-and-publish` |
-| eBay listings coverage snapshot | `Plugins::Ebay::Pipelines::PublishSnapshot` | `em-tools ebay listings publish-snapshot [mp]` |
-| Format Amazon uploadable products from a file | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable format-from-file` |
-| Upload Amazon products from ES | `Plugins::AmazonUploadable::Cli::*` | `em-tools amz-uploadable upload-from-es` |
-| Storefront → ES inventory + delisting candidates | `Plugins::Storefront::Runners::*` | `em-tools storefront sync-inventory` / `storefront unpublish-candidates` |
-| Refresh keyword blacklist | `EmTools::Core::Blacklist::Loader` | `em-tools blacklist download` |
+Below is a **command → purpose** map; flags, env vars, and exit codes are in
+[`docs/CLI.md`](docs/CLI.md). Every command is invoked as
+`bundle exec bin/em-tools …` (or `./bin/em-tools …` from the repo root).
 
-A full per-command reference lives in [`docs/CLI.md`](docs/CLI.md).
+### Core (no plugin namespace)
+
+| Command | What it does |
+|---|---|
+| `dump INDEX` | Stream all documents from an Elasticsearch index as NDJSON (cluster selectable). |
+| `es dump-index` | Env-driven dump from the **primary** cluster using `ES_DUMP_*` variables. |
+| `es download-product` | Env-driven dump from the **data** cluster with blacklist keyword filtering. |
+| `es translate-titles INDEX` | Scan an ES index; translate KO/JA-looking titles to English via a **translation sidecar index** (`--translation-index`, doc `_id` = hash of `source` + `source_product_id`) and/or product `title_en`; exporters can merge from that index (`--translation-index` on Oliveyoung / Lotteon). |
+| `inventory sync [CONFIG_PATH]` | Sync one or more GCS inventory CSV feeds into ES per `config/settings.yml`. |
+| `inventory sync-from-gcs [GS_URI]` | Sync a **single** GCS object into the inventory index. |
+| `gcs download-seeds` | Download Amazon lowest-offer seed files (`amz_<mp>.txt`) from GCS into `./tmp`. |
+| `blacklist download` | Fetch the keyword blacklist from the admin API (stdout or `--output`). |
+
+### Amazon (`:amazon` plugin — `amazon` CLI namespace)
+
+| Command | What it does |
+|---|---|
+| `amazon products filter` | Stream / filter uploadable ASINs from the Amazon ASIN index (rule engine slice). |
+| `amazon products upload-from-es` | Read filtered products from ES and run the upload-side pipeline (Celery-compat config). |
+| `amazon products format-file PATH` | Turn a local product file into the upload pipeline’s input shape. |
+| `amazon products index-asins` | Stage ASIN-keyed product documents from the ASIN stream into ES (`mget` + bulk). |
+| `amazon products build-feed` | Build uploadable feed rows from an ASIN source into JSONL / ES sinks. |
+| `amazon coverage publish-snapshot [mp …]` | Publish lowest-offer **coverage** snapshots (one row per marketplace). |
+| `amazon coverage download-and-publish` | Composite: `gcs download-seeds` then `amazon coverage publish-snapshot`. |
+
+### eBay
+
+| Command | What it does |
+|---|---|
+| `ebay listings publish-snapshot [mp]` | eBay listings coverage snapshot (one row per marketplace). |
+
+### Storefront (Spree)
+
+| Command | What it does |
+|---|---|
+| `storefront import-products INPUT_PATH` | Filter local product NDJSON through the rule engine. |
+| `storefront inventory sync` | Download per-source inventory CSVs from Spree and bulk-index into ES. |
+| `storefront unpublish-candidates` | Scan ES inventory, apply rules, write delisting candidates to `em_products_to_unpublish`. |
+
+### Korean marketplace exporters
+
+| Command | What it does |
+|---|---|
+| `ssg products export` | Stream SSG-tagged products from Elasticsearch as NDJSON. |
+| `lotteon products export` | Stream Lotteon products from Elasticsearch as NDJSON. |
+| `lotteon products build-upload-payload` | Read Lotteon products from ES, run **format then refine** transform stages (YAML / Ruby composable pipeline), optional keyword policy, write upload NDJSON. |
+| `oliveyoung products export` | Stream Oliveyoung products from Elasticsearch as NDJSON. |
+| `oliveyoung products build-upload` | Download Oliveyoung products from ES and write storefront-upload NDJSON (formatter + price rules). |
+| `lazada products export` | Stream Lazada products; **`-m th`** / **`-m my`** picks marketplace (`exporters.lazada_th_products` / `lazada_my_products` + optional `lazada_marketplaces` YAML). |
+| `lazada products build-upload` | Upload NDJSON (`tmp/lazada_<m>_upload.ndjson`); per-profile formatter, filters, and translation defaults. |
 
 ---
 
@@ -130,8 +169,10 @@ lib/em_tools/
     elasticsearch_client.rb spree_client.rb gcs_blob_fetcher.rb
     gcs_service_account_path.rb exchange_rate.rb
   plugins/                            one directory per plugin scope
-    amazon_uploadable/  amazon_lowest_offer/
-    ebay/  storefront/  lotteon/  ssg/
+    amazon/
+      plugin.rb                         registers :amazon (uploadable + lowest-offer CLI)
+      uploadable/  lowest_offer/       Amazon implementation trees
+    ebay/  storefront/  lotteon/  oliveyoung/  ssg/  lazada/
 
 config/settings.yml                   structural / routing config (no secrets)
 .env.example                          secrets and cluster URLs
@@ -211,7 +252,7 @@ The example schedule:
 | Time (system TZ) | Job |
 |---|---|
 | 03:30 | `em-tools inventory sync` (full sync) |
-| 04:00 | `em-tools amazon-lowest-offer coverage download-and-publish` (Amazon snapshot) |
+| 04:00 | `em-tools amazon coverage download-and-publish` (Amazon snapshot) |
 | 04:30 | `em-tools ebay listings publish-snapshot us` (eBay snapshot) |
 | 05:00 | `em-tools storefront unpublish-candidates` (delisting candidates) |
 

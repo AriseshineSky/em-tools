@@ -16,7 +16,7 @@ We treat almost every workflow as a small ETL pipeline:
 |---|---|---|
 | **Source** | Pull raw bytes / records (GCS, Spree, ES, HTTP, file) | `core/sinks/index_dumper` (read side), `clients/*`, plugin-specific `sources/` |
 | **Decoding** | Parse NDJSON / CSV / JSON, validate minimal shape | `clients/*`, `plugins/*/queries/`, ad-hoc decoders |
-| **Transform** | Field rename, currency normalisation, default-fill | plugin `transforms/` (e.g. `amazon_uploadable/transforms/price_calculator`) |
+| **Transform** | Field rename, currency normalisation, default-fill | plugin `transforms/` (e.g. `amazon/uploadable/transforms/price_calculator`) |
 | **Filter** | Keep / drop / branch (blacklist, eligibility, price floors, category) | `core/rules/`, `core/blacklist/`, plugin `filters/` |
 | **Sink** | Bulk-index to ES, write NDJSON | `core/sinks/elasticsearch_bulk_sink`, plugin `sinks/` |
 
@@ -73,8 +73,9 @@ bin/                                        project executables
     exchange_rate.rb                        EmTools::Clients::ExchangeRate
 
   plugins/                                  EmTools::Plugins
-    amazon_uploadable/                      EmTools::Plugins::AmazonUploadable
-    amazon_lowest_offer/                    EmTools::Plugins::AmazonLowestOffer
+    amazon/uploadable/                      EmTools::Plugins::Amazon::Uploadable
+    amazon/lowest_offer/                    EmTools::Plugins::Amazon::LowestOffer
+    amazon/plugin.rb                        EmTools::Plugins::Amazon::Plugin
     ebay/                                   EmTools::Plugins::Ebay
     storefront/                             EmTools::Plugins::Storefront
     lotteon/                                EmTools::Plugins::Lotteon

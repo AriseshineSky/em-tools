@@ -17,7 +17,7 @@ module EmTools
       # The +PriceCalculator+ collaborator must respond to +#calc_offer(src_offer)+
       # and return either +false+ (skip / fall back to zero) or a hash with
       # +"price"+, +"quantity"+, +"src_price"+, +"src_currency"+, +"currency"+
-      # keys. {EmTools::Plugins::AmazonUploadable::Transforms::PriceCalculator}
+      # keys. {EmTools::Plugins::Amazon::Uploadable::Transforms::PriceCalculator}
       # is the canonical implementation, but anything matching the contract
       # works (e.g. a stub in tests, a different marketplace's calculator).
       class PriceFormatter

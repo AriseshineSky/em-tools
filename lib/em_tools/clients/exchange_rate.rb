@@ -12,7 +12,7 @@ module EmTools
     # fails. Successful lookups are memoized in a class-level cache (+@@cached_rates+ in
     # Python; +@cached_rates+ on the singleton class here).
     #
-    # Used by {EmTools::Plugins::AmazonUploadable::Transforms::PriceCalculator}, which mirrors
+    # Used by {EmTools::Plugins::Amazon::Uploadable::Transforms::PriceCalculator}, which mirrors
     # +em_tasks/utils/price_calculator.py+.
     class ExchangeRate
       DEFAULT_RATES = {

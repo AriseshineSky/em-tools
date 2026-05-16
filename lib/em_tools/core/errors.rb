@@ -17,6 +17,14 @@ module EmTools
       # result that the caller treats as a hard failure (e.g. zero seed ASINs
       # loaded for a marketplace).
       class EmptyResultError < EmTools::Error; end
+
+      # Raised when {EmTools::Core::Translation::BudgetedTranslator} is not
+      # configured (zero cap / disabled) or credentials are missing.
+      class TranslationDisabledError < EmTools::Error; end
+
+      # Raised when a translate request would exceed a session or daily
+      # character budget (Google bills per character).
+      class TranslationBudgetExceededError < EmTools::Error; end
     end
   end
 end

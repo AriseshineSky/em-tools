@@ -18,7 +18,8 @@ require "zeitwerk"
 #   +Errors::ConfigurationError+ / +Errors::EmptyResultError+ into +exit 1+.
 # - +EmTools::Core::PluginRegistry+ - plugin lookup + iteration.
 # - +EmTools::Core::Plugin::Base+   - base class plugins inherit from.
-# - +EmTools::Core::Errors::*+      - configuration / empty-result errors.
+# - +EmTools::Core::Translation::BudgetedTranslator+ — Google Cloud Translation v2
+#   with character budgets, cache, and throttling (see +.env.example+).
 # - +EmTools::Clients::*+           - external service clients (Spree, GCS, ES, etc).
 #
 # == Code layout

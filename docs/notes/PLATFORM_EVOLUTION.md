@@ -76,7 +76,7 @@ flowchart TB
 
     subgraph PLG["Plugin layer (合约不变)"]
         BASE["Plugin::Base<br/>capabilities / dependencies / cli_commands"]
-        PLUGINS["amazon_uploadable / ebay / storefront / lotteon / ssg / ..."]
+        PLUGINS["amazon / ebay / storefront / lotteon / ssg / ..."]
     end
 
     subgraph PIPE["⭐ Pipeline layer — 新形态"]
@@ -172,7 +172,7 @@ module EmTools::Core::Cli::Middleware
 end
 
 # lib/em_tools/core/cli/registry.rb 改为按需加载
-# 第一次执行 "amz-uploadable filter" 时才 require plugin.rb
+# 第一次执行 "amazon products filter" 时才 require plugin.rb
 ```
 
 **需要回答的设计问题**：

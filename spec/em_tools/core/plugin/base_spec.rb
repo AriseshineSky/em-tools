@@ -3,18 +3,18 @@
 require "spec_helper"
 
 # Defined globally so RuboCop's Lint/ConstantDefinitionInBlock cop is not triggered.
-class CorePluginBaseSpecAmazonUploadable < EmTools::Core::Plugin::Base; end
+class CorePluginBaseSpecDummyPlugin < EmTools::Core::Plugin::Base; end
 class CorePluginBaseSpecHttpApiClient < EmTools::Core::Plugin::Base; end
 
 class CorePluginBaseSpecKebabOverride < EmTools::Core::Plugin::Base
-  def self.cli_namespace = "amz-uploadable"
+  def self.cli_namespace = "acme-cli"
 end
 
 RSpec.describe(EmTools::Core::Plugin::Base) do
   # Pokes +plugin_name=+ directly so these examples don't depend on
   # PluginRegistry — the registry's contract is covered in
   # plugin_registry_spec. Mutating shared classes like
-  # CorePluginBaseSpecAmazonUploadable is safe because every example resets
+  # CorePluginBaseSpecDummyPlugin is safe because every example resets
   # the value it sets.
 
   describe ".plugin_name" do
@@ -23,20 +23,20 @@ RSpec.describe(EmTools::Core::Plugin::Base) do
     end
 
     it "is writable via plugin_name=" do
-      CorePluginBaseSpecAmazonUploadable.plugin_name = :explicit_test_a
-      expect(CorePluginBaseSpecAmazonUploadable.plugin_name).to(eq(:explicit_test_a))
+      CorePluginBaseSpecDummyPlugin.plugin_name = :explicit_test_a
+      expect(CorePluginBaseSpecDummyPlugin.plugin_name).to(eq(:explicit_test_a))
     ensure
-      CorePluginBaseSpecAmazonUploadable.plugin_name = nil
+      CorePluginBaseSpecDummyPlugin.plugin_name = nil
     end
   end
 
   describe ".cli_namespace" do
     it "kebab-cases the explicit plugin_name" do
-      CorePluginBaseSpecAmazonUploadable.plugin_name = :my_explicit_plugin
-      expect(CorePluginBaseSpecAmazonUploadable.cli_namespace).to(eq("my-explicit-plugin"))
-      expect(CorePluginBaseSpecAmazonUploadable.new.cli_namespace).to(eq("my-explicit-plugin"))
+      CorePluginBaseSpecDummyPlugin.plugin_name = :my_explicit_plugin
+      expect(CorePluginBaseSpecDummyPlugin.cli_namespace).to(eq("my-explicit-plugin"))
+      expect(CorePluginBaseSpecDummyPlugin.new.cli_namespace).to(eq("my-explicit-plugin"))
     ensure
-      CorePluginBaseSpecAmazonUploadable.plugin_name = nil
+      CorePluginBaseSpecDummyPlugin.plugin_name = nil
     end
 
     it "raises NotRegisteredError when called with no plugin_name set" do
@@ -45,7 +45,7 @@ RSpec.describe(EmTools::Core::Plugin::Base) do
     end
 
     it "honours subclass overrides without needing plugin_name" do
-      expect(CorePluginBaseSpecKebabOverride.cli_namespace).to(eq("amz-uploadable"))
+      expect(CorePluginBaseSpecKebabOverride.cli_namespace).to(eq("acme-cli"))
     end
   end
 

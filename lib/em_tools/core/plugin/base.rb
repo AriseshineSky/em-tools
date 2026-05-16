@@ -67,12 +67,12 @@ module EmTools
         end
 
         # Subcommand subtree every CLI command in this plugin lives under.
-        # Defaults to kebab-cased +plugin_name+ (so +:amazon_lowest_offer+
-        # becomes +"amazon-lowest-offer"+). Override for a shorter prefix:
+        # Defaults to kebab-cased +plugin_name+ (so +:amazon_listings+
+        # becomes +"amazon-listings"+). Override with a literal string when needed:
         #
         #   class Plugin < EmTools::Core::Plugin::Base
-        #     def self.plugin_name   = :amazon_uploadable
-        #     def self.cli_namespace = "amz-uploadable"
+        #     def self.plugin_name   = :acme_feed
+        #     def self.cli_namespace = "acme"
         #
         #     EmTools::Core::PluginRegistry.register(plugin_name, self)
         #   end
@@ -80,9 +80,9 @@ module EmTools
         # Plugin command paths declared in +cli_commands+ are merged under
         # this prefix:
         #
-        #   cli_namespace = "amz-uploadable"
-        #   cli_commands  = { "filter" => SomeCommand }
-        #   # invoked as: em-tools amz-uploadable filter
+        #   cli_namespace = "amazon"
+        #   cli_commands  = { "products filter" => SomeCommand }
+        #   # invoked as: em-tools amazon products filter
         def self.cli_namespace
           require_plugin_name!
           plugin_name.to_s.tr("_", "-")
@@ -137,17 +137,16 @@ module EmTools
         # by +em-tools+. Keys are space-separated subcommand paths *relative* to
         # +cli_namespace+; the registry prepends the namespace at boot.
         #
-        #   cli_namespace = "amz-uploadable"
+        #   cli_namespace = "amazon"
         #   cli_commands  = {
-        #     "filter"          => Cli::UploadableProductFilter,
-        #     "upload-from-es"  => Cli::AmzUploadProductsFromEs,
-        #     # multi-level paths are allowed:
-        #     "products filter" => Cli::SomeNestedCommand,
+        #     "products filter"        => Cli::UploadableProductFilter,
+        #     "products upload-from-es" => Cli::AmzUploadProductsFromEs,
+        #     "coverage publish-snapshot" => Cli::PublishSnapshot,
         #   }
         #
-        #   # -> em-tools amz-uploadable filter
-        #   # -> em-tools amz-uploadable upload-from-es
-        #   # -> em-tools amz-uploadable products filter
+        #   # -> em-tools amazon products filter
+        #   # -> em-tools amazon products upload-from-es
+        #   # -> em-tools amazon coverage publish-snapshot
         def cli_commands
           {}
         end

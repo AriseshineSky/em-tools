@@ -42,6 +42,7 @@ module EmTools
         def cli_commands
           {
             "products export" => Cli::ExportProducts,
+            "products build-upload" => Cli::BuildStoreUpload,
           }
         end
 
@@ -63,21 +64,60 @@ module EmTools
         # @param blocked_output_path [String, nil] write rejected docs here as
         #   NDJSON; ignored without +apply_keyword_policy+.
         # @param title_field [String], brand_field [String]
+        # @param converter [#call, nil] optional; +.call(es_source)+ per written line
+        #   (see {Exporters::ProductsExporter}).
+        # @param for_upload [Boolean] when true and +converter+ is omitted, wires
+        #   {Formatting::ProductExportFormatter} (same role as +format_oliveyoung.py+).
+        # @param inventory_source [String] Spree inventory source for uploaded-ID skip.
+        # @param validate_for_upload [Boolean] run {EmProduct::StandardProduct} when +for_upload+.
+        # @param logger [::Logger, nil] passed to the exporter and upload converter.
+        # @param translation_index [String, nil] when set, merge +title_en+ from this ES index
+        #   (see {EmTools::Core::Translation::TitleEnFromTranslationIndex}) before any +converter+.
+        # @param translation_elasticsearch_url [String, nil] optional cluster URL for the translation index
+        # @param translation_source_field [String] source key field on the product doc (default +source+)
+        # @param translation_source_product_id_field [String] default +source_product_id+
         def products_exporter(client: dependencies[:es_client], source_value: nil,
           apply_keyword_policy: false, keywords: nil,
           blocked_output_path: nil,
-          title_field: "title", brand_field: "brand", **_opts)
+          title_field: "title", brand_field: "brand",
+          converter: nil, for_upload: false, inventory_source: "oliveyoung",
+          validate_for_upload: true, logger: nil,
+          translation_index: nil, translation_elasticsearch_url: nil,
+          translation_source_field: "source", translation_source_product_id_field: "source_product_id",
+          **_opts)
           query = source_value ? Queries::ProductsQuery.new(source_value: source_value) : nil
           policy =
             if apply_keyword_policy
               build_keyword_policy(keywords: keywords, title_field: title_field, brand_field: brand_field)
             end
 
+          resolved_converter =
+            if converter
+              converter
+            elsif for_upload
+              Formatting::ProductExportFormatter.build(
+                inventory_source: inventory_source,
+                logger: logger,
+                validate: validate_for_upload,
+              )
+            end
+
+          resolved_converter = EmTools::Core::Translation::TitleEnFromTranslationIndex.compose_with(
+            inner: resolved_converter,
+            product_es_client: client,
+            translation_index: translation_index,
+            translation_elasticsearch_url: translation_elasticsearch_url,
+            translation_source_field: translation_source_field,
+            translation_source_product_id_field: translation_source_product_id_field,
+          )
+
           capabilities.dig(:products, :exporter).new(
             client: client,
             query: query,
             policy: policy,
             blocked_output_path: apply_keyword_policy ? blocked_output_path : nil,
+            converter: resolved_converter,
+            logger: logger,
           )
         end
 

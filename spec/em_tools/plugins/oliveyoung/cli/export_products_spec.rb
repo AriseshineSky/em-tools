@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "tmpdir"
+
 require "spec_helper"
 
 RSpec.describe(EmTools::Plugins::Oliveyoung::Cli::ExportProducts) do
@@ -9,7 +11,10 @@ RSpec.describe(EmTools::Plugins::Oliveyoung::Cli::ExportProducts) do
   before do
     allow(EmTools::Core::PluginRegistry).to(receive(:fetch).with(:oliveyoung).and_return(plugin))
     allow(plugin).to(receive(:products_exporter).and_return(exporter))
-    allow(exporter).to(receive_messages(to_jsonl: { total: 0, written: 0, blocked: 0 }, write_jsonl: { total: 0, written: 0, blocked: 0 }))
+    allow(exporter).to(receive_messages(
+      to_jsonl: { total: 0, written: 0, blocked: 0, filtered: 0 },
+      write_jsonl: { total: 0, written: 0, blocked: 0, filtered: 0 },
+    ))
   end
 
   it "wires keyword filter ON by default and writes to the requested file" do
@@ -54,5 +59,19 @@ RSpec.describe(EmTools::Plugins::Oliveyoung::Cli::ExportProducts) do
     described_class.new.call(source: "OLIVEYOUNG", batch_size: "10")
 
     expect(plugin).to(have_received(:products_exporter).with(hash_including(source_value: "OLIVEYOUNG")))
+  end
+
+  it "passes for-upload flags to the plugin factory" do
+    described_class.new.call(for_upload: true, inventory_source: "OY_SRC", batch_size: "10")
+
+    expect(plugin).to(have_received(:products_exporter).with(
+      hash_including(for_upload: true, inventory_source: "OY_SRC", validate_for_upload: true),
+    ))
+  end
+
+  it "sets validate_for_upload false when --no-validate-for-upload" do
+    described_class.new.call(for_upload: true, no_validate_for_upload: true, batch_size: "10")
+
+    expect(plugin).to(have_received(:products_exporter).with(hash_including(validate_for_upload: false)))
   end
 end

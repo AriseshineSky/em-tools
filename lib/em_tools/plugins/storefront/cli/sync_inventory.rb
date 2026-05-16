@@ -6,7 +6,7 @@ module EmTools
   module Plugins
     module Storefront
       module Cli
-        # +em-tools storefront sync-inventory --source SRC ...+ — pull inventory CSVs
+        # +em-tools storefront inventory sync --source SRC ...+ — pull inventory CSVs
         # from the user's Spree storefront for one or more sources, bulk-index into ES,
         # and prune obsolete docs (sync_batch_id older than the latest run).
         class SyncInventory < Dry::CLI::Command

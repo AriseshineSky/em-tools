@@ -8,7 +8,7 @@ module EmTools
       # Hierarchical command tree backing the +em-tools+ executable.
       #
       # Wraps +Dry::CLI::Registry+: every entry is a path of space-separated tokens
-      # ("inventory sync", "amz-uploadable filter", ...) that maps to a
+      # ("inventory sync", "amazon products filter", ...) that maps to a
       # +Dry::CLI::Command+ subclass. The registry is built once at boot from two
       # sources:
       #
@@ -23,6 +23,7 @@ module EmTools
           "dump" => Commands::Dump,
           "es dump-index" => Commands::EsDumpIndex,
           "es download-product" => Commands::EsDownloadProduct,
+          "es translate-titles" => Commands::EsTranslateTitles,
           "inventory sync" => Commands::InventorySync,
           "inventory sync-from-gcs" => Commands::InventorySyncFromGcs,
           "gcs download-seeds" => Commands::GcsDownloadSeeds,

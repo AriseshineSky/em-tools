@@ -7,7 +7,7 @@ module EmTools
         # Pulls product ids from an inventory ES index for {EmTools::Plugins::Ebay::Queries::ListingsCoverageQuery}
         # when +EBAY_LISTINGS_COVERAGE_ID_SOURCE=inventory+.
         #
-        # Unlike {EmTools::Plugins::AmazonLowestOffer::Sources::InventoryAsinLoader}, ids are **not**
+        # Unlike {EmTools::Plugins::Amazon::LowestOffer::Sources::InventoryAsinLoader}, ids are **not**
         # validated as ASINs (numeric eBay item ids are expected).
         class InventoryProductIdLoader
           def initialize(es_client:, index:, source_field:, source_terms:, product_id_field:,

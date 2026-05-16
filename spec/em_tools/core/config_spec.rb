@@ -166,4 +166,60 @@ RSpec.describe(EmTools::Core::Config) do
       expect(described_class.elasticsearch_connection_url(prefer_data_cluster: false)).to(eq("http://primary:9200"))
     end
   end
+
+  describe "translate settings" do
+    around do |example|
+      keys = [
+        "EM_TOOLS_SETTINGS_PATH",
+        "APP_ENV",
+        "ELASTICSEARCH_URL",
+        "EM_TRANSLATE_MAX_CHARS",
+        "EM_TRANSLATE_DAILY_CAP",
+        "EM_TRANSLATE_MIN_INTERVAL",
+      ]
+      prev = keys.to_h { |k| [k, ENV[k]] }
+      example.run
+      prev.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+      described_class.reload!
+    end
+
+    it "defaults translate caps to zero when unset" do
+      Tempfile.create(["t", ".yml"]) do |f|
+        f.write("default: {}\ndevelopment: {}\n")
+        f.flush
+        ENV["EM_TOOLS_SETTINGS_PATH"] = f.path
+        ENV["APP_ENV"] = "development"
+        ENV["ELASTICSEARCH_URL"] = "http://localhost:9200"
+        ENV.delete("EM_TRANSLATE_MAX_CHARS")
+        described_class.reload!
+        expect(described_class.translate_max_billable_chars).to(eq(0))
+      end
+    end
+
+    it "reads translate.max_billable_chars from YAML and allows ENV override" do
+      Tempfile.create(["t", ".yml"]) do |f|
+        f.write(<<~YAML)
+          default:
+            translate:
+              max_billable_chars: 12
+              daily_char_cap: 99
+              min_interval_seconds: 1.5
+          development: {}
+        YAML
+        f.flush
+        ENV["EM_TOOLS_SETTINGS_PATH"] = f.path
+        ENV["APP_ENV"] = "development"
+        ENV["ELASTICSEARCH_URL"] = "http://localhost:9200"
+        ENV.delete("EM_TRANSLATE_MAX_CHARS")
+        described_class.reload!
+        expect(described_class.translate_max_billable_chars).to(eq(12))
+        expect(described_class.translate_daily_char_cap).to(eq(99))
+        expect(described_class.translate_min_interval_seconds).to(eq(1.5))
+
+        ENV["EM_TRANSLATE_MAX_CHARS"] = "7"
+        described_class.reload!
+        expect(described_class.translate_max_billable_chars).to(eq(7))
+      end
+    end
+  end
 end

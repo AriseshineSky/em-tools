@@ -74,8 +74,7 @@ flowchart TB
     end
 
     subgraph Plugins
-        AU[amazon_uploadable]
-        ALO[amazon_lowest_offer]
+        AMZ[amazon]
         EB[ebay]
         SF[storefront]
         LO[lotteon]
@@ -90,20 +89,19 @@ flowchart TB
         EbayAPI[(eBay public)]
     end
 
-    Registry --> AU
-    Registry --> ALO
+    Registry --> AMZ
     Registry --> EB
     Registry --> SF
     Registry --> LO
     Registry --> SS
 
-    AU & ALO & EB --> AmazonAPI
+    AMZ & EB --> AmazonAPI
     EB --> EbayAPI
     SF --> Spree
-    AU & ALO & EB & SF --> ES
-    AU & ALO & EB --> GCS
+    AMZ & EB & SF --> ES
+    AMZ & EB --> GCS
 
-    CliApp -->|dispatch| AU & ALO & EB & SF & LO & SS
+    CliApp -->|dispatch| AMZ & EB & SF & LO & SS
 ```
 
 Each plugin under `lib/em_tools/plugins/<name>/` provides up to four kinds of
@@ -126,8 +124,8 @@ See [`PLUGINS.md`](PLUGINS.md) for the full plugin contract.
 
 | Scope | Directory | What it owns |
 |---|---|---|
-| `amazon_uploadable` | `plugins/amazon_uploadable/` | "Can we upload this product to Amazon?" rules + ASIN product index pipeline + the upload runner. |
-| `amazon_lowest_offer` | `plugins/amazon_lowest_offer/` | Lowest-offer monitoring snapshot, seed-file plumbing, offer filter / service. |
+| `amazon/uploadable` | `plugins/amazon/uploadable/` | "Can we upload this product to Amazon?" rules + ASIN product index pipeline + the upload runner. |
+| `amazon/lowest_offer` | `plugins/amazon/lowest_offer/` | Lowest-offer monitoring snapshot, seed-file plumbing, offer filter / service. |
 | `ebay` | `plugins/ebay/` | eBay listings coverage snapshot. |
 | `storefront` | `plugins/storefront/` | Spree storefront sync (download + delisting candidates). |
 | `lotteon` | `plugins/lotteon/` | Lotteon-specific pricing / catalog rules. |
@@ -149,7 +147,7 @@ sequenceDiagram
     participant ES as Elasticsearch
     participant SNK as CoverageSnapshot sink
 
-    U->>CLI: em-tools amazon-lowest-offer coverage publish-snapshot us ca jp
+    U->>CLI: em-tools amazon coverage publish-snapshot us ca jp
     CLI->>P: PublishSnapshot.new(cli_marketplaces: 'us,ca,jp').run!
     alt LOWEST_OFFER_ID_SOURCE=inventory
         P->>ES: query em_inventory for ASINs
