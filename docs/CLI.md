@@ -59,6 +59,7 @@ flowchart LR
         Amz[amazon]
         Sf[storefront]
         Ebay[ebay]
+        Gads[google-ads]
         Ssg[ssg]
         Lot[lotteon]
         Laz[lazada]
@@ -72,6 +73,8 @@ flowchart LR
     Sf --> SfSync[storefront inventory sync]
     Sf --> SfUnp[storefront unpublish-candidates]
     Ebay --> EbayPub[ebay listings publish-snapshot]
+    Gads --> GadsCat[gads catalog sync]
+    Gads --> GadsCatOne[gads catalog sync-from-gcs]
     Amz --> AloPub[amazon coverage publish-snapshot]
     Amz --> AloDl[amazon coverage download-and-publish]
     Ssg --> SsgEx[ssg products export]
@@ -89,6 +92,8 @@ flowchart LR
 | `es translate-titles` | `Core::Cli::Commands::EsTranslateTitles` |
 | `inventory sync [CONFIG_PATH]` | `Core::Cli::Commands::InventorySync` |
 | `inventory sync-from-gcs [GS_URI]` | `Core::Cli::Commands::InventorySyncFromGcs` |
+| `google-ads catalog sync [CONFIG_PATH]` | `Plugins::GoogleAds::Cli::CatalogSync` |
+| `google-ads catalog sync-from-gcs [GS_URI]` | `Plugins::GoogleAds::Cli::CatalogSyncFromGcs` |
 | `gcs download-seeds` | `Core::Cli::Commands::GcsDownloadSeeds` |
 | `blacklist download` | `Core::Cli::Commands::BlacklistDownload` |
 | `amazon products filter` | `Plugins::Amazon::Uploadable::Cli::UploadableProductFilter` |
@@ -249,6 +254,22 @@ Single-source debug variant. The URI can come from the CLI argument,
 Optional env: `INVENTORY_INDEX`, `INVENTORY_REFRESH=1`,
 `INVENTORY_PRUNE_OBSOLETE=1`, `INVENTORY_FEED_ID`, `INVENTORY_DROP_FIELDS`
 (comma-separated; e.g. `"handle,variants"`).
+
+### `google-ads catalog sync [CONFIG_PATH]`
+
+Same mechanics as `inventory sync`, but targets the **Google Ads product catalog**
+(SKUs shown in ads), not cross-channel operational inventory. Reads
+`google_ads_catalog_sync.sources` from settings YAML (default index:
+`google_ads_products`). Documents use `google_ads_feed` (not `inventory_feed`)
+for prune semantics.
+
+Required env: `ELASTICSEARCH_URL`. Optional: `GOOGLE_ADS_CATALOG_INDEX`,
+`GOOGLE_ADS_CATALOG_*` (see `.env.example`).
+
+```bash
+bundle exec bin/em-tools google-ads catalog sync
+bundle exec bin/em-tools google-ads catalog sync-from-gcs gs://em-bucket/google-ads-us.csv --data
+```
 
 ### `gcs download-seeds`
 

@@ -6,7 +6,8 @@ require "yaml"
 module EmTools
   module Core
     module Inventory
-      # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+) or from an explicit YAML path.
+      # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+, +google_ads_catalog_sync+, …)
+      # or from an explicit YAML path.
       class SyncSources
         # +cluster+ is the **name** of the ES cluster to write into ("primary",
         # "data"/"analytics", or any custom +elasticsearch_clusters+ key).
@@ -21,23 +22,23 @@ module EmTools
 
         class Error < StandardError; end
 
-        def self.load!(path = nil)
+        def self.load!(path = nil, profile: SyncProfile::INVENTORY)
           p = path.to_s.strip
-          return new(File.expand_path(p)).entries unless p.empty?
+          return new(File.expand_path(p), profile: profile).entries unless p.empty?
 
           settings = EmTools::Core::SettingsLoader.load
-          node = inventory_sync_node_from_settings(settings)
-          return new(nil, preloaded_node: node).entries if node
+          node = node_from_settings(settings, profile.settings_key)
+          return new(nil, preloaded_node: node, profile: profile).entries if node
 
           raise Error,
-            "No inventory sources: add a non-empty inventory_sync.sources list to your settings YAML, " \
-              "or pass a dedicated YAML path: em-tools inventory-sync <path>"
+            "No #{profile.config_label} sources: add a non-empty #{profile.settings_key}.sources list " \
+              "to your settings YAML, or pass a dedicated YAML path"
         end
 
-        def self.inventory_sync_node_from_settings(settings)
+        def self.node_from_settings(settings, settings_key)
           return unless settings.is_a?(Hash)
 
-          inv = settings["inventory_sync"]
+          inv = settings[settings_key]
           return unless inv.is_a?(Hash)
 
           sources = inv["sources"]
@@ -46,9 +47,10 @@ module EmTools
           inv
         end
 
-        def initialize(path = nil, preloaded_node: nil)
+        def initialize(path = nil, preloaded_node: nil, profile: SyncProfile::INVENTORY)
           @path = path
           @preloaded_node = preloaded_node
+          @profile = profile
         end
 
         def entries
@@ -95,14 +97,14 @@ module EmTools
 
         def config_source_label
           p = @path.to_s.strip
-          p.empty? ? "merged settings (inventory_sync)" : p
+          p.empty? ? "merged settings (#{@profile.config_label})" : p
         end
 
         def default_index(node)
-          env_idx = ENV["INVENTORY_INDEX"].to_s.strip
+          env_idx = ENV[@profile.env_key("INDEX")].to_s.strip
           return env_idx unless env_idx.empty?
 
-          node["index"] || Sync::INDEX
+          node["index"] || @profile.default_index
         end
 
         # rubocop:disable Naming/PredicateMethod -- "default_*" returns the default Boolean for a

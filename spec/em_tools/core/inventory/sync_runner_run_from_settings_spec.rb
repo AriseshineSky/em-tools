@@ -96,10 +96,10 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
         expect(EmTools::Core::Config).to(have_received(:elasticsearch_client).with(cluster: "primary").once)
         expect(EmTools::Core::Config).to(have_received(:elasticsearch_client).with(cluster: "data").once)
         expect(runner).to(have_received(:run_many!).with(
-          [mixed_sources[0]], label: nil
+          [mixed_sources[0]], label: nil, feed_field: "inventory_feed"
         ))
         expect(runner).to(have_received(:run_many!).with(
-          [mixed_sources[1], mixed_sources[2]], label: nil
+          [mixed_sources[1], mixed_sources[2]], label: nil, feed_field: "inventory_feed"
         ))
       end
 

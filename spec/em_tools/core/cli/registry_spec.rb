@@ -63,6 +63,10 @@ RSpec.describe(EmTools::Core::Cli::Registry) do
       coverage = registry.get(["amazon", "coverage", "publish-snapshot"])
       expect(coverage).to(be_found)
       expect(coverage.command).to(eq(EmTools::Plugins::Amazon::LowestOffer::Cli::PublishSnapshot))
+
+      gads = registry.get(["google-ads", "catalog", "sync"])
+      expect(gads).to(be_found)
+      expect(gads.command).to(eq(EmTools::Plugins::GoogleAds::Cli::CatalogSync))
     end
   end
 end

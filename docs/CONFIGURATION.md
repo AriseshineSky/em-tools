@@ -49,6 +49,7 @@ read the parts that apply to your task.
 | GCS | inventory + seeds | `GCS_SERVICE_ACCOUNT_PATH` (or `GCS_CREDENTIALS` + `GCS_PROJECT_ID`) |
 | GCS routing | seeds + inventory | `GCS_BUCKET`, `GCS_SEEDS_PREFIX` |
 | Inventory | inventory sync | `INVENTORY_INDEX`, `INVENTORY_GS_URI` / `INVENTORY_GCS_*`, `INVENTORY_REFRESH`, `INVENTORY_PRUNE_OBSOLETE`, `INVENTORY_FEED_ID` |
+| Google Ads catalog | google-ads catalog sync | `GOOGLE_ADS_CATALOG_INDEX`, `GOOGLE_ADS_CATALOG_GS_URI` / `GOOGLE_ADS_CATALOG_GCS_*`, `GOOGLE_ADS_CATALOG_REFRESH`, `GOOGLE_ADS_CATALOG_PRUNE_OBSOLETE`, `GOOGLE_ADS_CATALOG_FEED_ID` |
 | Amazon lowest-offer | snapshot | `LOWEST_OFFER_*`, `MONITORING_LOWEST_OFFER_SNAPSHOT_INDEX`, `MONITORING_ES_INDEX_REFRESH` |
 | eBay coverage | snapshot | `EBAY_LISTINGS_COVERAGE_*` |
 | Redis | optional | `REDIS_URL` |
@@ -117,6 +118,12 @@ default: &default
 
   inventory_sync:
     index: em_inventory
+    refresh: false
+    prune_obsolete: false
+    sources: []
+
+  google_ads_catalog_sync:
+    index: google_ads_products
     refresh: false
     prune_obsolete: false
     sources: []

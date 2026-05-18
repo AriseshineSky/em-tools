@@ -7,8 +7,6 @@ module EmTools
       # command can run a single GCS-backed inventory sync (or a list of them from settings YAML)
       # without owning the file plumbing.
       class SyncRunner
-        DEFAULT_GS_URI = "gs://em-bucket/boyner-Inv.csv"
-
         # @param sink [#bulk] usually {EmTools::Core::Sinks::ElasticsearchBulkSink}.
         # @param fetcher_opts [Hash] forwarded to {EmTools::Clients::GcsBlobFetcher.new}.
         # @param logger [::Logger, nil]
@@ -25,11 +23,14 @@ module EmTools
         # @param refresh [Boolean]
         # @param prune_obsolete [Boolean]
         # @param drop_fields [Array<String>] field names stripped from every doc before bulk.
-        def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false, drop_fields: [])
+        # @param feed_field [String] ES field for feed id (+inventory_feed+ or +google_ads_feed+).
+        def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false, drop_fields: [],
+          feed_field: SyncProfile::INVENTORY.feed_field)
           sync = Sync.new(
             sink: @sink,
             index: index,
             feed_id: feed_id,
+            feed_field: feed_field,
             prune_obsolete: prune_obsolete,
             transforms: build_transforms(drop_fields),
             logger: @logger,
@@ -46,8 +47,9 @@ module EmTools
 
         # Sync a list of {SyncSources::Source}.
         # @param sources [Array]
+        # @param feed_field [String]
         # @return [EmTools::Core::Cli::Runner::Result]
-        def run_many!(sources, label: nil)
+        def run_many!(sources, label: nil, feed_field: SyncProfile::INVENTORY.feed_field)
           sources.each_with_index do |src, i|
             @logger.info { "[InventorySync] [#{i + 1}/#{sources.size}] #{src.gs_uri} -> #{src.index}" }
             run_one!(
@@ -57,6 +59,7 @@ module EmTools
               refresh: src.refresh,
               prune_obsolete: src.prune_obsolete,
               drop_fields: Array(src.drop_fields),
+              feed_field: feed_field,
             )
           end
           EmTools::Core::Cli::Runner::Result.new(
@@ -78,12 +81,13 @@ module EmTools
         # Resolve the gs:// URI for a single-source debug run (CLI arg / env vars / default).
         # @param cli_gs_uri [String, nil]
         # @param env [Hash, ENV-like]
+        # @param profile [SyncProfile]
         # @return [String]
-        def self.resolve_single_gs_uri(cli_gs_uri: nil, env: ENV)
+        def self.resolve_single_gs_uri(cli_gs_uri: nil, env: ENV, profile: SyncProfile::INVENTORY)
           try_uri(cli_gs_uri) ||
-            try_uri(env["INVENTORY_GS_URI"]) ||
-            gs_uri_from_bucket_object(env) ||
-            DEFAULT_GS_URI
+            try_uri(env[profile.env_key("GS_URI")]) ||
+            gs_uri_from_bucket_object(env, profile: profile) ||
+            profile.default_gs_uri
         end
 
         # @return [String]
@@ -94,9 +98,9 @@ module EmTools
           assert_gs_uri!(s)
         end
 
-        def self.gs_uri_from_bucket_object(env)
-          bucket = env["INVENTORY_GCS_BUCKET"].to_s.strip
-          object = env["INVENTORY_GCS_OBJECT"].to_s.strip
+        def self.gs_uri_from_bucket_object(env, profile: SyncProfile::INVENTORY)
+          bucket = env[profile.env_key("GCS_BUCKET")].to_s.strip
+          object = env[profile.env_key("GCS_OBJECT")].to_s.strip
           return if bucket.empty? || object.empty?
 
           assert_gs_uri!("gs://#{bucket}/#{object.sub(%r{\A/+}, "")}")
@@ -144,11 +148,13 @@ module EmTools
         # @param sink [#bulk, nil] when given, **all** sources are forced through this sink
         #   (test/override path); per-source +cluster:+ is ignored.
         # @param logger [::Logger, nil]
+        # @param profile [SyncProfile]
         # @return [EmTools::Core::Cli::Runner::Result]
-        def self.run_from_settings!(config_path: nil, env: ENV, prefer_data_cluster: false, sink: nil, logger: nil)
+        def self.run_from_settings!(config_path: nil, env: ENV, prefer_data_cluster: false, sink: nil, logger: nil,
+          profile: SyncProfile::INVENTORY)
           require_cluster_configured!(env: env, prefer_data_cluster: prefer_data_cluster)
           path = string_present(config_path) ? File.expand_path(config_path) : nil
-          sources = load_sources_or_fail!(path)
+          sources = load_sources_or_fail!(path, profile: profile)
           fallback_cluster = prefer_data_cluster ? "data" : nil
           label = path || EmTools::Core::SettingsLoader.default_path
 
@@ -160,11 +166,11 @@ module EmTools
                 fetcher_opts: fetcher_opts_from_env(env: env),
                 logger: logger,
               )
-              runner.run_many!(group, label: nil)
+              runner.run_many!(group, label: nil, feed_field: profile.feed_field)
             end
 
           EmTools::Core::Cli::Runner::Result.new(
-            summary: "Inventory sync done (#{sources.size} source(s) from #{label}; " \
+            summary: "#{profile.config_label} sync done (#{sources.size} source(s) from #{label}; " \
               "#{format_cluster_breakdown(summary)})",
           )
         end
@@ -178,12 +184,14 @@ module EmTools
         # @param prefer_data_cluster [Boolean] same semantics as {.run_from_settings!}.
         # @param sink [#bulk, nil]
         # @param logger [::Logger, nil]
+        # @param profile [SyncProfile]
         # @return [EmTools::Core::Cli::Runner::Result]
-        def self.run_one_from_env!(cli_gs_uri: nil, env: ENV, prefer_data_cluster: false, sink: nil, logger: nil)
+        def self.run_one_from_env!(cli_gs_uri: nil, env: ENV, prefer_data_cluster: false, sink: nil, logger: nil,
+          profile: SyncProfile::INVENTORY)
           require_cluster_configured!(env: env, prefer_data_cluster: prefer_data_cluster)
 
-          gs_uri = resolve_single_gs_uri(cli_gs_uri: cli_gs_uri, env: env)
-          feed_id = string_present(env["INVENTORY_FEED_ID"]) || gs_uri
+          gs_uri = resolve_single_gs_uri(cli_gs_uri: cli_gs_uri, env: env, profile: profile)
+          feed_id = string_present(env[profile.env_key("FEED_ID")]) || gs_uri
 
           new(
             sink: sink || default_sink(prefer_data_cluster: prefer_data_cluster),
@@ -191,19 +199,20 @@ module EmTools
             logger: logger,
           ).run_one!(
             gs_uri: gs_uri,
-            index: env.fetch("INVENTORY_INDEX", EmTools::Core::Inventory::Sync::INDEX),
+            index: env.fetch(profile.env_key("INDEX"), profile.default_index),
             feed_id: feed_id,
-            refresh: env["INVENTORY_REFRESH"] == "1",
-            prune_obsolete: env["INVENTORY_PRUNE_OBSOLETE"] == "1",
-            drop_fields: drop_fields_from_env(env),
+            refresh: env[profile.env_key("REFRESH")] == "1",
+            prune_obsolete: env[profile.env_key("PRUNE_OBSOLETE")] == "1",
+            drop_fields: drop_fields_from_env(env, profile: profile),
+            feed_field: profile.feed_field,
           )
 
-          EmTools::Core::Cli::Runner::Result.new(summary: "Inventory sync done (#{gs_uri}).")
+          EmTools::Core::Cli::Runner::Result.new(summary: "#{profile.config_label} sync done (#{gs_uri}).")
         end
 
-        # Parse +INVENTORY_DROP_FIELDS+ as comma-separated field names.
-        def self.drop_fields_from_env(env)
-          raw = env["INVENTORY_DROP_FIELDS"].to_s.strip
+        # Parse +*_DROP_FIELDS+ as comma-separated field names.
+        def self.drop_fields_from_env(env, profile: SyncProfile::INVENTORY)
+          raw = env[profile.env_key("DROP_FIELDS")].to_s.strip
           return [] if raw.empty?
 
           raw.split(",").map(&:strip).reject(&:empty?)
@@ -227,8 +236,8 @@ module EmTools
         end
         private_class_method :string_present
 
-        def self.load_sources_or_fail!(path)
-          SyncSources.load!(path)
+        def self.load_sources_or_fail!(path, profile: SyncProfile::INVENTORY)
+          SyncSources.load!(path, profile: profile)
         rescue SyncSources::Error => e
           raise EmTools::Core::Errors::ConfigurationError, e.message
         end

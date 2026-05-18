@@ -27,7 +27,9 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
     end
 
     it "falls back to the default URI when nothing is provided" do
-      expect(described_class.resolve_single_gs_uri(env: {})).to(eq(described_class::DEFAULT_GS_URI))
+      expect(described_class.resolve_single_gs_uri(env: {})).to(
+        eq(EmTools::Core::Inventory::SyncProfile::INVENTORY.default_gs_uri),
+      )
     end
 
     it "rejects malformed URIs with ConfigurationError" do

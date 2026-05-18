@@ -58,6 +58,7 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
         refresh: true,
         prune_obsolete: true,
         drop_fields: [],
+        feed_field: "inventory_feed",
       ))
     end
 

@@ -5,7 +5,8 @@ require "csv"
 module EmTools
   module Core
     module Inventory
-      # +inventory_feed+ (used with +prune_obsolete+) defaults to each row's CSV +Source+ column (header
+      # +feed_field+ (default +inventory_feed+; Google Ads catalog uses +google_ads_feed+) is written on
+      # each doc and used with +prune_obsolete+. Value defaults to each row's CSV +Source+ column (header
       # +Source+ becomes field +source+). If +source+ is blank, falls back to +:feed_id+ from options
       # (e.g. YAML override).
       class Sync
@@ -23,6 +24,7 @@ module EmTools
           @batch_size = opts.fetch(:batch_size, BATCH_SIZE)
           @id_fields = opts.fetch(:id_fields, ID_FIELDS)
           @feed_id = opts[:feed_id]
+          @feed_field = opts.fetch(:feed_field, "inventory_feed").to_s
           @prune_obsolete = opts[:prune_obsolete] ? true : false
           @logger = opts[:logger] || EmTools::Core::Logger.for(progname: "inventory-sync")
           @transforms = Array(opts[:transforms]).freeze
@@ -80,18 +82,18 @@ module EmTools
           fid = @feed_id.to_s.strip if fid.empty?
           if fid.empty?
             raise ArgumentError,
-              "prune_obsolete needs a non-empty inventory_feed: set CSV Source column on rows or pass feed_id"
+              "prune_obsolete needs a non-empty #{@feed_field}: set CSV Source column on rows or pass feed_id"
           end
 
-          @sink.delete_by_query(index: @index, body: obsolete_inventory_body(fid, batch_id))
+          @sink.delete_by_query(index: @index, body: obsolete_feed_body(fid, batch_id))
         end
 
-        def obsolete_inventory_body(fid, batch_id)
+        def obsolete_feed_body(fid, batch_id)
           {
             query: {
               bool: {
                 filter: [
-                  { term: { "inventory_feed.keyword" => fid } },
+                  { term: { "#{@feed_field}.keyword" => fid } },
                   { bool: { must_not: { term: { "sync_batch_id" => batch_id } } } },
                 ],
               },
@@ -135,7 +137,7 @@ module EmTools
           doc["sync_batch_id"] = batch_id
           doc["synced_at"] = Time.now.utc.iso8601
           feed = resolve_feed_value(doc)
-          doc["inventory_feed"] = feed unless feed.empty?
+          doc[@feed_field] = feed unless feed.empty?
           doc
         end
 
@@ -149,18 +151,18 @@ module EmTools
           doc["source"].to_s.strip
         end
 
-        # Enforce a single +inventory_feed+ value per CSV (otherwise +prune_obsolete+ would
-        # delete the wrong docs). Case-only mismatches (+"Ebay_US"+ vs +"EBAY_US"+) are
-        # treated as the same source and silently normalized to the first-seen casing;
-        # truly different values raise so the operator must pin +feed_id+ explicitly.
+        # Enforce a single feed value per CSV (otherwise +prune_obsolete+ would delete the wrong docs).
+        # Case-only mismatches (+"Ebay_US"+ vs +"EBAY_US"+) are treated as the same source and
+        # silently normalized to the first-seen casing; truly different values raise so the operator
+        # must pin +feed_id+ explicitly.
         def register_resolved_inventory_feed!(doc)
-          f = doc["inventory_feed"].to_s.strip
+          f = doc[@feed_field].to_s.strip
           return if f.empty?
 
           if @csv_resolved_feed.nil?
             @csv_resolved_feed = f
           elsif @csv_resolved_feed.casecmp(f).zero?
-            doc["inventory_feed"] = @csv_resolved_feed
+            doc[@feed_field] = @csv_resolved_feed
           else
             raise ArgumentError,
               "inventory CSV mixes Source values: #{@csv_resolved_feed.inspect} vs #{f.inspect} " \
