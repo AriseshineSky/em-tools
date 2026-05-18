@@ -13,6 +13,8 @@ module EmTools
           {
             "catalog sync" => Cli::CatalogSync,
             "catalog sync-from-gcs" => Cli::CatalogSyncFromGcs,
+            "catalog missing-product-ids" => Cli::MissingProductIds,
+            "catalog asin-categories" => Cli::AsinCategories,
           }
         end
       end

@@ -1,4 +1,4 @@
-# Example YAML for: em-tools amz-uploadable filter --config config/amz_uploadable_filter.example.yml
+# Example YAML for: em-tools amazon products filter --config config/amz_uploadable_filter.example.yml
 # Same keys as em-tasks +asin_stream_options+ (flat keys also supported).
 
 amz.uploadable_filter.asin_stream:

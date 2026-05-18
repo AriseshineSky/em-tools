@@ -2,6 +2,7 @@
 #
 # What goes here:
 #   - inventory_sync.sources         (which GCS CSVs to sync per APP_ENV)
+#   - google_ads_catalog_sync.sources (Google Ads catalog CSVs; separate from inventory)
 #   - exporters.<name>               (which cluster + index each exporter writes to)
 #   - elasticsearch_clusters.<name>  (LOCAL dev URLs only; .env's *_ELASTICSEARCH_URL wins)
 #   - gcs.buckets                    (bucket name routing, not credentials)
@@ -81,6 +82,15 @@ default: &default
     prune_obsolete: false
     sources: []
 
+  # Google Ads product catalog (SKUs in ads) -> google_ads_products index.
+  # Not read by inventory_sync; use: em-tools google-ads catalog sync
+  google_ads_catalog_sync:
+    cluster: primary
+    index: google_ads_products
+    refresh: false
+    prune_obsolete: false
+    sources: []
+
 development:
   <<: *default
   inventory_sync:
@@ -89,19 +99,25 @@ development:
     refresh: false
     prune_obsolete: false
     sources:
-      # Bare strings inherit the section default cluster (primary here).
-      - gs://em-bucket/AMZ_AE-Inv.csv
-      - gs://em-bucket/AMZ_CA-Inv.csv
-      - gs://em-bucket/AMZ_US-Inv.csv
-      - gs://em-bucket/AMZ_DE-Inv.csv
-      - gs://em-bucket/AMZ_UK-Inv.csv
-      - gs://em-bucket/AMZ_IN-Inv.csv
-      - gs://em-bucket/AMZ_IT-Inv.csv
-      - gs://em-bucket/AMZ_MX-Inv.csv
-      - gs://em-bucket/AMZ_JP-Inv.csv
-      # Hash form lets you override per source (cluster, index, feed_id, ...).
+      # AMZ_{marketplace}-Inv.csv on GCS -> em_inventory (_id = ProductID / product_id).
+      - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
+        marketplaces: all          # AE CA US DE UK IN IT MX JP TR — or list codes e.g. [TR, DE]
       - uri: gs://em-bucket/Ebay_US-Inv.csv
-        cluster: data           # writes to DATA_ELASTICSEARCH_URL instead
+        cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
+
+  # Same GCS layout as inventory CSVs; replace with your Merchant Center / Ads export paths.
+  google_ads_catalog_sync:
+    cluster: primary
+    index: google_ads_products
+    refresh: false
+    prune_obsolete: false
+    sources:
+      # Tab-separated JSON per line: <ignored>\t{"product_id":...,"source_product_id":"B0..."}
+      - uri: gs://em-bucket/em-analytics/sources/AMZ_DE.txt
+        format: tab_json
+        source: AMZ_DE
+        feed_id: AMZ_DE
+        prune_obsolete: false   # true deletes stale rows after sync; may 504 on large indexes
 
 test:
   elasticsearch:

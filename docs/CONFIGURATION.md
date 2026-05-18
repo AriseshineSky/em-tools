@@ -121,6 +121,9 @@ default: &default
     refresh: false
     prune_obsolete: false
     sources: []
+    # Template form for AMZ_{marketplace}-Inv.csv (expands to one gs:// URI per code):
+    # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
+    #   marketplaces: all    # or [TR, DE, UK] — _id is CSV ProductID -> product_id
 
   google_ads_catalog_sync:
     index: google_ads_products

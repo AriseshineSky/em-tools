@@ -13,6 +13,7 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
         prune_obsolete: false,
         cluster: cluster,
         drop_fields: drop_fields,
+        format: :csv,
       )
     end
 

@@ -102,6 +102,7 @@ RSpec.describe(EmTools::Core::Inventory::SyncRunner) do
           prune_obsolete: false,
           cluster: nil,
           drop_fields: [],
+          format: :csv,
         ),
       ]
       allow(EmTools::Core::Inventory::SyncSources).to(receive(:load!).and_return(sources))

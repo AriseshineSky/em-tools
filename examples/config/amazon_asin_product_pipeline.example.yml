@@ -1,5 +1,5 @@
-# Optional: merge into ASIN stream resolution for `em-tools amz-uploadable asin-to-es --config ...`
-# (same block as amz-uploadable filter).
+# Optional: merge into ASIN stream resolution for `em-tools amazon products index-asins --config ...`
+# (same block as amazon products filter).
 
 amz.uploadable_filter.asin_stream:
   time_field: auto

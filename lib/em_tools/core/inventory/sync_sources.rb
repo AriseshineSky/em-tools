@@ -9,6 +9,9 @@ module EmTools
       # Loads +sources+ (+gs://+ URIs) from merged settings (+inventory_sync+, +google_ads_catalog_sync+, …)
       # or from an explicit YAML path.
       class SyncSources
+        # Default +AMZ_{marketplace}-Inv.csv+ market codes when YAML uses +marketplaces: all+.
+        DEFAULT_AMAZON_INVENTORY_MARKETPLACES = %w[AE CA US DE UK IN IT MX JP TR].freeze
+
         # +cluster+ is the **name** of the ES cluster to write into ("primary",
         # "data"/"analytics", or any custom +elasticsearch_clusters+ key).
         # +nil+ means "use whatever default the orchestrator picks" — usually
@@ -17,7 +20,7 @@ module EmTools
         # +drop_fields+ lists per-doc fields to strip before bulk-indexing
         # (snake_cased like the headers stored on the doc). Empty / nil means no transform.
         Source = Data.define(
-          :gs_uri, :index, :refresh, :feed_id, :prune_obsolete, :cluster, :drop_fields
+          :gs_uri, :index, :refresh, :feed_id, :prune_obsolete, :cluster, :drop_fields, :format
         )
 
         class Error < StandardError; end
@@ -55,7 +58,7 @@ module EmTools
 
         def entries
           node = @preloaded_node || section(load_yaml!)
-          list = validate_sources!(node)
+          list = expand_sources!(validate_sources!(node))
           defaults = {
             index: default_index(node),
             refresh: default_refresh(node),
@@ -139,6 +142,59 @@ module EmTools
           end
         end
 
+        def expand_sources!(list)
+          list.flat_map.with_index { |item, idx| expand_source_item(item, idx) }
+        end
+
+        # Expands +gs_uri_template: gs://bucket/AMZ_{marketplace}-Inv.csv+ with +marketplaces:+ list.
+        def expand_source_item(item, idx)
+          case item
+          when String
+            [item]
+          when Hash
+            template = template_uri_from_hash(item)
+            markets = item["marketplaces"]
+            return [item] unless template && markets
+
+            codes = resolve_marketplace_codes(markets, idx)
+            base = item.dup
+            %w[gs_uri_template template uri_template marketplaces].each { |k| base.delete(k) }
+
+            codes.map do |code|
+              uri = template.gsub("{marketplace}", code)
+              assert_gs_uri!(uri, idx)
+              base.merge("uri" => uri)
+            end
+          else
+            raise Error, "sources[#{idx}] must be a String (gs://...) or a Hash, got #{item.class}"
+          end
+        end
+
+        def template_uri_from_hash(item)
+          raw = item["gs_uri_template"] || item["template"] || item["uri_template"]
+          s = raw.to_s.strip
+          s.empty? ? nil : s
+        end
+
+        def resolve_marketplace_codes(markets, idx)
+          case markets
+          when Array
+            list = markets.map { |m| m.to_s.strip }.reject(&:empty?)
+            if list.size == 1 && list.first.casecmp("all").zero?
+              DEFAULT_AMAZON_INVENTORY_MARKETPLACES.dup
+            else
+              list.map(&:upcase)
+            end
+          when String
+            s = markets.strip
+            return DEFAULT_AMAZON_INVENTORY_MARKETPLACES.dup if s.casecmp("all").zero?
+
+            s.split(",").map(&:strip).reject(&:empty?).map(&:upcase)
+          else
+            raise Error, "sources[#{idx}] marketplaces must be an array or comma-separated string"
+          end
+        end
+
         def build_entry(item, idx, defaults)
           case item
           when String
@@ -160,6 +216,7 @@ module EmTools
             prune_obsolete: defaults[:prune_obsolete],
             cluster: defaults[:cluster],
             drop_fields: defaults[:drop_fields],
+            format: infer_format(uri, nil),
           )
         end
 
@@ -169,11 +226,29 @@ module EmTools
             gs_uri: uri,
             index: coalesce_index(item["index"], defaults[:index]),
             refresh: coalesce_refresh(item, defaults[:refresh]),
-            feed_id: coalesce_feed_id(item["feed_id"]),
+            feed_id: coalesce_feed_id(item["feed_id"] || item["source"]),
             prune_obsolete: coalesce_prune_obsolete(item, defaults[:prune_obsolete]),
             cluster: coalesce_cluster(item, defaults[:cluster]),
             drop_fields: coalesce_drop_fields(item, defaults[:drop_fields]),
+            format: infer_format(uri, item["format"]),
           )
+        end
+
+        def infer_format(uri, explicit)
+          return parse_format!(explicit) unless explicit.nil?
+
+          uri.to_s.match?(/\.txt\z/i) ? :asin_list : :csv
+        end
+
+        def parse_format!(raw)
+          case raw.to_s.strip.downcase
+          when "asin_list", "asins", "seed" then :asin_list
+          when "tab_json", "tab-json", "google_ads_feed", "tsv_json" then :tab_json
+          when "txt" then :asin_list
+          when "csv", "inventory" then :csv
+          else
+            raise Error, "unknown source format #{raw.inspect} (use csv, asin_list, or tab_json)"
+          end
         end
 
         def coalesce_drop_fields(item, default_drop_fields)

@@ -21,9 +21,37 @@ default: &default
     lotteon_products:
       cluster: analytics
       index: user1_lotteon_products
+    lazada_th_products:
+      cluster: primary
+      index: user1_lazadacoth_products
+    lazada_my_products:
+      cluster: primary
+      index: user1_lazadamys_products
+
+  # Lazada CLI: em-tools lazada … -m th|my. Override defaults per marketplace code.
+  # See EmTools::Plugins::Lazada::MarketplaceProfile for full keys.
+  lazada_marketplaces:
+    {}
+    # my:
+    #   translate_by_default: true
+    #   translation_index: em_title_translations_my
+    #   keyword_filter_default: false
+    #   extra_es_filters:
+    #     - term: { channel: "lazada_my" }
 
   redis:
     url: redis://localhost:6379/0    # local fallback; .env REDIS_URL wins
+
+  # Cloud Translation Basic (v2) — hard caps; secrets stay in .env (ADC / API key).
+  # EM_TRANSLATE_MAX_CHARS overrides max_billable_chars when set.
+  translate:
+    max_billable_chars: 0             # 0 = disabled; set a positive cap to enable
+    daily_char_cap: 0                 # optional UTC-day cap (uses state_path)
+    state_path: tmp/translate_usage_state.json
+    cache_dir: tmp/translate_cache    # omit or null to disable on-disk cache
+    min_interval_seconds: 0.35      # throttle between API calls
+    max_chars_per_request: 4500     # stay under Google's 5000-char request limit
+    max_retries: 3
 
   gcs:
     buckets:
@@ -46,6 +74,14 @@ default: &default
     prune_obsolete: false
     sources: []
 
+  # Google Ads product catalog (SKUs shown in ads — not full-site inventory).
+  google_ads_catalog_sync:
+    cluster: primary
+    index: google_ads_products
+    refresh: false
+    prune_obsolete: false
+    sources: []
+
 development:
   <<: *default
   inventory_sync:
@@ -55,6 +91,10 @@ development:
       - gs://em-bucket/AMZ_CA-Inv.csv
       - uri: gs://em-bucket/Ebay_US-Inv.csv
         cluster: data                       # this one writes to DATA_ELASTICSEARCH_URL
+
+  google_ads_catalog_sync:
+    sources:
+      - gs://em-bucket/google-ads-us-catalog.csv
 
 test:
   elasticsearch:

@@ -271,6 +271,56 @@ bundle exec bin/em-tools google-ads catalog sync
 bundle exec bin/em-tools google-ads catalog sync-from-gcs gs://em-bucket/google-ads-us.csv --data
 ```
 
+**Feed file formats** (set `format` in YAML):
+
+| `format` | File shape | `_id` |
+|---|---|---|
+| `tab_json` | `<ignored>\\t{json}` per line (Python `json.loads` after first tab) | JSON `product_id` |
+| `asin_list` | one ASIN per line | the ASIN string |
+
+Example `tab_json` source:
+
+```yaml
+- uri: gs://em-bucket/em-analytics/sources/AMZ_DE.txt
+  format: tab_json
+  source: AMZ_DE
+```
+
+### `google-ads catalog missing-product-ids`
+
+Exports `source_product_id` values that exist in `em_inventory` but are absent from
+`google_ads_products` for the same `source` (set difference).
+
+```bash
+ELASTICSEARCH_URL='http://34.44.148.50' \
+bundle exec bin/em-tools google-ads catalog missing-product-ids \
+  --source AMZ_DE \
+  -o tmp/amz_de_missing_from_google_ads.txt
+```
+
+| Flag | Purpose |
+|---|---|
+| `--source` | Source key (e.g. `AMZ_DE`; matches case variants) |
+| `-o` / `--output` | Local output path |
+| `--inventory-index` | Default `em_inventory` |
+| `--catalog-index` | Default `google_ads_products` |
+| `-u` / `--url` | ES URL override |
+
+### `google-ads catalog asin-categories`
+
+Reads a local ASIN list (e.g. from `catalog missing-product-ids`), batch **mget** from
+`amz_products_api_<marketplace>_v2` (`_id` = ASIN), and writes the **first** `categories[]`
+entry (`cat_id`, `cat_name`) per row to a TSV file.
+
+```bash
+bundle exec bin/em-tools google-ads catalog asin-categories \
+  -i tmp/amz_de_missing_from_google_ads.txt \
+  -o tmp/amz_de_asin_categories.tsv \
+  -m de
+```
+
+Output columns: `asin`, `cat_id`, `cat_name`, `status` (`ok` / `not_found` / `no_category`).
+
 ### `gcs download-seeds`
 
 Pulls Amazon lowest-offer seed files (`AMZ_<MP>.txt`) from
@@ -320,6 +370,22 @@ on the plugin being loaded (which it always is, since
 | `amazon products upload-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
 | `amazon products format-file PRODUCTS_PATH` | Format a local file into the upload pipeline's input format. |
 | `amazon products build-feed` | Build final uploadable feed rows from an ASIN source into configured sinks. |
+| `amazon products export-by-top-category` | Export ASINs from `amz_products_api_<mp>_v2` into one file per `top_category`. |
+| `amazon products top-category-stats` | Export all `top_category` values and document counts (TSV + JSON). |
+
+```bash
+ELASTICSEARCH_URL='http://34.44.148.50' \
+bundle exec bin/em-tools amazon products top-category-stats \
+  -m de -o tmp/amz_de_top_category_counts.tsv
+
+bundle exec bin/em-tools amazon products export-by-top-category \
+  -m de -o tmp/amz_de_by_top_category
+```
+
+`top-category-stats` writes `top_category` + `doc_count` (fast aggregation). Optional `counts.json` summary.
+
+`export-by-top-category` writes `tmp/amz_de_by_top_category/<top_category>.txt` (one ASIN per line) and `manifest.json`.
+Use `--category-from categories_first` to group by `categories[0].cat_name` instead of `top_category`.
 
 ### Amazon lowest-offer (`plugins/amazon/lowest_offer/`)
 

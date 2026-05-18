@@ -66,6 +66,10 @@ module EmTools
             "products build-feed" => Uploadable::Cli::BuildUploadableFeed,
             "products format-file" => Uploadable::Cli::AmzUploadableProductsFormatterFromFile,
             "products index-asins" => Uploadable::Cli::AsinProductsToEs,
+            "products export-by-top-category" => Uploadable::Cli::ExportByTopCategory,
+            "products group-asins-by-top-category" => Uploadable::Cli::GroupAsinsByTopCategory,
+            "products group-inventory-by-top-category" => Uploadable::Cli::GroupInventoryByTopCategory,
+            "products top-category-stats" => Uploadable::Cli::TopCategoryStats,
             "coverage publish-snapshot" => LowestOffer::Cli::PublishSnapshot,
             "coverage download-and-publish" => LowestOffer::Cli::DownloadAndPublish,
           }

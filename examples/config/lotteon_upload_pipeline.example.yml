@@ -1,0 +1,27 @@
+# Optional composable pipeline for:
+#   em-tools lotteon products build-upload-payload --pipeline path/to/this/file.yml
+#
+# Order:
+# - exclusions: built in YAML order, then CLI `--keyword-filter` prepends the
+#   keyword blacklist **unless** this file already lists `type: keyword_blacklist`.
+# - transforms (先格式化再精修):
+#     1. optional top-level `format:` array (Registry transform entries)
+#     2. from legacy `transforms:` — every `type: lotteon_upload_format` row (in file order)
+#     3. default {EmTools::Plugins::Lotteon::Formatting::ProductExportFormatter} when
+#        `upload_payload` and no format step produced a formatter yet
+#     4. remaining legacy `transforms:` rows (non-lotteon_upload_format), in file order
+#     5. optional top-level `refine:` array
+#     6. Ruby `transforms:` objects passed to Plugin#products_exporter (always last)
+#
+# Registered exclusion types: keyword_blacklist, min_title_length
+# Registered transform types: lotteon_upload_format
+
+exclusions:
+  - type: min_title_length
+    min: 3
+    title_field: title
+
+transforms:
+  - type: lotteon_upload_format
+    inventory_source: lotteon
+    validate: true

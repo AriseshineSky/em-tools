@@ -25,23 +25,54 @@ module EmTools
         # @param drop_fields [Array<String>] field names stripped from every doc before bulk.
         # @param feed_field [String] ES field for feed id (+inventory_feed+ or +google_ads_feed+).
         def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false, drop_fields: [],
-          feed_field: SyncProfile::INVENTORY.feed_field)
-          sync = Sync.new(
-            sink: @sink,
-            index: index,
-            feed_id: feed_id,
-            feed_field: feed_field,
-            prune_obsolete: prune_obsolete,
-            transforms: build_transforms(drop_fields),
-            logger: @logger,
-          )
+          feed_field: SyncProfile::INVENTORY.feed_field, format: :csv)
           @logger.info do
             "[InventorySync] #{gs_uri} -> #{index} " \
-              "(refresh=#{refresh} prune=#{prune_obsolete} feed=#{feed_id.inspect}" \
+              "(format=#{format} refresh=#{refresh} prune=#{prune_obsolete} feed=#{feed_id.inspect}" \
               "#{" drop=#{drop_fields.inspect}" if Array(drop_fields).any?})"
           end
           EmTools::Clients::GcsBlobFetcher.new(**@fetcher_opts).with_downloaded(gs_uri) do |path|
-            sync.sync_from_path(path, refresh: refresh)
+            if format == :tab_json
+              feed = feed_id.to_s.strip
+              feed = AsinListSync.infer_source_from_gs_uri(gs_uri) if feed.empty?
+
+              TabJsonLineSync.new(
+                sink: @sink,
+                index: index,
+                feed_field: feed_field,
+                feed_id: feed,
+                source_key: feed,
+                prune_obsolete: prune_obsolete,
+                logger: @logger,
+              ).sync_from_path(path, refresh: refresh)
+            elsif format == :asin_list
+              source_key = feed_id.to_s.strip
+              source_key = AsinListSync.infer_source_from_gs_uri(gs_uri) if source_key.empty?
+              if source_key.to_s.strip.empty?
+                raise EmTools::Core::Errors::ConfigurationError,
+                  "asin_list sync needs source/feed_id in YAML or an AMZ_XX.txt filename"
+              end
+
+              AsinListSync.new(
+                sink: @sink,
+                index: index,
+                source_key: source_key,
+                feed_field: feed_field,
+                feed_id: feed_id,
+                prune_obsolete: prune_obsolete,
+                logger: @logger,
+              ).sync_from_path(path, refresh: refresh)
+            else
+              Sync.new(
+                sink: @sink,
+                index: index,
+                feed_id: feed_id,
+                feed_field: feed_field,
+                prune_obsolete: prune_obsolete,
+                transforms: build_transforms(drop_fields),
+                logger: @logger,
+              ).sync_from_path(path, refresh: refresh)
+            end
           end
         end
 
@@ -60,6 +91,7 @@ module EmTools
               prune_obsolete: src.prune_obsolete,
               drop_fields: Array(src.drop_fields),
               feed_field: feed_field,
+              format: src.format,
             )
           end
           EmTools::Core::Cli::Runner::Result.new(
