@@ -97,7 +97,7 @@ development:
     cluster: primary
     index: em_inventory
     refresh: false
-    prune_obsolete: false
+    prune_obsolete: true
     sources:
       # AMZ_{marketplace}-Inv.csv on GCS -> em_inventory (_id = ProductID / product_id).
       - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
