@@ -233,8 +233,10 @@ flags) to `mget` each row’s translation by the same `_id` rule and merge
 ### `inventory sync [CONFIG_PATH]`
 
 Reads `inventory_sync.sources` from the merged settings YAML (or the file at
-the given path) and streams every GCS CSV into the inventory ES index
-(`em_inventory` by default).
+the given path) and streams **every** configured GCS CSV into the inventory ES
+index (`em_inventory` by default). There is no CLI flag to sync “AMZ only” —
+what runs is exactly the `sources` list for the active `APP_ENV` section (see
+[CONFIGURATION.md — Inventory `sources`](CONFIGURATION.md#inventory-sources)).
 
 Cluster precedence (highest wins):
 
@@ -246,14 +248,54 @@ Cluster precedence (highest wins):
 Required env: `ELASTICSEARCH_URL`. Optional: `GCS_SERVICE_ACCOUNT_PATH`,
 `INVENTORY_INDEX`, `INVENTORY_DROP_FIELDS`.
 
+**Sync all Amazon inventory files** (when `config/settings.yml` uses the usual
+`gs_uri_template` + `marketplaces: all` under `development.inventory_sync`):
+
+```bash
+APP_ENV=development \
+ELASTICSEARCH_URL='http://user:pass@host:9200' \
+bundle exec bin/em-tools inventory sync
+```
+
+That expands `gs://em-bucket/AMZ_{marketplace}-Inv.csv` into one sync per
+marketplace code (`AE`, `CA`, `US`, `DE`, `UK`, `IN`, `IT`, `MX`, `JP`, `TR`
+by default). It also runs any other `sources` entries in the same list (e.g.
+`Ebay_US-Inv.csv`) — remove or comment those out in YAML if you want AMZ only.
+
+**Sync a subset of marketplaces** without touching the full `all` list: use
+per-source `marketplaces: [DE, UK]` in YAML, or run single-file sync (below).
+
+By default, sync **upserts** documents only; it does **not** delete ES rows
+missing from the CSV unless `prune_obsolete: true` (YAML) or
+`INVENTORY_PRUNE_OBSOLETE=1` on `sync-from-gcs` (see [ARCHITECTURE.md](ARCHITECTURE.md)).
+
 ### `inventory sync-from-gcs [GS_URI]`
 
-Single-source debug variant. The URI can come from the CLI argument,
+Sync **one** GCS inventory CSV. The URI can come from the CLI argument,
 `INVENTORY_GS_URI`, or `INVENTORY_GCS_BUCKET` + `INVENTORY_GCS_OBJECT`.
 
 Optional env: `INVENTORY_INDEX`, `INVENTORY_REFRESH=1`,
 `INVENTORY_PRUNE_OBSOLETE=1`, `INVENTORY_FEED_ID`, `INVENTORY_DROP_FIELDS`
 (comma-separated; e.g. `"handle,variants"`).
+
+**Sync one Amazon marketplace** (replace `DE` with the site code used in your
+GCS filename, e.g. `US`, `UK`, `JP`):
+
+```bash
+ELASTICSEARCH_URL='http://user:pass@host:9200' \
+INVENTORY_INDEX=em_inventory \
+bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/AMZ_DE-Inv.csv
+```
+
+Same with env instead of a CLI argument:
+
+```bash
+INVENTORY_GS_URI=gs://em-bucket/AMZ_DE-Inv.csv \
+bundle exec bin/em-tools inventory sync-from-gcs
+```
+
+Use `--data` when the target cluster is `DATA_ELASTICSEARCH_URL` (same flag as
+`inventory sync`).
 
 ### `google-ads catalog sync [CONFIG_PATH]`
 

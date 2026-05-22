@@ -157,18 +157,57 @@ production:
 
 ### Inventory `sources`
 
-Each entry can be either a bare `gs://` URI or a hash:
+GCS paths for `em-tools inventory sync` live under `inventory_sync.sources` in
+the active `APP_ENV` section (default `development`). Each entry can be either a
+bare `gs://` URI or a hash.
+
+**Fixed URI** (one file per entry):
 
 ```yaml
 sources:
   - gs://em-bucket/AMZ_US-Inv.csv
 
-  - gs_uri: gs://em-bucket/AMZ_CA-Inv.csv
+  - uri: gs://em-bucket/Ebay_US-Inv.csv
+    cluster: data                      # optional: data | primary | elasticsearch_clusters key
     index: em_inventory                # override per-source
     refresh: true
     prune_obsolete: true
-    feed_id: AMZ_CA                    # explicit feed_id; otherwise inferred from CSV's Source col
+    feed_id: AMZ_CA                    # explicit feed_id; otherwise inferred from CSV Source col
 ```
+
+**Template URI** (one YAML entry → many GCS files). Use when Amazon inventory
+files follow `AMZ_<code>-Inv.csv` on the bucket:
+
+```yaml
+sources:
+  - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
+    marketplaces: all                  # expands to AE CA US DE UK IN IT MX JP TR
+  # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
+  #   marketplaces: [DE, UK, TR]       # only these codes (uppercased)
+  # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
+  #   marketplaces: "DE,UK"           # comma-separated string also works
+```
+
+| `marketplaces` value | Expanded codes |
+|---|---|
+| `all` (string or one-element array `["all"]`) | `AE`, `CA`, `US`, `DE`, `UK`, `IN`, `IT`, `MX`, `JP`, `TR` |
+| `[DE, uk]` | `DE`, `UK` (array entries are uppercased) |
+| `"TR,DE"` | `TR`, `DE` |
+
+The literal placeholder `{marketplace}` in `gs_uri_template` (aliases:
+`template`, `uri_template`) is replaced with each code via string substitution,
+e.g. `gs://em-bucket/AMZ_{marketplace}-Inv.csv` + `DE` →
+`gs://em-bucket/AMZ_DE-Inv.csv`. The code is the **filename site token**, not an
+AWS marketplace API id.
+
+To sync all expanded AMZ files in one run:
+
+```bash
+APP_ENV=development ELASTICSEARCH_URL='http://…' bundle exec bin/em-tools inventory sync
+```
+
+To sync **one** marketplace without editing YAML, use
+`inventory sync-from-gcs gs://em-bucket/AMZ_DE-Inv.csv` (see [CLI.md](CLI.md)).
 
 ### Per-site
 

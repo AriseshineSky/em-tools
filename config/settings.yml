@@ -104,6 +104,7 @@ development:
         marketplaces: all          # AE CA US DE UK IN IT MX JP TR — or list codes e.g. [TR, DE]
       - uri: gs://em-bucket/Ebay_US-Inv.csv
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
+      - uri: gs://em-bucket/Lazada_th-Inv.csv
 
   # Same GCS layout as inventory CSVs; replace with your Merchant Center / Ads export paths.
   google_ads_catalog_sync:
