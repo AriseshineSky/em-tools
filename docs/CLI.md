@@ -1,5 +1,8 @@
 # em-tools CLI reference
 
+For **prepare upload** workflows (ES → upload NDJSON per marketplace), see
+[`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md).
+
 `bin/em-tools` is the **only** operational entrypoint. The CLI is a hierarchical
 subcommand tree built on [dry-cli](https://dry-rb.org/gems/dry-cli/), shaped
 like `kubectl` / `git`:
@@ -204,9 +207,8 @@ bundle exec bin/em-tools es translate-titles user1_oliveyoung_products \
   --translation-index em_title_translations --also-update-product
 ```
 
-**Export:** Oliveyoung and Lotteon CLIs accept `--translation-index` (and related
-flags) to `mget` each row’s translation by the same `_id` rule and merge
-`title_en` before upload shaping / NDJSON conversion.
+**Prepare upload:** marketplace commands that merge translations and write
+upload NDJSON are documented in [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md).
 
 | Flag | Purpose |
 |---|---|
@@ -404,14 +406,17 @@ The following commands are **plugin-registered**; their availability depends
 on the plugin being loaded (which it always is, since
 `lib/em_tools.rb` eagerly loads every `plugins/*/plugin.rb`).
 
+**Prepare upload** (ES → upload NDJSON / ASIN lists for Lotteon, Oliveyoung,
+Lazada, Amazon uploadable, shared keyword + translation options):
+[`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md).
+
 ### Amazon uploadable (`plugins/amazon/uploadable/`)
+
+Upload pipeline commands (`filter`, `upload-from-es`, `format-file`,
+`build-feed`): see [`PREPARE_UPLOAD.md` — Amazon](PREPARE_UPLOAD.md#amazon-amazon-products-).
 
 | Command | What it does |
 |---|---|
-| `amazon products filter` | Filter ASINs from one ES index against the rule engine and write the eligible-for-upload list. |
-| `amazon products upload-from-es` | Read filtered products from ES and run the Amazon upload pipeline. |
-| `amazon products format-file PRODUCTS_PATH` | Format a local file into the upload pipeline's input format. |
-| `amazon products build-feed` | Build final uploadable feed rows from an ASIN source into configured sinks. |
 | `amazon products export-by-top-category` | Export ASINs from `amz_products_api_<mp>_v2` into one file per `top_category`. |
 | `amazon products top-category-stats` | Export all `top_category` values and document counts (TSV + JSON). |
 
@@ -463,29 +468,23 @@ Use `--category-from categories_first` to group by `categories[0].cat_name` inst
 
 | Command | What it does |
 |---|---|
-| `ssg products export` | Stream SSG products from Elasticsearch as NDJSON. |
-| `lotteon products export` | Stream Lotteon products from Elasticsearch as NDJSON. |
-| `lotteon products build-upload-payload` | Build upload NDJSON; optional `--pipeline` YAML composes **exclusions** and **transforms** (format stage — `format:` + `lotteon_upload_format` — then **refine**: other `transforms:` rows, `refine:`, Ruby `transforms:`). See `examples/config/lotteon_upload_pipeline.example.yml` and {EmTools::Plugins::Lotteon::Pipeline::Registry}. |
+| `ssg products export` | Stream SSG products from Elasticsearch as NDJSON (raw shape). |
+| `lotteon products export` | Stream Lotteon products as NDJSON (no upload pipeline). |
+| `lotteon products build-upload-payload` | Upload NDJSON — see [`PREPARE_UPLOAD.md` — Lotteon](PREPARE_UPLOAD.md#lotteon). |
 
 ### Lazada (`plugins/lazada/` — Thailand / Malaysia)
 
-Marketplace is selected with **`-m th`** or **`-m my`** (or any key you add under `lazada_marketplaces` in settings). Each code resolves:
+| Command | What it does |
+|---|---|
+| `lazada products export` | NDJSON stream; `-m`; `--for-upload` applies formatter + filters. |
+| `lazada products build-upload` | Upload NDJSON — see [`PREPARE_UPLOAD.md` — Lazada](PREPARE_UPLOAD.md#lazada-thailand--malaysia). |
 
-- **`exporters.<exporter_key>`** — ES cluster (`ELASTICSEARCH_URL` / cluster name) + **index name** (`lazada_th_products` → `user1_lazadacoth_products`, `lazada_my_products` → placeholder index; edit YAML).
-- **`lazada_marketplaces.<code>`** — optional overrides: `inventory_source`, `display_source`, `sku_prefix`, `price_rules`, `formatter_filters` (toggle skip multi-variant / options / uploaded), `products_query` (`source_field`, `source_value`), `extra_es_filters` (extra ES `bool.filter` clauses), `keyword_filter_default`, `translate_by_default`, `translation_index`, `translation_elasticsearch_url`, `keyword_rules_source`, etc. Defaults live in {EmTools::Plugins::Lazada::MarketplaceProfile}.
-
-Keyword policy: YAML **`keyword_filter_default`** applies when neither **`--force-keyword-filter`** nor **`--no-keyword-filter`** is passed. Translation: merge `title_en` when an index is configured **and** (`translate_by_default` **or** `--translation-index …` **or** `--force-translate`), unless **`--no-translate`**.
+### Oliveyoung (`plugins/oliveyoung/`)
 
 | Command | What it does |
 |---|---|
-| `lazada products export` | NDJSON stream; `-m`; `--for-upload` applies marketplace formatter + filters; `-u` overrides ES URL. |
-| `lazada products build-upload` | Upload NDJSON (`tmp/lazada_<m>_upload.ndjson` by default). |
-
-```bash
-bundle exec bin/em-tools lazada products build-upload -m th -u 'http://user:pass@host:9200' -o tmp/th.ndjson
-bundle exec bin/em-tools lazada products build-upload -m my --no-keyword-filter
-bundle exec bin/em-tools lazada products export -m my --force-translate --translation-index em_title_translations_my
-```
+| `oliveyoung products export` | Stream Oliveyoung products as NDJSON (raw shape). |
+| `oliveyoung products build-upload` | Upload NDJSON — see [`PREPARE_UPLOAD.md` — Oliveyoung](PREPARE_UPLOAD.md#oliveyoung). |
 
 ---
 

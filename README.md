@@ -198,6 +198,7 @@ GCS object lists, inventory feed names) live in `config/settings.yml`. See
 |---|---|
 | [`docs/OVERVIEW.md`](docs/OVERVIEW.md) | Understand the data platform end-to-end (mermaid diagrams). |
 | [`docs/CLI.md`](docs/CLI.md) | See every CLI command, args, env vars, and exit codes. |
+| [`docs/PREPARE_UPLOAD.md`](docs/PREPARE_UPLOAD.md) | Prepare upload NDJSON (Amazon, Lotteon, Oliveyoung, Lazada, shared translation/blacklist flow). |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Know what to put in `.env` vs `config/settings.yml`. |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | Add a new plugin (or new CLI command to an existing one). |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Map files / namespaces / Zeitwerk + plugin engine internals. |

@@ -97,6 +97,7 @@ default: &default
       index: user1_lazadamys_products
 
   # Per-marketplace Lazada CLI (+em-tools lazada -m th|my+). Optional YAML overrides.
+  # Prepare-upload commands and flags: docs/PREPARE_UPLOAD.md
   lazada_marketplaces:
     # my:
     #   translate_by_default: true

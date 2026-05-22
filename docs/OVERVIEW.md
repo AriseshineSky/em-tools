@@ -194,6 +194,7 @@ gem can `rescue EmTools::Error` to catch any em-tools-specific failure.
 ## 7. Where to go next
 
 - [`CLI.md`](CLI.md) — every CLI command, args, env vars.
+- [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md) — ES → upload NDJSON per marketplace.
 - [`CONFIGURATION.md`](CONFIGURATION.md) — `.env` vs `settings.yml` split.
 - [`PLUGINS.md`](PLUGINS.md) — how to add a plugin.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — files, namespaces, Zeitwerk.
