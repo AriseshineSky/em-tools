@@ -62,16 +62,14 @@ RSpec.describe(EmTools::Plugins::Amazon::Uploadable::Exporters::TopCategoryAsinE
   end
 
   describe ".query_for_categories" do
-    it "uses bool should for multiple categories" do
+    it "uses bool should with text and keyword fields" do
       q = described_class.query_for_categories(["Beauty", "Health & Personal Care"])
-      expect(q).to(eq(
-        bool: {
-          should: [
-            { term: { top_category: "Beauty" } },
-            { term: { top_category: "Health & Personal Care" } },
-          ],
-          minimum_should_match: 1,
-        },
+      expect(q[:bool][:minimum_should_match]).to(eq(1))
+      expect(q[:bool][:should]).to(contain_exactly(
+        { term: { top_category: "Beauty" } },
+        { term: { "top_category.keyword" => "Beauty" } },
+        { term: { top_category: "Health & Personal Care" } },
+        { term: { "top_category.keyword" => "Health & Personal Care" } },
       ))
     end
   end

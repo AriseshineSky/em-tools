@@ -37,7 +37,7 @@ module EmTools
               end
 
               FileUtils.mkdir_p(@output_dir)
-              body = query || self.class.query_for_categories(@only_categories) || { match_all: {} }
+              body = query || build_export_query
 
               @es.iterate_query(
                 index: @product_index,
@@ -75,17 +75,42 @@ module EmTools
             def self.query_for_categories(names)
               list = Array(names).map { |n| n.to_s.strip }.reject(&:empty?)
               return if list.empty?
-              return { term: { top_category: list.first } } if list.size == 1
 
-              {
-                bool: {
-                  should: list.map { |cat| { term: { top_category: cat } } },
-                  minimum_should_match: 1,
-                },
-              }
+              should = list.flat_map { |cat| category_term_clauses(cat) }
+              { bool: { should: should, minimum_should_match: 1 } }
+            end
+
+            def self.category_term_clauses(category)
+              [
+                { term: { top_category: category } },
+                { term: { "top_category.keyword" => category } },
+              ]
             end
 
             private
+
+            def build_export_query
+              return { match_all: {} } unless @only_categories
+
+              filtered = self.class.query_for_categories(@only_categories)
+              return filtered if category_query_matches?(filtered)
+
+              @logger.info {
+                "ES category filter matched 0 docs on #{@product_index}; " \
+                  "scanning full index with in-memory category filter"
+              }
+              { match_all: {} }
+            end
+
+            def category_query_matches?(query)
+              resp = @es.search(
+                index: @product_index,
+                body: { size: 0, track_total_hits: true, query: query },
+              )
+              total = resp.dig("hits", "total")
+              total = total["value"] if total.is_a?(Hash)
+              total.to_i.positive?
+            end
 
             def normalize_only_categories(names)
               list = Array(names).map { |n| n.to_s.strip }.reject(&:empty?)

@@ -380,11 +380,17 @@ bundle exec bin/em-tools amazon products top-category-stats \
 
 bundle exec bin/em-tools amazon products export-by-top-category \
   -m de -o tmp/amz_de_by_top_category
+
+bundle exec bin/em-tools amazon products export-by-top-category \
+  -o tmp/amz_beauty_health \
+  --marketplaces uk,ca,jp,mx,ae,in,it,fr \
+  --beauty-health
 ```
 
 `top-category-stats` writes `top_category` + `doc_count` (fast aggregation). Optional `counts.json` summary.
 
 `export-by-top-category` writes `tmp/amz_de_by_top_category/<top_category>.txt` (one ASIN per line) and `manifest.json`.
+With `--marketplaces`, each marketplace is written under `<output>/<mp>/`. Use `-c` to limit categories, or `--beauty-health` for localized Beauty + Health category names per marketplace (CA/MX/FR/IT/AE differ from DE).
 Use `--category-from categories_first` to group by `categories[0].cat_name` instead of `top_category`.
 
 ### Amazon lowest-offer (`plugins/amazon/lowest_offer/`)
@@ -399,6 +405,9 @@ Use `--category-from categories_first` to group by `categories[0].cat_name` inst
 | Command | What it does |
 |---|---|
 | `ebay listings publish-snapshot [MARKETPLACE]` | eBay listings coverage snapshot (one row per marketplace). |
+| `ebay products export-redirect-product-ids` | Export `product_id` where `redirect=true` and `redirect_url` contains `/p/`. |
+| `ebay products export-nonexistent-product-ids` | Export `product_id` where `existence=false`. |
+| `ebay inventory lookup-product-ids` | Map local eBay item ids → `product_id` (`user1_ebay_us_products`, `source` + `source_product_id`). |
 
 ### Storefront (`plugins/storefront/`)
 

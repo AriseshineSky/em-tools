@@ -16,6 +16,8 @@ gem "elasticsearch", "~> 7.17"
 gem "google-cloud-storage"
 gem "nokogiri", "~> 1.19"
 gem "zeitwerk", "~> 2.0"
+gem 'rom'
+gem 'rom-elasticsearch'
 
 # Standard product validation (+EmProduct::StandardProduct+), aligned with
 # +em_tasks+ / +format_oliveyoung.py+ and +product-validator-ruby+.

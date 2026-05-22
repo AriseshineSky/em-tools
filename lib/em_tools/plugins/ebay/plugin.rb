@@ -29,6 +29,9 @@ module EmTools
         def cli_commands
           {
             "listings publish-snapshot" => Cli::PublishSnapshot,
+            "products export-redirect-product-ids" => Cli::ExportRedirectProductIds,
+            "products export-nonexistent-product-ids" => Cli::ExportNonexistentProductIds,
+            "inventory lookup-product-ids" => Cli::LookupInventoryProductIds,
           }
         end
 
