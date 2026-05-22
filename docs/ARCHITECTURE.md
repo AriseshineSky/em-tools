@@ -242,9 +242,7 @@ sequenceDiagram
 ```
 
 Inventory sync is **core**, not a plugin: every plugin queries the same
-`em_inventory` index. Source values (`AMZ_US`, `AMZ_CA`, `Boyner`, etc.)
-identify per-marketplace inventory feeds and are also used for delisting
-candidate generation.
+`em_inventory` index. Operational guide: [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md).
 
 `Core::Inventory::Sync` enforces that one CSV cannot mix multiple `Source`
 values. `prune_obsolete: true` deletes documents in ES that were not seen in

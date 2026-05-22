@@ -48,7 +48,7 @@ read the parts that apply to your task.
 | ES dump | `es dump-index` | `ES_DUMP_*` |
 | GCS | inventory + seeds | `GCS_SERVICE_ACCOUNT_PATH` (or `GCS_CREDENTIALS` + `GCS_PROJECT_ID`) |
 | GCS routing | seeds + inventory | `GCS_BUCKET`, `GCS_SEEDS_PREFIX` |
-| Inventory | inventory sync | `INVENTORY_INDEX`, `INVENTORY_GS_URI` / `INVENTORY_GCS_*`, `INVENTORY_REFRESH`, `INVENTORY_PRUNE_OBSOLETE`, `INVENTORY_FEED_ID` |
+| Inventory | inventory sync | `INVENTORY_*`, GCS creds — see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md) |
 | Google Ads catalog | google-ads catalog sync | `GOOGLE_ADS_CATALOG_INDEX`, `GOOGLE_ADS_CATALOG_GS_URI` / `GOOGLE_ADS_CATALOG_GCS_*`, `GOOGLE_ADS_CATALOG_REFRESH`, `GOOGLE_ADS_CATALOG_PRUNE_OBSOLETE`, `GOOGLE_ADS_CATALOG_FEED_ID` |
 | Amazon lowest-offer | snapshot | `LOWEST_OFFER_*`, `MONITORING_LOWEST_OFFER_SNAPSHOT_INDEX`, `MONITORING_ES_INDEX_REFRESH` |
 | eBay coverage | snapshot | `EBAY_LISTINGS_COVERAGE_*` |
@@ -122,6 +122,7 @@ default: &default
     refresh: false
     prune_obsolete: false
     sources: []
+    # Full inventory_sync guide: docs/INVENTORY_SYNC.md
     # Template form for AMZ_{marketplace}-Inv.csv (expands to one gs:// URI per code):
     # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
     #   marketplaces: all    # or [TR, DE, UK] — _id is CSV ProductID -> product_id
@@ -156,59 +157,22 @@ production:
   YAML; `EM_TOOLS_SKIP_SETTINGS_HYDRATE=1` disables the YAML→ENV bridge
   entirely.
 
-### Inventory `sources`
+### Inventory sync (`em_inventory`)
 
-GCS paths for `em-tools inventory sync` live under `inventory_sync.sources` in
-the active `APP_ENV` section (default `development`). Each entry can be either a
-bare `gs://` URI or a hash.
+GCS paths, `{marketplace}` templates, CSV fields, cluster routing, prune, and
+recipes: **[`INVENTORY_SYNC.md`](INVENTORY_SYNC.md)**.
 
-**Fixed URI** (one file per entry):
-
-```yaml
-sources:
-  - gs://em-bucket/AMZ_US-Inv.csv
-
-  - uri: gs://em-bucket/Ebay_US-Inv.csv
-    cluster: data                      # optional: data | primary | elasticsearch_clusters key
-    index: em_inventory                # override per-source
-    refresh: true
-    prune_obsolete: true
-    feed_id: AMZ_CA                    # explicit feed_id; otherwise inferred from CSV Source col
-```
-
-**Template URI** (one YAML entry → many GCS files). Use when Amazon inventory
-files follow `AMZ_<code>-Inv.csv` on the bucket:
+Minimal `inventory_sync` skeleton in settings:
 
 ```yaml
-sources:
-  - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
-    marketplaces: all                  # expands to AE CA US DE UK IN IT MX JP TR
-  # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
-  #   marketplaces: [DE, UK, TR]       # only these codes (uppercased)
-  # - gs_uri_template: gs://em-bucket/AMZ_{marketplace}-Inv.csv
-  #   marketplaces: "DE,UK"           # comma-separated string also works
+inventory_sync:
+  index: em_inventory
+  cluster: primary
+  refresh: false
+  prune_obsolete: false
+  sources:
+    - gs://em-bucket/example-Inv.csv
 ```
-
-| `marketplaces` value | Expanded codes |
-|---|---|
-| `all` (string or one-element array `["all"]`) | `AE`, `CA`, `US`, `DE`, `UK`, `IN`, `IT`, `MX`, `JP`, `TR` |
-| `[DE, uk]` | `DE`, `UK` (array entries are uppercased) |
-| `"TR,DE"` | `TR`, `DE` |
-
-The literal placeholder `{marketplace}` in `gs_uri_template` (aliases:
-`template`, `uri_template`) is replaced with each code via string substitution,
-e.g. `gs://em-bucket/AMZ_{marketplace}-Inv.csv` + `DE` →
-`gs://em-bucket/AMZ_DE-Inv.csv`. The code is the **filename site token**, not an
-AWS marketplace API id.
-
-To sync all expanded AMZ files in one run:
-
-```bash
-APP_ENV=development ELASTICSEARCH_URL='http://…' bundle exec bin/em-tools inventory sync
-```
-
-To sync **one** marketplace without editing YAML, use
-`inventory sync-from-gcs gs://em-bucket/AMZ_DE-Inv.csv` (see [CLI.md](CLI.md)).
 
 ### Per-site
 

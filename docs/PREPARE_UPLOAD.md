@@ -41,7 +41,7 @@ flowchart LR
   NDJSON --> Down[Storefront / Celery / manual upload]
 ```
 
-1. **Inventory** in `em_inventory` (see [`CLI.md` — Inventory](CLI.md#inventory--object-storage)) so formatters can skip SKUs already on Spree.
+1. **Inventory** in `em_inventory` (see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md)) so formatters can skip SKUs already on Spree.
 2. **Product index** populated (scrapers / indexers outside this doc).
 3. Optional **`es translate-titles`** → sidecar index; merge with `--translation-index` on Lotteon / Oliveyoung / Lazada.
 4. Optional **`blacklist download`** — keyword policy uses the admin API unless you pass `--keywords-path`.
