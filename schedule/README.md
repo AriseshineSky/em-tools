@@ -31,12 +31,12 @@ schedule/
 
 | If you want | Use |
 |---|---|
-| One file, one operator, simple shell semantics | [`cron.example`](cron.example) |
-| Per-job logs (journalctl), retry/timeout/state machine, run-on-boot catch-up | [`systemd/`](systemd/) |
+| Cron + shell script (recommended if you skip systemd) | [`../scripts/inventory-sync.sh`](../scripts/inventory-sync.sh) + [`cron.inventory-sync.example`](cron.inventory-sync.example) |
+| One file, all jobs | [`cron.example`](cron.example) |
+| Per-job journalctl, timeout, run-on-boot | [`systemd/`](systemd/) (optional) |
 
-Both surfaces invoke **exactly the same CLI binary** (`bin/em-tools`); pick
-whichever fits your host. Manjaro / Arch hosts default to systemd, so the
-systemd templates are the most exercised path.
+Cron jobs call the same logic as `bundle exec bin/em-tools inventory sync`; the
+shell script adds `flock`, logging hooks, and `APP_ENV`.
 
 ## Cron quickstart
 

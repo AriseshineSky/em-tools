@@ -1,40 +1,20 @@
-# em-tools — daily full inventory sync (GCS CSVs -> em_inventory)
+# em-tools — daily full inventory sync (cron + shell script)
 #
-# Install (system cron, recommended for servers):
+# Install:
+#   chmod +x /home/Admin/src/em-tools/scripts/inventory-sync.sh
 #   sudo cp schedule/cron.inventory-sync.example /etc/cron.d/em-tools-inventory-sync
-#   sudoedit /etc/cron.d/em-tools-inventory-sync   # USER, REPO, APP_ENV
-#   sudo mkdir -p /home/Admin/em-tools/log
-#   sudo systemctl reload cron    # cronie on Manjaro/Arch
+#   sudo vim /etc/cron.d/em-tools-inventory-sync    # edit USER and paths
+#   sudo mkdir -p /home/Admin/src/em-tools/log
+#   sudo systemctl reload cron
 #
-# Or user crontab:
-#   crontab -e
-#   (paste the COMMAND line only, without the cron.d USER column)
+# User crontab (crontab -e) — no USER column:
+#   30 3 * * * /home/Admin/src/em-tools/scripts/inventory-sync.sh >> /home/Admin/src/em-tools/log/inventory-sync.log 2>&1
 #
-# Prerequisites:
-#   - em-tools repo with .env (ELASTICSEARCH_URL, GCS_SERVICE_ACCOUNT_PATH, …)
-#   - config/settings.yml → inventory_sync.sources populated for your APP_ENV
-#   - For stale-doc cleanup on batch sync, set prune_obsolete: true in YAML
-#     (INVENTORY_PRUNE_OBSOLETE in .env applies to sync-from-gcs only)
-#
-# Format:  m h dom mon dow USER  COMMAND
+# prune_obsolete: set in config/settings.yml (not .env INVENTORY_PRUNE_OBSOLETE)
 
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
-# --- edit these ---
-# USER     = OS user that owns the repo and .env (e.g. Admin, sky)
-# REPO     = absolute path to em-tools (e.g. /home/Admin/em-tools)
-# APP_ENV  = settings.yml section: development | production
-
-# Daily 03:30 — full inventory sync (all sources in inventory_sync.sources).
-# flock: skip if yesterday's run is still in progress.
-30 3 * * *  Admin  bash -lc '\
-  REPO=/home/Admin/em-tools; \
-  APP_ENV=development; \
-  mkdir -p "$REPO/log"; \
-  flock -n /tmp/em-tools-inventory-sync.lock -c "\
-    cd \"$REPO\" && \
-    export APP_ENV && \
-    bundle exec bin/em-tools inventory sync \
-  " >> "$REPO/log/em-tools.inventory-sync.log" 2>&1'
+# --- edit USER and absolute script path ---
+30 3 * * *  Admin  /home/Admin/src/em-tools/scripts/inventory-sync.sh >> /home/Admin/src/em-tools/log/inventory-sync.log 2>&1

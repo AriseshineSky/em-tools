@@ -131,6 +131,6 @@ production:
   inventory_sync:
     index: em_inventory
     refresh: false
-    prune_obsolete: false
+    prune_obsolete: true
     sources:
       - gs://em-bucket/boyner-Inv.csv
