@@ -50,7 +50,7 @@ read the parts that apply to your task.
 | GCS routing | seeds + inventory | `GCS_BUCKET`, `GCS_SEEDS_PREFIX` |
 | Inventory | inventory sync | `INVENTORY_*`, GCS creds — see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md) |
 | Google Ads catalog | google-ads catalog sync | `GOOGLE_ADS_CATALOG_INDEX`, `GOOGLE_ADS_CATALOG_GS_URI` / `GOOGLE_ADS_CATALOG_GCS_*`, `GOOGLE_ADS_CATALOG_REFRESH`, `GOOGLE_ADS_CATALOG_PRUNE_OBSOLETE`, `GOOGLE_ADS_CATALOG_FEED_ID` |
-| Amazon lowest-offer | snapshot | `LOWEST_OFFER_*`, `MONITORING_LOWEST_OFFER_SNAPSHOT_INDEX`, `MONITORING_ES_INDEX_REFRESH` |
+| Amazon lowest-offer | snapshot | `LOWEST_OFFER_*`, `MONITORING_LOWEST_OFFER_SNAPSHOT_INDEX`, `MONITORING_ES_INDEX_REFRESH` — see [`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md) |
 | eBay coverage | snapshot | `EBAY_LISTINGS_COVERAGE_*` |
 | Redis | optional | `REDIS_URL` |
 | Blacklist API | uploadable filter | `BLACKLIST_API_ENDPOINT`, `BLACKLIST_API_PATH`, `BLACKLIST_API_TOKEN` |

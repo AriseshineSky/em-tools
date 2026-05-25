@@ -138,6 +138,9 @@ plugin shares the same `em_inventory` ES index.
 
 ## 5. End-to-end example: lowest-offer snapshot
 
+Full workflow (seed format, `time` buckets, env vars):
+[`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md).
+
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -195,6 +198,8 @@ gem can `rescue EmTools::Error` to catch any em-tools-specific failure.
 
 - [`CLI.md`](CLI.md) — every CLI command, args, env vars.
 - [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md) — GCS / Spree → `em_inventory`.
+- [`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md) — ad-report ASINs →
+  `lowest_offer_listings_*_new` freshness snapshots.
 - [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md) — ES → upload NDJSON per marketplace.
 - [`CONFIGURATION.md`](CONFIGURATION.md) — `.env` vs `settings.yml` split.
 - [`PLUGINS.md`](PLUGINS.md) — how to add a plugin.

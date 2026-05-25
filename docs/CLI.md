@@ -2,6 +2,8 @@
 
 For **inventory sync** into `em_inventory`, see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md).
 For **upload NDJSON** generation, see [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md).
+For **Amazon lowest-offer coverage** (ad-report ASINs → `lowest_offer_listings_*_new`
+freshness by `time`), see [`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md).
 
 `bin/em-tools` is the **only** operational entrypoint. The CLI is a hierarchical
 subcommand tree built on [dry-cli](https://dry-rb.org/gems/dry-cli/), shaped
@@ -387,6 +389,9 @@ With `--marketplaces`, each marketplace is written under `<output>/<mp>/`. Use `
 Use `--category-from categories_first` to group by `categories[0].cat_name` instead of `top_category`.
 
 ### Amazon lowest-offer (`plugins/amazon/lowest_offer/`)
+
+Ad-report / seed ASINs → query `lowest_offer_listings_<mp>_new` by `time` field:
+[`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md).
 
 | Command | What it does |
 |---|---|

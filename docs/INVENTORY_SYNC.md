@@ -471,7 +471,7 @@ See [`schedule/README.md`](../schedule/README.md).
 | Consumer | Use |
 |---|---|
 | `lazada` / `lotteon` / `oliveyoung` build-upload | Skip already-uploaded SKUs (`--inventory-source`) |
-| `amazon coverage publish-snapshot` | `LOWEST_OFFER_ID_SOURCE=inventory` ASIN set |
+| `amazon coverage publish-snapshot` | `LOWEST_OFFER_ID_SOURCE=inventory` ASIN set — see [`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md) |
 | `storefront unpublish-candidates` | Delisting rule input |
 | `google-ads catalog missing-product-ids` | Set diff vs ads catalog |
 

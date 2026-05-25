@@ -16,11 +16,12 @@ module EmTools
           class DownloadAndPublish
             # @param target_dir [String] where seed files land; defaults to +./tmp+.
             # @param env [Hash, ENV-like]
+            # @param cli_marketplaces [String, nil] comma-separated marketplace codes (e.g. +"de,us"+)
             # @param snapshot [#run!] override for {PublishSnapshot} (mainly for tests).
-            def initialize(target_dir: nil, env: ENV, snapshot: nil)
+            def initialize(target_dir: nil, env: ENV, cli_marketplaces: nil, snapshot: nil)
               @target_dir = target_dir || File.join(Dir.pwd, "tmp")
               @env = env
-              @snapshot = snapshot || PublishSnapshot.new
+              @snapshot = snapshot || PublishSnapshot.new(cli_marketplaces: cli_marketplaces, env: env)
             end
 
             # @return [EmTools::Core::Cli::Runner::Result]

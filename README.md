@@ -111,7 +111,7 @@ Below is a **command → purpose** map; flags, env vars, and exit codes are in
 | `amazon products format-file PATH` | Turn a local product file into the upload pipeline’s input shape. |
 | `amazon products index-asins` | Stage ASIN-keyed product documents from the ASIN stream into ES (`mget` + bulk). |
 | `amazon products build-feed` | Build uploadable feed rows from an ASIN source into JSONL / ES sinks. |
-| `amazon coverage publish-snapshot [mp …]` | Publish lowest-offer **coverage** snapshots (one row per marketplace). |
+| `amazon coverage publish-snapshot [mp …]` | Publish lowest-offer **coverage** snapshots (one row per marketplace). See [`docs/LOWEST_OFFER_COVERAGE.md`](docs/LOWEST_OFFER_COVERAGE.md). |
 | `amazon coverage download-and-publish` | Composite: `gcs download-seeds` then `amazon coverage publish-snapshot`. |
 
 ### eBay
