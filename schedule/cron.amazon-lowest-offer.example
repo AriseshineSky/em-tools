@@ -1,0 +1,10 @@
+# em-tools — Amazon lowest-offer snapshot only (install at /etc/cron.d/em-tools-amazon-lowest-offer).
+#
+# Format:  m h dom mon dow USER  COMMAND
+# Edit USER, REPO, and BUNDLE to match your host.
+
+SHELL=/bin/bash
+MAILTO=""
+
+# 04:00 daily — download ad-report seeds from GCS + publish lowest-offer coverage snapshot.
+0 4 * * *  Admin  bash -lc 'export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle; cd /home/Admin/src/em-tools && bin/amazon-lowest-offer-snapshot >> log/em-tools.lowest-offer.log 2>&1'

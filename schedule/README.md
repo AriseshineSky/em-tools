@@ -16,6 +16,8 @@ symlink) the rendered version into `/etc/cron.d/` or
 schedule/
 ├── README.md                                 (this file)
 ├── cron.example                              all jobs in one cron file
+├── cron.inventory-sync.example                 single-job: daily full inventory sync
+├── cron.amazon-lowest-offer.example            single-job: daily lowest-offer snapshot
 └── systemd/
     ├── em-tools-inventory-sync.service.example
     ├── em-tools-inventory-sync.timer.example
@@ -46,6 +48,23 @@ sudo systemctl reload cron             # cronie / cronie-anacron on Manjaro
 
 `cron.example` runs jobs as a non-root user, sources `.env` from the repo,
 and emits stdout/stderr to `log/em-tools.<job>.log`.
+
+For **Amazon lowest-offer only**, see
+[`cron.amazon-lowest-offer.example`](cron.amazon-lowest-offer.example) — a
+one-line daily job using `bin/amazon-lowest-offer-snapshot`.
+
+### rbenv / explicit `bundle` path
+
+cron does not load your login shell PATH, so `bundle` may not resolve. Set
+`EM_TOOLS_BUNDLE` to the absolute shim path (e.g.
+`/home/Admin/.rbenv/shims/bundle`) in the cron line or in the user's
+`~/.bashrc` (when using `bash -lc`).
+
+```bash
+export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle
+cd /home/Admin/src/em-tools
+bin/amazon-lowest-offer-snapshot
+```
 
 ## systemd quickstart
 
