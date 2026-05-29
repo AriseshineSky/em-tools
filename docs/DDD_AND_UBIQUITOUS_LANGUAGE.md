@@ -53,8 +53,8 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 
 ## 4. 渐进式落地（避免大爆炸重命名）
 
-1. **新能力**：优先在对应插件下用业务类名包一层（如 `lib/em_tools/plugins/<plugin>/queries/`、`/transforms/`、`/sinks/`），内部委托现有类。  
-2. **旧类名**：可保留为「技术实现」，在类注释第一行写「在通用语言中称为：…」。  
+1. **新能力**：优先在对应插件下用业务类名包一层（如 `lib/em_tools/plugins/<plugin>/queries/`、`/transforms/`、`/sinks/`），内部委托现有类。
+2. **旧类名**：可保留为「技术实现」，在类注释第一行写「在通用语言中称为：…」。
 3. **对外 API / rake**：稳定优先；准备好后再把 rake 内部改为调用 `Domain::*` façade。  
 4. **变量名**：在方法内部用 `watched_product_ids`、`listing_index` 等，比单字母 `mp`/`idx` 更接近业务（长方法里可局部用缩写，但入口参数建议完整）。
 
@@ -131,6 +131,6 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 
 ## 7. 延伸阅读
 
-- Eric Evans — *Domain-Driven Design*（战略设计 + 战术模式）  
-- Vaughn Vernon — *Implementing Domain-Driven Design*（限界上下文与集成）  
+- Eric Evans — *Domain-Driven Design*（战略设计 + 战术模式）
+- Vaughn Vernon — *Implementing Domain-Driven Design*（限界上下文与集成）
 - 本仓库 `docs/ARCHITECTURE.md`（目录与数据流）
