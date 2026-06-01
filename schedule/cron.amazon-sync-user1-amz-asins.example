@@ -1,0 +1,14 @@
+# em-tools — hourly user1_amz_asins -> amz_asins_<mp> sync
+#
+# Requires .env in the repo (or EnvironmentFile=) with:
+#   ELASTICSEARCH_URL='http://user:pw@34.44.148.50:80'
+#   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
+#   AMZ_ASIN_SYNC_SINCE_HOURS=3    # optional default window (CLI --since-hours overrides)
+#
+# Copy to /etc/cron.d/em-tools-amz-asins-sync (or append to your crontab).
+
+SHELL=/bin/bash
+MAILTO=""
+
+# Every hour at :15 — incremental sync (default 2h window; use --since-hours N to override per job).
+15 * * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins --since-hours 3 >> log/amazon-sync-user1-amz-asins.log 2>&1'

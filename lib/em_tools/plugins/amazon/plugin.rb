@@ -72,6 +72,7 @@ module EmTools
             "products top-category-stats" => Uploadable::Cli::TopCategoryStats,
             "coverage publish-snapshot" => LowestOffer::Cli::PublishSnapshot,
             "coverage download-and-publish" => LowestOffer::Cli::DownloadAndPublish,
+            "asins sync-user1" => AsinSync::Cli::SyncUser1AmzAsins,
           }
         end
 

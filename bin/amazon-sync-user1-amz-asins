@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Hourly sync: user1_amz_asins (DATA_ELASTICSEARCH_URL) -> amz_asins_<mp> (ELASTICSEARCH_URL).
+#
+# Reads cluster URLs from .env (loaded by bin/em-tools). Example .env:
+#   ELASTICSEARCH_URL='http://user:pw@34.44.148.50:80'
+#   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
+#
+# Usage:
+#   bin/amazon-sync-user1-amz-asins              # incremental (default 2h, or AMZ_ASIN_SYNC_SINCE_HOURS)
+#   bin/amazon-sync-user1-amz-asins --since-hours 6
+#   bin/amazon-sync-user1-amz-asins -H 3         # same as --since-hours
+#   bin/amazon-sync-user1-amz-asins --full       # first-time backfill (entire index)
+#   bin/amazon-sync-user1-amz-asins --dry-run
+#   bin/amazon-sync-user1-amz-asins -m de -H 1
+#
+# Cron (hourly; dotenv loads .env when cwd is the repo):
+#   0 * * * * sky bash -lc 'cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins \
+#     >> log/amazon-sync-user1-amz-asins.log 2>&1'
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+BUNDLE="${EM_TOOLS_BUNDLE:-${BUNDLE_BIN:-bundle}}"
+
+mkdir -p log
+
+exec "$BUNDLE" exec bin/em-tools amazon asins sync-user1 "$@"
