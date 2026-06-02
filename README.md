@@ -202,6 +202,7 @@ GCS object lists, inventory feed names) live in `config/settings.yml`. See
 | [`docs/PREPARE_UPLOAD.md`](docs/PREPARE_UPLOAD.md) | Prepare upload NDJSON (Amazon, Lotteon, Oliveyoung, Lazada, shared translation/blacklist flow). |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Know what to put in `.env` vs `config/settings.yml`. |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | Add a new plugin (or new CLI command to an existing one). |
+| [`docs/PLUGIN_BOUNDARIES.md`](docs/PLUGIN_BOUNDARIES.md) | Plugin 按渠道划分的设计理由；新能力放 Core 还是 plugin（中文备忘）。 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Map files / namespaces / Zeitwerk + plugin engine internals. |
 | [`docs/DDD_AND_UBIQUITOUS_LANGUAGE.md`](docs/DDD_AND_UBIQUITOUS_LANGUAGE.md) | Domain language and bounded contexts. |
 | [`schedule/README.md`](schedule/README.md) | Wire up cron / systemd jobs. |

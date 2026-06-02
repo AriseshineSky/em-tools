@@ -134,3 +134,4 @@ Domain-Driven Design 里最有用的是两件事：**通用语言（Ubiquitous L
 - Eric Evans — *Domain-Driven Design*（战略设计 + 战术模式）
 - Vaughn Vernon — *Implementing Domain-Driven Design*（限界上下文与集成）
 - 本仓库 `docs/ARCHITECTURE.md`（目录与数据流）
+- 本仓库 `docs/PLUGIN_BOUNDARIES.md`（plugin 按渠道划分的设计理由与决策树）

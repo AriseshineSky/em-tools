@@ -117,6 +117,7 @@ contributions:
 | High-level operations | plain instance methods | callers, specs |
 
 See [`PLUGINS.md`](PLUGINS.md) for the full plugin contract.
+See [`PLUGIN_BOUNDARIES.md`](PLUGIN_BOUNDARIES.md) for when to add a plugin vs Core (中文备忘).
 
 ---
 

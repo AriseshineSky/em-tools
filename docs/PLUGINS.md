@@ -5,6 +5,10 @@ every marketplace / channel lives under `lib/em_tools/plugins/<scope>/`. This
 document is the plugin contract — read it before adding a new plugin or a
 new CLI command.
 
+> **Design rationale (中文)** — when to add a plugin vs put logic in Core,
+> and why we partition by *business channel* rather than by ES cluster/index:
+> [`PLUGIN_BOUNDARIES.md`](PLUGIN_BOUNDARIES.md).
+
 > em-tools is a project-local Ruby application, not a packaged gem; the
 > "plugin" concept is internal to this checkout, not a rubygems extension
 > point. New plugins are checked into the same repo.

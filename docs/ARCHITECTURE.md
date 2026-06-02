@@ -5,6 +5,8 @@ file level. For the high-level platform picture, start with
 [`OVERVIEW.md`](OVERVIEW.md). For the public extension contract, see
 [`PLUGINS.md`](PLUGINS.md). For the bounded-context / domain language view,
 see [`DDD_AND_UBIQUITOUS_LANGUAGE.md`](DDD_AND_UBIQUITOUS_LANGUAGE.md).
+For plugin partitioning rationale (channel vs data source),
+see [`PLUGIN_BOUNDARIES.md`](PLUGIN_BOUNDARIES.md).
 
 ---
 
