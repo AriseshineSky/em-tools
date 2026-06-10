@@ -377,3 +377,4 @@ em-tools --tenant customer_a inventory sync
 - 评估并否决了 "Shopify-style CLI runtime" 一次性大重构，理由：
   em-tools 当前规模（1 operator、6 plugin、19 命令）撑不起自研 runtime 的维护成本。
   详见 [`CHANGELOG.md`](../../CHANGELOG.md) 中 dry-cli 迁移的条目。
+

@@ -23,6 +23,7 @@ module EmTools
         def dependencies
           @dependencies ||= {
             es_client: EmTools::Clients::ElasticsearchClient.new,
+            logger: EmTools::Core::Logger.for(progname: "ebay"),
           }
         end
 
@@ -31,6 +32,7 @@ module EmTools
             "listings publish-snapshot" => Cli::PublishSnapshot,
             "products export-redirect-product-ids" => Cli::ExportRedirectProductIds,
             "products export-nonexistent-product-ids" => Cli::ExportNonexistentProductIds,
+            "products sync-user1" => ProductSync::Cli::SyncUser1Products,
             "inventory lookup-product-ids" => Cli::LookupInventoryProductIds,
           }
         end
