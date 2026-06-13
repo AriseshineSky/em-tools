@@ -13,8 +13,10 @@
 #   bin/amazon-sync-user1-amz-asins --dry-run
 #   bin/amazon-sync-user1-amz-asins -m de -H 1
 #
-# Cron (hourly; dotenv loads .env when cwd is the repo):
-#   0 * * * * sky bash -lc 'cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins \
+# Cron (hourly; dotenv loads .env when cwd is the repo). Set EM_TOOLS_BUNDLE when
+# cron cannot find bundle (rbenv/asdf — same as bin/amazon-lowest-offer-snapshot):
+#   15 * * * * EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle bash -lc \
+#     'cd /home/Admin/src/em-tools && bin/amazon-sync-user1-amz-asins --since-hours 2 \
 #     >> log/amazon-sync-user1-amz-asins.log 2>&1'
 
 set -euo pipefail

@@ -10,5 +10,10 @@
 SHELL=/bin/bash
 MAILTO=""
 
-# Every hour at :15 — incremental sync (default 2h window; use --since-hours N to override per job).
-15 * * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins --since-hours 3 >> log/amazon-sync-user1-amz-asins.log 2>&1'
+# cron has no rbenv PATH — set EM_TOOLS_BUNDLE (same as amazon-lowest-offer-snapshot).
+#
+# Every hour at :15 — incremental sync for all marketplaces (default 2h window; use --since-hours N to override per job).
+15 * * * *  sky  bash -lc 'export EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle; cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins --since-hours 3 >> log/amazon-sync-user1-amz-asins.log 2>&1'
+
+# Every hour at :20 — Brazil (BR) only; offset from the global job above.
+20 * * * *  Admin  bash -lc 'export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle; cd /home/Admin/src/em-tools && bin/amazon-sync-user1-amz-asins -m br --since-hours 2 >> log/amazon-sync-user1-amz-asins-br.log 2>&1'

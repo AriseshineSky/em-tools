@@ -1,0 +1,14 @@
+# em-tools — hourly user1_ebay_products -> ebay_us_products sync
+#
+# Requires .env in the repo (or EnvironmentFile=) with:
+#   ELASTICSEARCH_URL='http://user:pw@34.44.148.50:80'
+#   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
+#   EBAY_PRODUCT_SYNC_SINCE_HOURS=3    # optional default window (CLI --since-hours overrides)
+#
+# Copy to /etc/cron.d/em-tools-ebay-products-sync (or append to your crontab).
+
+SHELL=/bin/bash
+MAILTO=""
+
+# Every hour at :25 — incremental sync (default 2h window; use --since-date or --since-hours to override).
+25 * * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/ebay-sync-user1-products --since-hours 3 >> log/ebay-sync-user1-products.log 2>&1'

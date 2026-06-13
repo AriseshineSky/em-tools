@@ -18,6 +18,7 @@ schedule/
 ├── cron.example                              all jobs in one cron file
 ├── cron.inventory-sync.example                 single-job: daily full inventory sync
 ├── cron.amazon-lowest-offer.example            single-job: daily lowest-offer snapshot
+├── cron.amazon-sync-user1-amz-asins.example      hourly user1_amz_asins -> amz_asins_<mp> sync
 └── systemd/
     ├── em-tools-inventory-sync.service.example
     ├── em-tools-inventory-sync.timer.example
@@ -52,6 +53,10 @@ and emits stdout/stderr to `log/em-tools.<job>.log`.
 For **Amazon lowest-offer only**, see
 [`cron.amazon-lowest-offer.example`](cron.amazon-lowest-offer.example) — a
 one-line daily job using `bin/amazon-lowest-offer-snapshot`.
+
+For **user1_amz_asins → amz_asins_{marketplace} hourly sync**, see
+[`cron.amazon-sync-user1-amz-asins.example`](cron.amazon-sync-user1-amz-asins.example).
+Per-marketplace jobs use `-m <code>` (e.g. `-m br` for Brazil).
 
 ### rbenv / explicit `bundle` path
 

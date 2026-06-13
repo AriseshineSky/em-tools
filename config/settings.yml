@@ -105,9 +105,14 @@ development:
       - uri: gs://em-bucket/Ebay_US-Inv.csv
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
       - uri: gs://em-bucket/Lazada_th-Inv.csv
+        cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
       - uri: gs://em-bucket/11ST-Inv.csv
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
       - uri: gs://em-bucket/Rakuten-Inv.csv
+        cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
+      - uri: gs://em-bucket/Trendyol-Inv.csv
+        cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
+      - uri: gs://em-bucket/Lazada-Inv.csv
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
 
   # Same GCS layout as inventory CSVs; replace with your Merchant Center / Ads export paths.
