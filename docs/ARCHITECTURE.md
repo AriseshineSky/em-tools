@@ -223,33 +223,13 @@ pipeline / runner class under `lib/em_tools/<plugin>/pipelines/` (or
 
 ## 6. Inventory sync (core, shared by every plugin)
 
-```mermaid
-sequenceDiagram
-    participant CLI as em-tools inventory sync
-    participant SS as SyncSources
-    participant SR as SyncRunner
-    participant GCS as GcsBlobFetcher
-    participant Sync as Inventory::Sync
-    participant ES as ElasticsearchBulkSink
-
-    CLI->>SS: load!(config_path)
-    SS-->>CLI: Array<Source>
-    loop each source
-        CLI->>SR: run_one!(source)
-        SR->>GCS: with_downloaded(gs_uri) { |path| ... }
-        GCS->>Sync: sync_from_path(path, refresh:)
-        Sync->>ES: bulk index batches
-    end
-    SR-->>CLI: Cli::Runner::Result(summary)
-```
-
 Inventory sync is **core**, not a plugin: every plugin queries the same
-`em_inventory` index. Operational guide: [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md).
+`em_inventory` index. Commands, YAML, CSV shape, cluster routing, and
+prune semantics: [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md).
 
-`Core::Inventory::Sync` enforces that one CSV cannot mix multiple `Source`
-values. `prune_obsolete: true` deletes documents in ES that were not seen in
-the latest batch with the same `inventory_feed` — that is how inventory
-goes from "rows in CSV" to "what's currently live".
+Code lives under `lib/em_tools/core/inventory/` (`SyncSources`, `SyncRunner`,
+`Inventory::Sync`). `Core::Inventory::Sync` enforces one CSV per `Source`
+value; optional `prune_obsolete` retires stale rows per `inventory_feed`.
 
 ---
 

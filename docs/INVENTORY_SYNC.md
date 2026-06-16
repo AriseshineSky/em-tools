@@ -1,27 +1,40 @@
 # Inventory sync — GCS CSV → `em_inventory`
 
-How to load **operating inventory** from Google Cloud Storage (or Spree) into
-the shared Elasticsearch index **`em_inventory`**. Every marketplace plugin
-(Amazon lowest-offer, Lazada prepare-upload skip lists, storefront unpublish, etc.)
-reads this index.
+Load **operating inventory** from Google Cloud Storage (or Spree) into the
+shared Elasticsearch index **`em_inventory`**. Marketplace plugins (Amazon
+lowest-offer, Lazada prepare-upload skip lists, storefront unpublish, etc.)
+read this index.
 
-For **upload NDJSON** generation (downstream of inventory), see
-[`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md). For the full CLI index, see
-[`CLI.md`](CLI.md).
+| Doc | Topic |
+|---|---|
+| [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md) | Upload NDJSON generation (downstream of inventory) |
+| [`CLI.md`](CLI.md) | Full command index and exit codes |
+| [`CONFIGURATION.md`](CONFIGURATION.md) | `.env` vs `settings.yml` split |
 
 **Not this doc:** `google-ads catalog sync` writes to **`google_ads_products`**
-(ads SKU catalog), not `em_inventory`. See [`CLI.md`](CLI.md#google-ads-catalog-sync-config_path).
+(ads SKU catalog), not `em_inventory`. See
+[`CLI.md`](CLI.md#google-ads-catalog-sync-config_path).
 
 ---
 
-## What gets synced
+## Quick reference
+
+There is **no** `em-tools inventory publish`. Loading inventory is
+**`inventory sync`** (GCS) or **`storefront inventory sync`** (Spree).
+Elsewhere, **`publish-snapshot`** means coverage monitoring
+(`amazon coverage publish-snapshot`, `ebay listings publish-snapshot`), not
+`em_inventory`.
+
+| Goal | Command |
+|---|---|
+| All configured GCS sources → `em_inventory` | `bundle exec bin/em-tools inventory sync` |
+| One GCS CSV → `em_inventory` | `bundle exec bin/em-tools inventory sync-from-gcs gs://…` |
+| Spree storefront CSVs → `em_inventory` | `bundle exec bin/em-tools storefront inventory sync --source …` |
+| Cron wrapper (full sync) | `./scripts/inventory-sync.sh` |
 
 | Item | Value |
 |---|---|
 | ES index | `em_inventory` (override: `INVENTORY_INDEX` or YAML `inventory_sync.index`) |
-| Source files | GCS `gs://…/*.csv` (default format) |
-| CLI (batch) | `em-tools inventory sync` |
-| CLI (single file) | `em-tools inventory sync-from-gcs [GS_URI]` |
 | Config | `config/settings.yml` → `inventory_sync.sources` (per `APP_ENV`) |
 | Code | `lib/em_tools/core/inventory/` |
 
@@ -101,7 +114,7 @@ Optional: `EM_TOOLS_SETTINGS_PATH=/abs/path/to/settings.yml` for a non-default Y
 
 ## Commands
 
-### `inventory sync` — all configured sources
+### `inventory sync` — all configured GCS sources
 
 Runs **every** entry in `inventory_sync.sources` for the active `APP_ENV`.
 There is **no CLI flag** to sync “AMZ only”; control the list in YAML.
@@ -112,17 +125,11 @@ ELASTICSEARCH_URL='http://user:pass@host:9200' \
 bundle exec bin/em-tools inventory sync
 ```
 
-Alternate settings file:
-
-```bash
-bundle exec bin/em-tools inventory sync /path/to/custom-settings.yml
-```
-
-Default unmarked sources to the data cluster:
-
-```bash
-bundle exec bin/em-tools inventory sync --data
-```
+| Variant | Invocation |
+|---|---|
+| Alternate settings file | `bundle exec bin/em-tools inventory sync /path/to/custom-settings.yml` |
+| Default unmarked sources to data cluster | `bundle exec bin/em-tools inventory sync --data` |
+| One Amazon marketplace only | Temporarily set `marketplaces: [US]` on the template entry, or use `sync-from-gcs` below |
 
 ### `inventory sync-from-gcs` — one GCS object
 
@@ -147,6 +154,35 @@ bundle exec bin/em-tools inventory sync-from-gcs
 
 Add `--data` to target `DATA_ELASTICSEARCH_URL` (same semantics as batch sync).
 
+With prune for a single feed:
+
+```bash
+INVENTORY_PRUNE_OBSOLETE=1 \
+INVENTORY_REFRESH=1 \
+INVENTORY_FEED_ID=lazadacoth \
+bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/Lazada_th-Inv.csv
+```
+
+### `storefront inventory sync` — Spree CSV API
+
+When inventory CSVs are served by your **Spree** storefront API instead of GCS:
+
+```bash
+EM_TOOLS_SITE_STOREFRONT_ENDPOINT='https://…' \
+EM_TOOLS_SITE_STOREFRONT_TOKEN='…' \
+bundle exec bin/em-tools storefront inventory sync --source AMZ_AE,AMZ_CA
+```
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--source` | (required) | Repeatable; comma-separated OK |
+| `--index` | `em_inventory` | Override index |
+| `--refresh` | `true` | Refresh after sync |
+| `--prune` | `true` | Prune stale docs per source (opposite default from GCS sync) |
+
+Configure `sites.storefront` in `config/settings.yml` for non-secret defaults;
+see [`CONFIGURATION.md`](CONFIGURATION.md).
+
 ---
 
 ## Configuration (`config/settings.yml`)
@@ -168,7 +204,7 @@ inventory_sync:
 
 | Key | Meaning |
 |---|---|
-| `cluster` | Section-wide ES cluster name: `primary`, `data`, or a custom `elasticsearch_clusters` key |
+| `cluster` | Section-wide ES cluster: `primary`, `data`, or a custom `elasticsearch_clusters` key |
 | `index` | Default ES index (overridden by `INVENTORY_INDEX` env if set) |
 | `refresh` | When `true`, refresh index after bulk (slower; visible immediately) |
 | `prune_obsolete` | When `true`, delete docs in the same feed not seen in this batch |
@@ -243,6 +279,19 @@ development:
 
 `inventory sync` runs **all** of the above in one invocation (11 AMZ files +
 eBay + Lazada + 11ST). Comment out entries you do not want.
+
+### Adding a new source
+
+1. Upload CSV to GCS (e.g. `gs://em-bucket/Lazada_th-Inv.csv`).
+2. Add to `inventory_sync.sources`:
+
+   ```yaml
+   - uri: gs://em-bucket/Lazada_th-Inv.csv
+     feed_id: lazadacoth    # optional; use if CSV Source col differs
+   ```
+
+3. Run `inventory sync` or single-file `sync-from-gcs`.
+4. Verify in ES: documents with matching `source` / `inventory_feed`.
 
 ---
 
@@ -367,71 +416,6 @@ live” for that source.
 
 ---
 
-## Common recipes
-
-### Sync all Amazon marketplaces (from template)
-
-Ensure `development.inventory_sync.sources` includes the AMZ template, then:
-
-```bash
-APP_ENV=development ELASTICSEARCH_URL='http://…' \
-bundle exec bin/em-tools inventory sync
-```
-
-### Sync one Amazon marketplace only
-
-```bash
-bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/AMZ_US-Inv.csv
-```
-
-Or temporarily set `marketplaces: [US]` on the template entry.
-
-### Add a new non-AMZ source (e.g. Lazada TH)
-
-1. Upload CSV to GCS: `gs://em-bucket/Lazada_th-Inv.csv`.
-2. Add to `inventory_sync.sources`:
-
-   ```yaml
-   - uri: gs://em-bucket/Lazada_th-Inv.csv
-     feed_id: lazadacoth    # optional; use if CSV Source col differs
-   ```
-
-3. Run `inventory sync` or single-file `sync-from-gcs`.
-4. Verify in ES: documents with matching `source` / `inventory_feed`.
-
-### Sync with prune for one feed
-
-```bash
-INVENTORY_PRUNE_OBSOLETE=1 \
-INVENTORY_REFRESH=1 \
-INVENTORY_FEED_ID=lazadacoth \
-bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/Lazada_th-Inv.csv
-```
-
----
-
-## Alternative source: Spree storefront
-
-When inventory CSVs are served by your **Spree** storefront API instead of GCS:
-
-```bash
-EM_TOOLS_SITE_STOREFRONT_ENDPOINT='https://…' \
-EM_TOOLS_SITE_STOREFRONT_TOKEN='…' \
-bundle exec bin/em-tools storefront inventory sync --source AMZ_AE,AMZ_CA
-```
-
-| Flag | Default | Notes |
-|---|---|---|
-| `--source` | (required) | Repeatable; comma-separated OK |
-| `--index` | `em_inventory` | Override index |
-| `--refresh` | `true` | Refresh after sync |
-| `--prune` | `true` | Prune stale docs per source (opposite default from GCS sync) |
-
-Configure `sites.storefront` in `config/settings.yml` for non-secret defaults;
-see [`CONFIGURATION.md`](CONFIGURATION.md).
-
----
-
 ## Scheduled runs
 
 Examples in the repo:
@@ -474,14 +458,3 @@ See [`schedule/README.md`](../schedule/README.md).
 | `amazon coverage publish-snapshot` | `LOWEST_OFFER_ID_SOURCE=inventory` ASIN set — see [`LOWEST_OFFER_COVERAGE.md`](LOWEST_OFFER_COVERAGE.md) |
 | `storefront unpublish-candidates` | Delisting rule input |
 | `google-ads catalog missing-product-ids` | Set diff vs ads catalog |
-
----
-
-## Related docs
-
-| Doc | Topic |
-|---|---|
-| [`CLI.md`](CLI.md) | Command index, exit codes, Google Ads catalog |
-| [`CONFIGURATION.md`](CONFIGURATION.md) | `.env` vs YAML split, exporters, sites |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Code layout under `core/inventory/` |
-| [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md) | ES → upload NDJSON after inventory is loaded |

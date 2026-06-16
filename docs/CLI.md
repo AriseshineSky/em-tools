@@ -412,7 +412,7 @@ Ad-report / seed ASINs → query `lowest_offer_listings_<mp>_new` by `time` fiel
 | Command | What it does |
 |---|---|
 | `storefront import-products INPUT_PATH` | Filter local NDJSON product feeds against the rule engine. |
-| `storefront inventory sync` | Spree CSV → `em_inventory` — see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md#alternative-source-spree-storefront). |
+| `storefront inventory sync` | Spree CSV → `em_inventory` — see [`INVENTORY_SYNC.md`](INVENTORY_SYNC.md#storefront-inventory-sync--spree-csv-api). |
 | `storefront unpublish-candidates` | Iterate ES inventory, run rules, write delisting candidates to `em_products_to_unpublish`. |
 
 ### SSG / Lotteon (`plugins/ssg/`, `plugins/lotteon/`)

@@ -160,19 +160,7 @@ production:
 ### Inventory sync (`em_inventory`)
 
 GCS paths, `{marketplace}` templates, CSV fields, cluster routing, prune, and
-recipes: **[`INVENTORY_SYNC.md`](INVENTORY_SYNC.md)**.
-
-Minimal `inventory_sync` skeleton in settings:
-
-```yaml
-inventory_sync:
-  index: em_inventory
-  cluster: primary
-  refresh: false
-  prune_obsolete: false
-  sources:
-    - gs://em-bucket/example-Inv.csv
-```
+commands: **[`INVENTORY_SYNC.md`](INVENTORY_SYNC.md)**.
 
 ### Per-site
 
