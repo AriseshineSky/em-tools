@@ -30,6 +30,8 @@ Elsewhere, **`publish-snapshot`** means coverage monitoring
 | All configured GCS sources → `em_inventory` | `bundle exec bin/em-tools inventory sync` |
 | One GCS CSV → `em_inventory` | `bundle exec bin/em-tools inventory sync-from-gcs gs://…` |
 | Spree storefront CSVs → `em_inventory` | `bundle exec bin/em-tools storefront inventory sync --source …` |
+| **11ST** GCS CSV → `em_inventory` (data cluster) | `bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/11ST-Inv.csv --data` |
+| **11ST** Spree CSV → `em_inventory` | `bundle exec bin/em-tools storefront inventory sync --source 11ST` |
 | Cron wrapper (full sync) | `./scripts/inventory-sync.sh` |
 
 | Item | Value |
@@ -182,6 +184,51 @@ bundle exec bin/em-tools storefront inventory sync --source AMZ_AE,AMZ_CA
 
 Configure `sites.storefront` in `config/settings.yml` for non-secret defaults;
 see [`CONFIGURATION.md`](CONFIGURATION.md).
+
+### 11ST — GCS or Spree
+
+11ST inventory lands in **`em_inventory`** with `source` / `inventory_feed` =
+**`11ST`** (CSV `Source` column). In `config/settings.yml` the GCS object is
+`gs://em-bucket/11ST-Inv.csv` with **`cluster: data`** — writes go to
+`DATA_ELASTICSEARCH_URL`, not the primary cluster.
+
+**Batch** (includes 11ST when listed under `inventory_sync.sources`):
+
+```bash
+APP_ENV=development \
+ELASTICSEARCH_URL='http://user:pass@primary:9200' \
+DATA_ELASTICSEARCH_URL='http://user:pass@data:9200' \
+bundle exec bin/em-tools inventory sync
+```
+
+**Single GCS file** (ad-hoc / debug; **`--data` required** — single-file sync
+does not read per-source `cluster:` from YAML):
+
+```bash
+ELASTICSEARCH_URL='http://…' \
+DATA_ELASTICSEARCH_URL='http://…' \
+bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/11ST-Inv.csv --data
+```
+
+Optional prune for this feed only:
+
+```bash
+INVENTORY_FEED_ID=11ST INVENTORY_PRUNE_OBSOLETE=1 INVENTORY_REFRESH=1 \
+bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/11ST-Inv.csv --data
+```
+
+`inventory-sync-from-gcs.sh` does not pass `--data`; for 11ST prefer the
+`bundle exec` commands above. The script auto-infers `INVENTORY_FEED_ID` only
+for `AMZ_{MP}-Inv.csv` filenames.
+
+**Spree storefront** (pulls the `11ST` feed via Spree inventory API — see
+`ProductUtil#get_st11_products`):
+
+```bash
+EM_TOOLS_SITE_STOREFRONT_ENDPOINT='https://…' \
+EM_TOOLS_SITE_STOREFRONT_TOKEN='…' \
+bundle exec bin/em-tools storefront inventory sync --source 11ST
+```
 
 ---
 
@@ -376,6 +423,7 @@ Headers are normalized to **snake_case** (`SourceProductID` →
 | Amazon DE | `AMZ_DE` |
 | eBay US | `Ebay_US` / `EBAY_US` (keep consistent within a feed) |
 | Lazada TH | `lazadacoth` (matches `lazada_marketplaces.th.inventory_source`) |
+| **11ST** | `11ST` (GCS: `11ST-Inv.csv`, `cluster: data` in settings) |
 | Lotteon | `lotteon` |
 | Oliveyoung | `oliveyoung` |
 | Boyner | `Boyner` |
