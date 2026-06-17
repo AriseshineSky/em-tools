@@ -1,0 +1,6 @@
+# em-tools — daily 11ST price freshness snapshot
+#
+# Compares uploaded inventory (em_inventory source=11ST) against crawled prices
+# (user1_kr_products source=elevenst) and writes to monitoring ES for the dashboard.
+#
+#   30 5 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/elevenst-price-freshness-snapshot >> log/elevenst-price-freshness.log 2>&1'
