@@ -37,6 +37,10 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       hits.each(&block)
     end
 
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["113222835111"]).and_return(
+      "docs" => [{ "_id" => "113222835111", "found" => false }],
+    ))
     expect(target).to(receive(:bulk)) do |body:|
       expect(body).to(include('"113222835111"'))
       expect(body).to(include('"title":"example"'))
@@ -68,7 +72,11 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
     expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["111", "222"]).and_return(
       "docs" => [
-        { "_id" => "111", "found" => true },
+        {
+          "_id" => "111",
+          "found" => true,
+          "_source" => { "date" => "2026-05-01T00:00:00+00:00" },
+        },
         { "_id" => "222", "found" => false },
       ],
     ))
@@ -107,6 +115,8 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     end
 
     allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
+    allow(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    allow(target).to(receive(:mget).and_return("docs" => []))
     allow(target).to(receive(:bulk).and_return(
       "errors" => false,
       "items" => [{ "index" => { "status" => 201 } }],
@@ -127,6 +137,58 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     expect(batch2).to(include("3\t2026-05-18T14:45:13+00:00"))
   ensure
     FileUtils.rm_rf(dir) if dir && File.directory?(dir)
+  end
+
+  it "skips target docs that are newer than the source by time_field" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      since_hours: 1,
+      bulk_chunk: 10,
+    )
+
+    hits = [
+      {
+        "_id" => "111",
+        "_source" => sample_source.merge(
+          "product_id" => "111",
+          "date" => "2026-05-18T14:45:15+00:00",
+        ),
+      },
+      {
+        "_id" => "222",
+        "_source" => sample_source.merge(
+          "product_id" => "222",
+          "date" => "2026-05-21T14:45:15+00:00",
+        ),
+      },
+    ]
+
+    allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["111", "222"]).and_return(
+      "docs" => [
+        {
+          "_id" => "111",
+          "found" => true,
+          "_source" => { "date" => "2026-05-19T14:45:15+00:00" },
+        },
+        {
+          "_id" => "222",
+          "found" => true,
+          "_source" => { "date" => "2026-05-20T14:45:15+00:00" },
+        },
+      ],
+    ))
+    expect(target).to(receive(:bulk)) do |body:|
+      expect(body).not_to(include('"111"'))
+      expect(body).to(include('"222"'))
+      { "errors" => false, "items" => [{ "index" => { "status" => 200 } }] }
+    end
+
+    stats = sync.run!
+    expect(stats.skipped_stale).to(eq(1))
+    expect(stats.indexed).to(eq(1))
   end
 
   it "scans the entire source index when full_scan is enabled" do

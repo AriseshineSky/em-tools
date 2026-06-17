@@ -127,8 +127,9 @@ module EmTools
                 $stdout.puts(JSON.generate(stats.to_h))
                 EmTools::Core::Cli::Runner::Result.new(
                   summary: "user1_ebay_products sync: scanned=#{stats.source_hits} indexed=#{stats.indexed} " \
-                    "skipped_missing=#{stats.skipped_missing} skipped_invalid=#{stats.skipped_invalid} " \
-                    "sample_files=#{stats.sample_files} sample_rows=#{stats.sample_rows}",
+                    "skipped_stale=#{stats.skipped_stale} skipped_missing=#{stats.skipped_missing} " \
+                    "skipped_invalid=#{stats.skipped_invalid} sample_files=#{stats.sample_files} " \
+                    "sample_rows=#{stats.sample_rows}",
                 )
               end
             end

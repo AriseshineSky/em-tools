@@ -2,7 +2,6 @@
 
 require "fileutils"
 require "json"
-require "set"
 require "time"
 
 module EmTools
@@ -16,6 +15,7 @@ module EmTools
             :source_hits,
             :skipped_invalid,
             :skipped_missing,
+            :skipped_stale,
             :indexed,
             :bulk_requests,
             :bulk_errors,
@@ -73,6 +73,7 @@ module EmTools
               source_hits: 0,
               skipped_invalid: 0,
               skipped_missing: 0,
+              skipped_stale: 0,
               indexed: 0,
               bulk_requests: 0,
               bulk_errors: 0,
@@ -157,22 +158,65 @@ module EmTools
 
             batch = @pending.dup
             @pending.clear
-            rows = @skip_missing ? filter_existing(batch) : batch
-            @stats.skipped_missing += batch.size - rows.size
+            rows = filter_for_index(batch)
             bulk_index!(rows)
           end
 
-          def filter_existing(batch)
-            return batch if @dry_run
+          def filter_for_index(batch)
             return batch unless @target.index_exists?(@target_index)
 
             ids = batch.map { |row| row[:doc_id] }
             resp = @target.mget(index: @target_index, ids: ids)
-            existing = Set.new
+            target_by_id = {}
             Array(resp["docs"]).each do |doc|
-              existing << doc["_id"].to_s if doc["found"]
+              target_by_id[doc["_id"].to_s] = doc if doc["found"]
             end
-            batch.select { |row| existing.include?(row[:doc_id]) }
+
+            batch.select do |row|
+              target_doc = target_by_id[row[:doc_id]]
+              if target_doc.nil?
+                if @skip_missing
+                  @stats.skipped_missing += 1
+                  false
+                else
+                  true
+                end
+              elsif source_newer?(row[:body], target_doc["_source"])
+                true
+              else
+                @stats.skipped_stale += 1
+                false
+              end
+            end
+          end
+
+          def source_newer?(source_body, target_body)
+            source_time = parse_doc_time(source_body)
+            target_time = parse_doc_time(target_body)
+            return true if target_time.nil?
+            return true if source_time.nil?
+
+            source_time > target_time
+          end
+
+          def parse_doc_time(body)
+            return nil unless body.is_a?(Hash)
+
+            value = body[@time_field] || body[@time_field.to_sym]
+            return nil if value.nil?
+
+            parse_time_value(value)
+          end
+
+          def parse_time_value(value)
+            return value.utc if value.is_a?(Time)
+
+            raw = value.to_s.strip
+            return nil if raw.empty?
+
+            Time.parse(raw).utc
+          rescue ArgumentError
+            nil
           end
 
           def bulk_index!(rows)
