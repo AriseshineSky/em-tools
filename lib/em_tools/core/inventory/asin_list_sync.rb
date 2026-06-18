@@ -20,7 +20,10 @@ module EmTools
           @prune_obsolete = prune_obsolete ? true : false
           @logger = logger || EmTools::Core::Logger.for(progname: "asin-list-sync")
           @flushed_docs = 0
+          @docs_deleted = 0
         end
+
+        attr_reader :flushed_docs, :docs_deleted
 
         # @param gs_uri [String]
         # @return [String, nil] e.g. +"AMZ_DE"+ from +.../AMZ_DE.txt+
@@ -35,6 +38,8 @@ module EmTools
         end
 
         def sync_from_path(path, refresh: false)
+          @flushed_docs = 0
+          @docs_deleted = 0
           validate_prune_options!
           batch_id = Time.now.to_i
           buffer = []
@@ -44,6 +49,7 @@ module EmTools
           flush(buffer)
           after_bulk_refresh_prune(batch_id)
           @sink.refresh(index: @index) if refresh && @sink.respond_to?(:refresh)
+          sync_result(batch_id)
         end
 
         private
@@ -63,7 +69,8 @@ module EmTools
           return unless @prune_obsolete
 
           @sink.refresh(index: @index)
-          @sink.delete_by_query(index: @index, body: obsolete_feed_body(batch_id))
+          response = @sink.delete_by_query(index: @index, body: obsolete_feed_body(batch_id))
+          @docs_deleted = response["deleted"].to_i if response.is_a?(Hash)
         end
 
         def obsolete_feed_body(batch_id)
@@ -109,6 +116,14 @@ module EmTools
 
           bad = (response["items"] || []).filter_map { |i| i if i.values.first["error"] }.first(5)
           raise "Bulk sink reported errors (sample): #{bad.inspect}"
+        end
+
+        def sync_result(batch_id)
+          {
+            flushed_docs: @flushed_docs,
+            docs_deleted: @docs_deleted,
+            sync_batch_id: batch_id,
+          }
         end
       end
     end

@@ -8,10 +8,6 @@
 # path into +/usr/local/bin/em-tools+ for cron / systemd jobs.
 
 require "bundler/setup"
-begin
-  require "debug" if ENV["DEBUG"]
-rescue LoadError
-end
 
 begin
   require "dotenv/load"

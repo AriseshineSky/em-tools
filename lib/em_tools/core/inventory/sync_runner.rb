@@ -24,14 +24,29 @@ module EmTools
         # @param prune_obsolete [Boolean]
         # @param drop_fields [Array<String>] field names stripped from every doc before bulk.
         # @param feed_field [String] ES field for feed id (+inventory_feed+ or +google_ads_feed+).
+        # @param report_to_monitoring [Boolean] POST run status to monitoring-dashboard when configured.
+        # @param cluster [String, nil] ES cluster name for monitoring meta.
         def run_one!(gs_uri:, index:, feed_id:, refresh: false, prune_obsolete: false, drop_fields: [],
-          feed_field: SyncProfile::INVENTORY.feed_field, format: :csv)
+          feed_field: SyncProfile::INVENTORY.feed_field, format: :csv, report_to_monitoring: false,
+          cluster: nil)
           @logger.info do
             "[InventorySync] #{gs_uri} -> #{index} " \
               "(format=#{format} refresh=#{refresh} prune=#{prune_obsolete} feed=#{feed_id.inspect}" \
               "#{" drop=#{drop_fields.inspect}" if Array(drop_fields).any?})"
           end
-          EmTools::Clients::GcsBlobFetcher.new(**@fetcher_opts).with_downloaded(gs_uri) do |path|
+
+          source = self.class.infer_source_name(gs_uri: gs_uri, feed_id: feed_id)
+          monitor = build_monitor(report_to_monitoring: report_to_monitoring)
+          monitor_meta = {
+            index: index,
+            cluster: cluster,
+            format: format,
+            prune_obsolete: prune_obsolete,
+          }.compact
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          monitor&.report_running(source: source, gs_uri: gs_uri, meta: monitor_meta)
+
+          result = EmTools::Clients::GcsBlobFetcher.new(**@fetcher_opts).with_downloaded(gs_uri) do |path|
             if format == :tab_json
               feed = feed_id.to_s.strip
               feed = AsinListSync.infer_source_from_gs_uri(gs_uri) if feed.empty?
@@ -74,13 +89,35 @@ module EmTools
               ).sync_from_path(path, refresh: refresh)
             end
           end
+
+          duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
+          monitor&.report_done(
+            source: source,
+            gs_uri: gs_uri,
+            docs_indexed: result[:flushed_docs],
+            docs_deleted: result[:docs_deleted],
+            duration_ms: duration_ms,
+            meta: monitor_meta.merge(sync_batch_id: result[:sync_batch_id]),
+          )
+          result
+        rescue StandardError => e
+          duration_ms = started ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round : nil
+          monitor&.report_error(
+            source: source,
+            gs_uri: gs_uri,
+            message: "#{e.class}: #{e.message}",
+            duration_ms: duration_ms,
+            meta: monitor_meta,
+          )
+          raise
         end
 
         # Sync a list of {SyncSources::Source}.
         # @param sources [Array]
         # @param feed_field [String]
         # @return [EmTools::Core::Cli::Runner::Result]
-        def run_many!(sources, label: nil, feed_field: SyncProfile::INVENTORY.feed_field)
+        def run_many!(sources, label: nil, feed_field: SyncProfile::INVENTORY.feed_field,
+          report_to_monitoring: false)
           sources.each_with_index do |src, i|
             @logger.info { "[InventorySync] [#{i + 1}/#{sources.size}] #{src.gs_uri} -> #{src.index}" }
             run_one!(
@@ -92,6 +129,8 @@ module EmTools
               drop_fields: Array(src.drop_fields),
               feed_field: feed_field,
               format: src.format,
+              report_to_monitoring: report_to_monitoring,
+              cluster: src.cluster,
             )
           end
           EmTools::Core::Cli::Runner::Result.new(
@@ -101,6 +140,12 @@ module EmTools
 
         private
 
+        def build_monitor(report_to_monitoring:)
+          return unless report_to_monitoring
+
+          Monitoring::Reporter.new(logger: @logger)
+        end
+
         def build_transforms(drop_fields)
           fields = Array(drop_fields).compact.reject { |f| f.to_s.strip.empty? }
           return [] if fields.empty?
@@ -109,6 +154,23 @@ module EmTools
         end
 
         public
+
+        # Derive a dashboard source label from feed_id or the GCS object basename.
+        def self.infer_source_name(gs_uri:, feed_id:)
+          pinned = feed_id.to_s.strip
+          return pinned unless pinned.empty?
+
+          basename = File.basename(gs_uri.to_s.split("?").first)
+          if (m = basename.match(/\AAMZ_([A-Za-z0-9]+)-Inv\.csv\z/i))
+            return "AMZ_#{m[1].upcase}"
+          end
+
+          stripped = basename
+            .sub(/-Inv\.csv\z/i, "")
+            .sub(/\.csv\z/i, "")
+            .sub(/\.txt\z/i, "")
+          stripped.empty? ? basename : stripped
+        end
 
         # Resolve the gs:// URI for a single-source debug run (CLI arg / env vars / default).
         # @param cli_gs_uri [String, nil]
@@ -198,7 +260,12 @@ module EmTools
                 fetcher_opts: fetcher_opts_from_env(env: env),
                 logger: logger,
               )
-              runner.run_many!(group, label: nil, feed_field: profile.feed_field)
+              runner.run_many!(
+                group,
+                label: nil,
+                feed_field: profile.feed_field,
+                report_to_monitoring: profile == SyncProfile::INVENTORY,
+              )
             end
 
           EmTools::Core::Cli::Runner::Result.new(
@@ -237,6 +304,7 @@ module EmTools
             prune_obsolete: env[profile.env_key("PRUNE_OBSOLETE")] == "1",
             drop_fields: drop_fields_from_env(env, profile: profile),
             feed_field: profile.feed_field,
+            report_to_monitoring: profile == SyncProfile::INVENTORY,
           )
 
           EmTools::Core::Cli::Runner::Result.new(summary: "#{profile.config_label} sync done (#{gs_uri}).")

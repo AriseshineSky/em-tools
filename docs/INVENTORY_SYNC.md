@@ -10,6 +10,7 @@ read this index.
 | [`PREPARE_UPLOAD.md`](PREPARE_UPLOAD.md) | Upload NDJSON generation (downstream of inventory) |
 | [`CLI.md`](CLI.md) | Full command index and exit codes |
 | [`CONFIGURATION.md`](CONFIGURATION.md) | `.env` vs `settings.yml` split |
+| monitoring-dashboard [`inventory_sync_integration.md`](../../monitoring-dashboard/docs/inventory_sync_integration.md) | Per-source sync run logs on the ops dashboard |
 
 **Not this doc:** `google-ads catalog sync` writes to **`google_ads_products`**
 (ads SKU catalog), not `em_inventory`. See
@@ -33,12 +34,21 @@ Elsewhere, **`publish-snapshot`** means coverage monitoring
 | **11ST** GCS CSV → `em_inventory` (data cluster) | `bundle exec bin/em-tools inventory sync-from-gcs gs://em-bucket/11ST-Inv.csv --data` |
 | **11ST** Spree CSV → `em_inventory` | `bundle exec bin/em-tools storefront inventory sync --source 11ST` |
 | Cron wrapper (full sync) | `./scripts/inventory-sync.sh` |
+| **UK site** GCS → dedicated index | `APP_ENV=uk ./scripts/uk-inventory-sync.sh` |
 
 | Item | Value |
 |---|---|
 | ES index | `em_inventory` (override: `INVENTORY_INDEX` or YAML `inventory_sync.index`) |
 | Config | `config/settings.yml` → `inventory_sync.sources` (per `APP_ENV`) |
 | Code | `lib/em_tools/core/inventory/` |
+
+### Monitoring dashboard
+
+When `MONITOR_BASE_URL` and `MONITOR_API_TOKEN` are set in `.env`, each GCS
+source sync posts `running` / `done` / `error` to the monitoring dashboard
+(`POST /api/v1/inventory_sync_runs`). The home page shows a 7-day matrix per
+source (same pattern as eBay tracking collector). Reporting is skipped when
+those env vars are unset.
 
 ---
 
@@ -184,6 +194,31 @@ bundle exec bin/em-tools storefront inventory sync --source AMZ_AE,AMZ_CA
 
 Configure `sites.storefront` in `config/settings.yml` for non-secret defaults;
 see [`CONFIGURATION.md`](CONFIGURATION.md).
+
+### UK storefront — `gs://em-uk/AMZ_US-Inv.csv` → `uk_inventory`
+
+The UK site uses bucket **`em-uk`** (currently one feed: **`AMZ_US-Inv.csv`**).
+Documents go to a **dedicated** index **`uk_inventory`** on `ELASTICSEARCH_URL`
+(not the shared `em_inventory`).
+
+Settings live under `APP_ENV=uk` in `config/settings.yml`. Per-source `index:`
+in YAML overrides a global `INVENTORY_INDEX=em_inventory` in `.env`.
+
+```bash
+# Recommended wrapper
+./scripts/uk-inventory-sync.sh
+
+# Equivalent one-liner
+APP_ENV=uk bundle exec bin/em-tools inventory sync
+
+# Ad-hoc single file (override index explicitly)
+INVENTORY_INDEX=uk_inventory INVENTORY_FEED_ID=AMZ_US INVENTORY_PRUNE_OBSOLETE=1 \
+  bundle exec bin/em-tools inventory sync-from-gcs gs://em-uk/AMZ_US-Inv.csv
+```
+
+GCS console URL
+`https://console.cloud.google.com/storage/browser/em-uk?prefix=AMZ` maps to
+`gs://em-uk/AMZ_US-Inv.csv`.
 
 ### 11ST — GCS or Spree
 

@@ -60,6 +60,7 @@ default: &default
   gcs:
     buckets:
       inventory: em-bucket
+      uk_inventory: em-uk
 
   # Per-site placeholder structure. SettingsHydrator copies endpoint/base_url/token
   # into ENV[EM_TOOLS_SITE_<NAME>_*] only when those env vars are unset.
@@ -145,3 +146,17 @@ production:
     prune_obsolete: true
     sources:
       - gs://em-bucket/boyner-Inv.csv
+
+# UK storefront inventory — single source AMZ_US from gs://em-uk/AMZ_US-Inv.csv
+# into dedicated index uk_inventory on ELASTICSEARCH_URL (primary cluster).
+uk:
+  <<: *default
+  inventory_sync:
+    cluster: primary
+    index: uk_inventory
+    refresh: true
+    prune_obsolete: true
+    sources:
+      - uri: gs://em-uk/AMZ_US-Inv.csv
+        feed_id: AMZ_US
+        index: uk_inventory

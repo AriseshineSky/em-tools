@@ -29,9 +29,14 @@ module EmTools
           @logger = opts[:logger] || EmTools::Core::Logger.for(progname: "inventory-sync")
           @transforms = Array(opts[:transforms]).freeze
           @flushed_docs = 0
+          @docs_deleted = 0
         end
 
+        attr_reader :flushed_docs, :docs_deleted
+
         def sync_from_path(csv_path, refresh: false)
+          @flushed_docs = 0
+          @docs_deleted = 0
           reset_feed_resolution!
           validate_prune_options!
           batch_id = Time.now.to_i
@@ -40,9 +45,12 @@ module EmTools
           flush(buffer)
           after_bulk_refresh_prune(batch_id)
           @sink.refresh(index: @index) if refresh && @sink.respond_to?(:refresh)
+          sync_result(batch_id)
         end
 
         def sync_from_io(io, refresh: false)
+          @flushed_docs = 0
+          @docs_deleted = 0
           reset_feed_resolution!
           validate_prune_options!
           batch_id = Time.now.to_i
@@ -51,6 +59,7 @@ module EmTools
           flush(buffer)
           after_bulk_refresh_prune(batch_id)
           @sink.refresh(index: @index) if refresh && @sink.respond_to?(:refresh)
+          sync_result(batch_id)
         end
 
         private
@@ -85,7 +94,16 @@ module EmTools
               "prune_obsolete needs a non-empty #{@feed_field}: set CSV Source column on rows or pass feed_id"
           end
 
-          @sink.delete_by_query(index: @index, body: obsolete_feed_body(fid, batch_id))
+          response = @sink.delete_by_query(index: @index, body: obsolete_feed_body(fid, batch_id))
+          @docs_deleted = response["deleted"].to_i if response.is_a?(Hash)
+        end
+
+        def sync_result(batch_id)
+          {
+            flushed_docs: @flushed_docs,
+            docs_deleted: @docs_deleted,
+            sync_batch_id: batch_id,
+          }
         end
 
         def obsolete_feed_body(fid, batch_id)
