@@ -17,6 +17,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APP_ENV=uk
+export APP_ENV
 BUNDLE="${EM_TOOLS_BUNDLE:-bundle}"
 LOG_DIR="${LOG_DIR:-$ROOT/log}"
 
