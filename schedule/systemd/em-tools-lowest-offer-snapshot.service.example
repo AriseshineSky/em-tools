@@ -13,7 +13,8 @@ WorkingDirectory=/home/sky/src/em-tools
 
 EnvironmentFile=-/home/sky/src/em-tools/.env
 
-ExecStart=/usr/bin/bash -lc 'export EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle; cd /home/sky/src/em-tools && bin/amazon-lowest-offer-snapshot'
+ExecStart=/home/sky/src/em-tools/scripts/amazon-lowest-offer-snapshot.sh
+Environment=EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle
 
 TimeoutStartSec=10800
 Nice=10

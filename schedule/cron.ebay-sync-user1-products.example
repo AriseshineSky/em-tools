@@ -5,10 +5,16 @@
 #   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
 #   EBAY_PRODUCT_SYNC_SINCE_HOURS=3    # optional default window (CLI --since-hours overrides)
 #
-# Copy to /etc/cron.d/em-tools-ebay-products-sync (or append to your crontab).
+# Install:
+#   chmod +x /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh
+#   sudo cp schedule/cron.ebay-sync-user1-products.example /etc/cron.d/em-tools-ebay-products-sync
+#   sudo vim /etc/cron.d/em-tools-ebay-products-sync    # edit USER and paths
+#   sudo mkdir -p /home/sky/src/em-tools/log
+#   sudo systemctl reload cron
 
 SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
 # Every hour at :25 — incremental sync (default 2h window; use --since-date or --since-hours to override).
-25 * * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/ebay-sync-user1-products --since-hours 3 >> log/ebay-sync-user1-products.log 2>&1'
+25 * * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 3 >> /home/sky/src/em-tools/log/ebay-sync-user1-products.log 2>&1

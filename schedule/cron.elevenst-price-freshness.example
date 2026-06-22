@@ -3,4 +3,15 @@
 # Compares uploaded inventory (em_inventory source=11ST) against crawled prices
 # (user1_kr_products source=elevenst) and writes to monitoring ES for the dashboard.
 #
-#   30 5 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bin/elevenst-price-freshness-snapshot >> log/elevenst-price-freshness.log 2>&1'
+# Install:
+#   chmod +x /home/sky/src/em-tools/scripts/elevenst-price-freshness-snapshot.sh
+#   sudo cp schedule/cron.elevenst-price-freshness.example /etc/cron.d/em-tools-elevenst-price-freshness
+#   sudo vim /etc/cron.d/em-tools-elevenst-price-freshness    # edit USER and paths
+#   sudo mkdir -p /home/sky/src/em-tools/log
+#   sudo systemctl reload cron
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+30 5 * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/elevenst-price-freshness-snapshot.sh >> /home/sky/src/em-tools/log/elevenst-price-freshness.log 2>&1

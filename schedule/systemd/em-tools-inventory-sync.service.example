@@ -22,8 +22,7 @@ WorkingDirectory=/home/sky/src/em-tools
 # Source secrets and cluster URLs from the repo's .env.
 EnvironmentFile=-/home/sky/src/em-tools/.env
 
-# bash -lc picks up rbenv/asdf shims and other user-shell setup.
-ExecStart=/usr/bin/bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools inventory sync'
+ExecStart=/home/sky/src/em-tools/scripts/inventory-sync.sh
 
 TimeoutStartSec=7200
 Nice=10

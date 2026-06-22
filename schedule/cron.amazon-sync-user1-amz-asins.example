@@ -5,15 +5,21 @@
 #   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
 #   AMZ_ASIN_SYNC_SINCE_HOURS=3    # optional default window (CLI --since-hours overrides)
 #
-# Copy to /etc/cron.d/em-tools-amz-asins-sync (or append to your crontab).
+# Install:
+#   chmod +x /home/sky/src/em-tools/scripts/amazon-sync-user1-amz-asins.sh
+#   sudo cp schedule/cron.amazon-sync-user1-amz-asins.example /etc/cron.d/em-tools-amz-asins-sync
+#   sudo vim /etc/cron.d/em-tools-amz-asins-sync    # edit USER and paths
+#   sudo mkdir -p /home/sky/src/em-tools/log
+#   sudo systemctl reload cron
 
 SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
-# cron has no rbenv PATH — set EM_TOOLS_BUNDLE (same as amazon-lowest-offer-snapshot).
+# cron has no rbenv PATH — set EM_TOOLS_BUNDLE on the cron line when needed.
 #
 # Every hour at :15 — incremental sync for all marketplaces (default 2h window; use --since-hours N to override per job).
-15 * * * *  sky  bash -lc 'export EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle; cd /home/sky/src/em-tools && bin/amazon-sync-user1-amz-asins --since-hours 3 >> log/amazon-sync-user1-amz-asins.log 2>&1'
+15 * * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/amazon-sync-user1-amz-asins.sh --since-hours 3 >> /home/sky/src/em-tools/log/amazon-sync-user1-amz-asins.log 2>&1
 
 # Every hour at :20 — Brazil (BR) only; offset from the global job above.
-20 * * * *  Admin  bash -lc 'export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle; cd /home/Admin/src/em-tools && bin/amazon-sync-user1-amz-asins -m br --since-hours 2 >> log/amazon-sync-user1-amz-asins-br.log 2>&1'
+20 * * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/amazon-sync-user1-amz-asins.sh -m br --since-hours 2 >> /home/Admin/src/em-tools/log/amazon-sync-user1-amz-asins-br.log 2>&1

@@ -3,25 +3,25 @@
 #
 # Format:  m h dom mon dow USER  COMMAND
 # All paths must be absolute. cron does NOT inherit your interactive shell PATH,
-# so we use `bash -lc` to source the user's login profile (rbenv / asdf shims).
+# so set EM_TOOLS_BUNDLE when rbenv/asdf shims are not on PATH.
 
 SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
 # Substitute REAL values:
 #   USER     = OS user that owns the repo and .env
 #   REPO     = absolute path to the repo (e.g. /home/sky/src/em-tools)
-#   bin/em-tools is invoked through bundle exec so the gem lockfile is honored.
+#   Scheduled jobs call scripts/ wrappers; business logic stays in bin/em-tools.
 
 # 03:30 daily — full inventory sync (all sources from settings YAML).
-30 3 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools inventory sync >> log/em-tools.inventory-sync.log 2>&1'
+30 3 * * *  sky  /home/sky/src/em-tools/scripts/inventory-sync.sh >> /home/sky/src/em-tools/log/em-tools.inventory-sync.log 2>&1
 
 # 04:00 daily — Amazon lowest-offer snapshot (download seeds + publish).
-# Use bin/amazon-lowest-offer-snapshot (cron-friendly wrapper) or bundle exec bin/em-tools directly.
-0  4 * * *  sky  bash -lc 'export EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle; cd /home/sky/src/em-tools && bin/amazon-lowest-offer-snapshot >> log/em-tools.lowest-offer.log 2>&1'
+0  4 * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/amazon-lowest-offer-snapshot.sh >> /home/sky/src/em-tools/log/em-tools.lowest-offer.log 2>&1
 
 # 04:30 daily — eBay listings coverage snapshot (US marketplace).
-30 4 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay listings publish-snapshot us >> log/em-tools.ebay-listings.log 2>&1'
+30 4 * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools ebay listings publish-snapshot us' >> /home/sky/src/em-tools/log/em-tools.ebay-listings.log 2>&1
 
 # 05:00 daily — storefront unpublish-candidates (which products to delist).
-0  5 * * *  sky  bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools storefront unpublish-candidates >> log/em-tools.unpublish.log 2>&1'
+0  5 * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle bash -lc 'cd /home/sky/src/em-tools && bundle exec bin/em-tools storefront unpublish-candidates' >> /home/sky/src/em-tools/log/em-tools.unpublish.log 2>&1

@@ -4,8 +4,9 @@ em-tools is driven by two surfaces:
 
 1. **Interactive / ad-hoc** — `bundle exec bin/em-tools <command>` from the
    repo. See [`docs/CLI.md`](../docs/CLI.md).
-2. **Recurring / unattended** — cron or systemd timers running the same
-   commands on a fixed schedule. Templates live in this directory.
+2. **Recurring / unattended** — cron or systemd timers running
+   [`scripts/`](../scripts/) wrappers on a fixed schedule. Templates live in
+   this directory.
 
 This directory is **the source of truth** for scheduled jobs: every recurring
 em-tools workflow gets a template here. Production deployments install (or
@@ -19,6 +20,8 @@ schedule/
 ├── cron.inventory-sync.example                 single-job: daily full inventory sync
 ├── cron.amazon-lowest-offer.example            single-job: daily lowest-offer snapshot
 ├── cron.amazon-sync-user1-amz-asins.example      hourly user1_amz_asins -> amz_asins_<mp> sync
+├── cron.ebay-sync-user1-products.example         hourly user1_ebay_products sync
+├── cron.elevenst-price-freshness.example         daily 11ST price freshness snapshot
 └── systemd/
     ├── em-tools-inventory-sync.service.example
     ├── em-tools-inventory-sync.timer.example
@@ -32,12 +35,12 @@ schedule/
 
 | If you want | Use |
 |---|---|
-| Cron + shell script (recommended if you skip systemd) | [`../scripts/inventory-sync.sh`](../scripts/inventory-sync.sh) + [`cron.inventory-sync.example`](cron.inventory-sync.example) |
+| Cron + shell script (recommended if you skip systemd) | [`../scripts/`](../scripts/) + matching `cron.*.example` |
 | One file, all jobs | [`cron.example`](cron.example) |
 | Per-job journalctl, timeout, run-on-boot | [`systemd/`](systemd/) (optional) |
 
-Cron jobs call the same logic as `bundle exec bin/em-tools inventory sync`; the
-shell script adds `flock`, logging hooks, and `APP_ENV`.
+Cron jobs call the same logic as `bundle exec bin/em-tools …`; the shell
+scripts add `flock`, logging hooks, and `APP_ENV` where needed.
 
 ## Cron quickstart
 
@@ -47,28 +50,28 @@ sudoedit /etc/cron.d/em-tools          # edit User= and absolute paths
 sudo systemctl reload cron             # cronie / cronie-anacron on Manjaro
 ```
 
-`cron.example` runs jobs as a non-root user, sources `.env` from the repo,
-and emits stdout/stderr to `log/em-tools.<job>.log`.
+`cron.example` runs jobs as a non-root user and emits stdout/stderr to
+`log/em-tools.<job>.log`. Each `scripts/*.sh` wrapper `cd`s into the repo so
+`bin/em-tools` loads `.env` via dotenv.
 
-For **Amazon lowest-offer only**, see
-[`cron.amazon-lowest-offer.example`](cron.amazon-lowest-offer.example) — a
-one-line daily job using `bin/amazon-lowest-offer-snapshot`.
+| Job | Script | Example cron |
+|-----|--------|--------------|
+| Full inventory sync | [`inventory-sync.sh`](../scripts/inventory-sync.sh) | [`cron.inventory-sync.example`](cron.inventory-sync.example) |
+| Amazon lowest-offer | [`amazon-lowest-offer-snapshot.sh`](../scripts/amazon-lowest-offer-snapshot.sh) | [`cron.amazon-lowest-offer.example`](cron.amazon-lowest-offer.example) |
+| user1_amz_asins sync | [`amazon-sync-user1-amz-asins.sh`](../scripts/amazon-sync-user1-amz-asins.sh) | [`cron.amazon-sync-user1-amz-asins.example`](cron.amazon-sync-user1-amz-asins.example) |
+| user1_ebay_products sync | [`ebay-sync-user1-products.sh`](../scripts/ebay-sync-user1-products.sh) | [`cron.ebay-sync-user1-products.example`](cron.ebay-sync-user1-products.example) |
+| 11ST price freshness | [`elevenst-price-freshness-snapshot.sh`](../scripts/elevenst-price-freshness-snapshot.sh) | [`cron.elevenst-price-freshness.example`](cron.elevenst-price-freshness.example) |
 
-For **user1_amz_asins → amz_asins_{marketplace} hourly sync**, see
-[`cron.amazon-sync-user1-amz-asins.example`](cron.amazon-sync-user1-amz-asins.example).
-Per-marketplace jobs use `-m <code>` (e.g. `-m br` for Brazil).
+Per-marketplace Amazon ASIN jobs use `-m <code>` (e.g. `-m br` for Brazil).
 
 ### rbenv / explicit `bundle` path
 
 cron does not load your login shell PATH, so `bundle` may not resolve. Set
 `EM_TOOLS_BUNDLE` to the absolute shim path (e.g.
-`/home/Admin/.rbenv/shims/bundle`) in the cron line or in the user's
-`~/.bashrc` (when using `bash -lc`).
+`/home/Admin/.rbenv/shims/bundle`) on the cron line:
 
 ```bash
-export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle
-cd /home/Admin/src/em-tools
-bin/amazon-lowest-offer-snapshot
+EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/amazon-lowest-offer-snapshot.sh
 ```
 
 ## systemd quickstart
@@ -99,16 +102,18 @@ Every scheduled job needs at least:
 - `GCS_SERVICE_ACCOUNT_PATH` (or `GCS_CREDENTIALS`).
 
 These come from `.env` in the repo. The systemd templates source `.env` via
-`EnvironmentFile=`; the cron template sources it via a small `bash -lc`
-wrapper. **Do not** copy secrets into unit files.
+`EnvironmentFile=`; cron jobs rely on `bin/em-tools` loading dotenv when the
+script `cd`s into the repo. **Do not** copy secrets into unit files.
 
 ## Adding a new scheduled job
 
 1. Pick an `em-tools` subcommand (`bundle exec bin/em-tools <cmd> --help`).
 2. Decide cadence (cron crontab spec or `OnCalendar=` for systemd).
-3. Either:
+3. Add a `scripts/<job>.sh` wrapper (see existing scripts for `flock` / logging).
+4. Either:
    - Add a line to `cron.example`, or
+   - Add `cron.<job>.example`, or
    - Copy `em-tools-inventory-sync.service.example` /
      `.timer.example` to `em-tools-<job>.service.example` /
      `.timer.example` and adjust the `ExecStart=` and schedule.
-4. Mention the job in this README's table above.
+5. Mention the job in this README's table above.

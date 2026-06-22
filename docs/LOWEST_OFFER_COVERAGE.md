@@ -17,11 +17,11 @@ For the full CLI index, see [`CLI.md`](CLI.md). For env vars, see
 **Cron entry point (recommended for daily jobs):**
 
 ```bash
-bin/amazon-lowest-offer-snapshot
+./scripts/amazon-lowest-offer-snapshot.sh
 ```
 
 Equivalent to `bundle exec bin/em-tools amazon coverage download-and-publish`.
-Optional marketplace subset: `bin/amazon-lowest-offer-snapshot de us`.
+Optional marketplace subset: `./scripts/amazon-lowest-offer-snapshot.sh de us`.
 
 Set `EM_TOOLS_BUNDLE` when cron cannot find `bundle` (e.g.
 `/home/Admin/.rbenv/shims/bundle`). See
@@ -241,7 +241,7 @@ sudoedit /etc/cron.d/em-tools-amazon-lowest-offer   # USER, REPO, EM_TOOLS_BUNDL
 Example line (user `Admin`, rbenv):
 
 ```cron
-0 4 * * *  Admin  bash -lc 'export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle; cd /home/Admin/src/em-tools && bin/amazon-lowest-offer-snapshot >> log/em-tools.lowest-offer.log 2>&1'
+0 4 * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/amazon-lowest-offer-snapshot.sh >> /home/Admin/src/em-tools/log/em-tools.lowest-offer.log 2>&1
 ```
 
 Before enabling cron, verify once by hand:
@@ -250,7 +250,7 @@ Before enabling cron, verify once by hand:
 export EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle
 cd /home/Admin/src/em-tools
 cp .env.example .env   # first time only — fill in ELASTICSEARCH_URL, GCS creds
-bin/amazon-lowest-offer-snapshot
+./scripts/amazon-lowest-offer-snapshot.sh
 ```
 
 See [`schedule/README.md`](../schedule/README.md) and

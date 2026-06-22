@@ -25,8 +25,7 @@ usage() {
   cat <<EOF
 Usage: $0 [marketplace ...]
 
-  Runs: bin/amazon-lowest-offer-snapshot [marketplaces]
-        (em-tools amazon coverage download-and-publish)
+  Runs: bundle exec bin/em-tools amazon coverage download-and-publish [marketplaces]
 
   Env:
     EM_TOOLS_BUNDLE   absolute path to bundle (required for cron/rbenv)
@@ -53,7 +52,7 @@ done
 
 run_snapshot() {
   echo "[amazon-lowest-offer] start=$(date -u +"%Y-%m-%dT%H:%M:%SZ") root=${ROOT}"
-  "$ROOT/bin/amazon-lowest-offer-snapshot" "$@"
+  "$BUNDLE" exec bin/em-tools amazon coverage download-and-publish "$@"
   echo "[amazon-lowest-offer] done=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 

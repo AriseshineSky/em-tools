@@ -124,7 +124,7 @@ flowchart TD
 - **推荐说法**：一个**业务渠道**（或**限界上下文**）一个 plugin。
 - **不推荐**：一个 ES 集群、一个 index、一条 cron 脚本各做一个 plugin。
 
-Cron / 脚本（如 `bin/amazon-sync-user1-amz-asins`）是**运维入口**，不是 plugin 边界；
+Cron / 脚本（如 `scripts/amazon-sync-user1-amz-asins.sh`）是**运维入口**，不是 plugin 边界；
 底层仍应调用 `em-tools amazon …`，逻辑留在 `plugins/amazon/`。
 
 ---
