@@ -27,6 +27,7 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     hits = [
       { "_id" => "113222835111", "_source" => sample_source },
       { "_id" => "", "_source" => { "date" => "2026-05-18T14:45:15+00:00", "product_id" => "999" } },
+      { "_id" => "abc123", "_source" => sample_source.merge("product_id" => "abc123") },
     ]
 
     expect(source).to(receive(:iterate_query)) do |index:, query:, batch_size:, &block|
@@ -49,8 +50,8 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     end
 
     stats = sync.run!
-    expect(stats.source_hits).to(eq(2))
-    expect(stats.skipped_invalid).to(eq(1))
+    expect(stats.source_hits).to(eq(3))
+    expect(stats.skipped_invalid).to(eq(2))
     expect(stats.indexed).to(eq(1))
   end
 

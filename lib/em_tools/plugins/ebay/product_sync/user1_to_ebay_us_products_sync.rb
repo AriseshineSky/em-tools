@@ -145,7 +145,7 @@ module EmTools
 
           def extract_row(hit)
             doc_id = normalize_id(hit["_id"])
-            return nil if doc_id.empty?
+            return nil unless valid_doc_id?(doc_id)
 
             {
               doc_id: doc_id,
@@ -299,6 +299,10 @@ module EmTools
 
           def normalize_id(value)
             value.to_s.strip
+          end
+
+          def valid_doc_id?(doc_id)
+            !doc_id.empty? && doc_id.match?(/\A\d+\z/)
           end
 
           def normalize_time_value(value)
