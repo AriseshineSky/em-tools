@@ -61,6 +61,7 @@ sudo systemctl reload cron             # cronie / cronie-anacron on Manjaro
 | user1_amz_asins sync | [`amazon-sync-user1-amz-asins.sh`](../scripts/amazon-sync-user1-amz-asins.sh) | [`cron.amazon-sync-user1-amz-asins.example`](cron.amazon-sync-user1-amz-asins.example) |
 | user1_ebay_products sync | [`ebay-sync-user1-products.sh`](../scripts/ebay-sync-user1-products.sh) | [`cron.ebay-sync-user1-products.example`](cron.ebay-sync-user1-products.example) |
 | 11ST price freshness | [`elevenst-price-freshness-snapshot.sh`](../scripts/elevenst-price-freshness-snapshot.sh) | [`cron.elevenst-price-freshness.example`](cron.elevenst-price-freshness.example) |
+| 11ST recrawl queue keeper | [`elevenst-recrawl-queue-keeper.sh`](../scripts/elevenst-recrawl-queue-keeper.sh) | [`systemd/em-tools-elevenst-recrawl-keeper.service.example`](systemd/em-tools-elevenst-recrawl-keeper.service.example) |
 
 Per-marketplace Amazon ASIN jobs use `-m <code>` (e.g. `-m br` for Brazil).
 

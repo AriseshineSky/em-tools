@@ -63,19 +63,21 @@ module EmTools
       # Point-in-time scan with a custom +query+ (same transport pattern as +iterate_all+).
       # Optional +max_hits+ stops after that many documents yielded.
       # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
-      def iterate_query(index:, query:, batch_size: 1000, sort: [{ _shard_doc: "asc" }], max_hits: nil, &block)
+      def iterate_query(index:, query:, batch_size: 1000, sort: [{ _shard_doc: "asc" }], max_hits: nil,
+                      _source: nil, &block)
         pit_id = nil
         yielded = 0
         pit = client.open_point_in_time(index: index, keep_alive: "1m")
         pit_id = pit["id"]
 
         response = client.search(
-          body: {
-            size: batch_size,
-            pit: { id: pit_id, keep_alive: "1m" },
+          body: search_body(
+            batch_size: batch_size,
+            pit_id: pit_id,
             sort: sort,
             query: query,
-          },
+            _source: _source,
+          ),
         )
 
         loop do
@@ -89,13 +91,14 @@ module EmTools
           end
 
           response = client.search(
-            body: {
-              size: batch_size,
-              pit: { id: pit_id, keep_alive: "1m" },
+            body: search_body(
+              batch_size: batch_size,
+              pit_id: pit_id,
               sort: sort,
-              search_after: hits.last["sort"],
               query: query,
-            },
+              search_after: hits.last["sort"],
+              _source: _source,
+            ),
           )
         end
         yielded
@@ -238,6 +241,18 @@ module EmTools
       end
 
       private
+
+      def search_body(batch_size:, pit_id:, sort:, query:, search_after: nil, _source: nil)
+        body = {
+          size: batch_size,
+          pit: { id: pit_id, keep_alive: "1m" },
+          sort: sort,
+          query: query,
+        }
+        body[:search_after] = search_after if search_after
+        body[:_source] = _source if _source
+        body
+      end
 
       # elasticsearch-api validates URL/query params; :request_timeout is not allowed there.
       def sanitize_api_options(options)

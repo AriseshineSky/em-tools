@@ -11,6 +11,9 @@ Shell wrappers for cron / manual runs. Business logic stays in `bin/em-tools`.
 | `amazon-sync-user1-amz-asins.sh` | `em-tools amazon asins sync-user1` |
 | `ebay-sync-user1-products.sh` | `em-tools ebay products sync-user1` |
 | `elevenst-price-freshness-snapshot.sh` | `em-tools kr elevenst publish-price-freshness-snapshot` |
+| `elevenst-schedule-stale-recrawl.sh` | `em-tools kr elevenst schedule-stale-recrawl` → Scrapyd (one-shot) |
+| `elevenst-recrawl-queue-keeper.sh` | systemd daemon: keep Scrapyd queue near target depth |
+| `elevenst-export-missing-crawl.sh` | export missing 11ST inventory rows → TSV; optional `--schedule` |
 
 Use `EM_TOOLS_BUNDLE=/path/to/bundle` when cron cannot find `bundle` (rbenv/asdf).
 
@@ -64,6 +67,18 @@ chmod +x scripts/elevenst-price-freshness-snapshot.sh
 
 # crontab -e
 30 5 * * * EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/elevenst-price-freshness-snapshot.sh >> /home/sky/src/em-tools/log/elevenst-price-freshness.log 2>&1
+
+chmod +x scripts/elevenst-schedule-stale-recrawl.sh
+./scripts/elevenst-schedule-stale-recrawl.sh --dry-run
+# After setting SCRAPYD_* in .env:
+./scripts/elevenst-schedule-stale-recrawl.sh --stale-days 7
+
+# Production: systemd queue keeper (continuous Scrapyd top-up)
+chmod +x scripts/elevenst-recrawl-queue-keeper.sh
+sudo cp schedule/systemd/em-tools-elevenst-recrawl-keeper.service.example \
+        /etc/systemd/system/em-tools-elevenst-recrawl-keeper.service
+sudo systemctl enable --now em-tools-elevenst-recrawl-keeper.service
+journalctl -u em-tools-elevenst-recrawl-keeper.service -f
 ```
 
 ## UK inventory sync (daily cron)

@@ -33,6 +33,7 @@ module EmTools
             "products export-redirect-product-ids" => Cli::ExportRedirectProductIds,
             "products export-nonexistent-product-ids" => Cli::ExportNonexistentProductIds,
             "products sync-user1" => ProductSync::Cli::SyncUser1Products,
+            "products analyze-user1-cn-categories" => ProductSync::Cli::AnalyzeUser1CnCategories,
             "inventory lookup-product-ids" => Cli::LookupInventoryProductIds,
           }
         end

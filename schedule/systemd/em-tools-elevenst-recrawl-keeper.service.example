@@ -1,0 +1,36 @@
+# em-tools — maintain Scrapyd elevenst recrawl queue depth (long-running).
+#
+# Install:
+#   sudo cp em-tools-elevenst-recrawl-keeper.service.example \
+#           /etc/systemd/system/em-tools-elevenst-recrawl-keeper.service
+#   sudoedit /etc/systemd/system/em-tools-elevenst-recrawl-keeper.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now em-tools-elevenst-recrawl-keeper.service
+#   journalctl -u em-tools-elevenst-recrawl-keeper.service -f
+#
+# Disable the hourly cron for elevenst-schedule-stale-recrawl.sh when using this.
+
+[Unit]
+Description=em-tools 11ST recrawl Scrapyd queue keeper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=Admin
+Group=Admin
+WorkingDirectory=/home/Admin/src/em-tools
+
+EnvironmentFile=-/home/Admin/src/em-tools/.env
+Environment=EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle
+
+ExecStart=/home/Admin/src/em-tools/scripts/elevenst-recrawl-queue-keeper.sh
+
+Restart=always
+RestartSec=15
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

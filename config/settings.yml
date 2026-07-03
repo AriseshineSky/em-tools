@@ -119,6 +119,8 @@ development:
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
       - uri: gs://em-bucket/Gmarket-Inv.csv
         cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
+      - uri: gs://em-bucket/Docmorris-Inv.csv
+        cluster: data              # writes to DATA_ELASTICSEARCH_URL instead
 
   # Same GCS layout as inventory CSVs; replace with your Merchant Center / Ads export paths.
   google_ads_catalog_sync:

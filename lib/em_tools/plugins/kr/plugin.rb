@@ -30,6 +30,8 @@ module EmTools
         def cli_commands
           {
             "elevenst publish-price-freshness-snapshot" => Cli::PublishPriceFreshnessSnapshot,
+            "elevenst schedule-stale-recrawl" => Cli::ScheduleStaleInventoryRecrawl,
+            "elevenst export-missing-crawl" => Cli::ExportMissingInventoryCrawl,
           }
         end
 
@@ -51,6 +53,32 @@ module EmTools
           capabilities.dig(:price_freshness, :publish_snapshot).new(
             data_es_client: data_es_client,
             es_client: es_client,
+            logger: logger,
+            **args,
+          )
+        end
+
+        def schedule_stale_inventory_recrawl(**opts)
+          args = opts.dup
+          data_es_client = args.delete(:data_es_client) || dependencies[:data_es_client]
+          scrapyd_client = args.delete(:scrapyd_client)
+          logger = args.delete(:logger) || dependencies[:logger]
+          Pipelines::ScheduleStaleInventoryRecrawl.new(
+            data_es_client: data_es_client,
+            scrapyd_client: scrapyd_client,
+            logger: logger,
+            **args,
+          )
+        end
+
+        def export_missing_inventory_crawl(**opts)
+          args = opts.dup
+          data_es_client = args.delete(:data_es_client) || dependencies[:data_es_client]
+          scrapyd_client = args.delete(:scrapyd_client)
+          logger = args.delete(:logger) || dependencies[:logger]
+          Pipelines::ExportMissingInventoryCrawl.new(
+            data_es_client: data_es_client,
+            scrapyd_client: scrapyd_client,
             logger: logger,
             **args,
           )
