@@ -119,6 +119,7 @@ Below is a **command → purpose** map; flags, env vars, and exit codes are in
 | Command | What it does |
 |---|---|
 | `ebay listings publish-snapshot [mp]` | eBay listings coverage snapshot (one row per marketplace). |
+| `ebay products sync-user1` | Sync `user1_ebay_products` (data ES) → `ebay_us_products` (primary ES). |
 
 ### Storefront (Spree)
 

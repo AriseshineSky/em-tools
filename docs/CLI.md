@@ -403,9 +403,40 @@ Ad-report / seed ASINs → query `lowest_offer_listings_<mp>_new` by `time` fiel
 | Command | What it does |
 |---|---|
 | `ebay listings publish-snapshot [MARKETPLACE]` | eBay listings coverage snapshot (one row per marketplace). |
+| `ebay products sync-user1` | Copy/update products from `user1_ebay_products` (data ES) → `ebay_us_products` (primary ES). |
 | `ebay products export-redirect-product-ids` | Export `product_id` where `redirect=true` and `redirect_url` contains `/p/`. |
 | `ebay products export-nonexistent-product-ids` | Export `product_id` where `existence=false`. |
 | `ebay inventory lookup-product-ids` | Map local eBay item ids → `product_id` (`user1_ebay_us_products`, `source` + `source_product_id`). |
+
+#### `ebay products sync-user1`
+
+Reads from the **data** cluster index `user1_ebay_products` (`DATA_ELASTICSEARCH_URL`)
+and bulk-upserts into the **primary** cluster index `ebay_us_products`
+(`ELASTICSEARCH_URL`), keyed by Elasticsearch `_id`. Default mode is incremental
+(last 2 hours on the source `date` field); use `--full` for a first backfill.
+
+```bash
+# Incremental (default ~2h; override with --since-hours / EBAY_PRODUCT_SYNC_SINCE_HOURS)
+bundle exec bin/em-tools ebay products sync-user1 --since-hours 3
+
+# First backfill / full rescan
+bundle exec bin/em-tools ebay products sync-user1 --full
+
+# Only update docs that already exist on the target
+bundle exec bin/em-tools ebay products sync-user1 --since-hours 6 --skip-missing
+
+# Count only (no writes)
+bundle exec bin/em-tools ebay products sync-user1 --dry-run
+
+# Cron wrapper (flock + logging): scripts/ebay-sync-user1-products.sh
+./scripts/ebay-sync-user1-products.sh --since-hours 3
+```
+
+Useful options: `--source-url` / `--target-url`, `--source-index` / `--target-index`,
+`--since-date` / `--before-date`, `--time-field` (default `date`), `--skip-missing`,
+`--dry-run`, `--sample-dir` / `--no-samples`. See also
+[`scripts/README.md`](../scripts/README.md#ebay-user1-product-sync-hourly-cron) and
+[`schedule/cron.ebay-sync-user1-products.example`](../schedule/cron.ebay-sync-user1-products.example).
 
 ### Storefront (`plugins/storefront/`)
 

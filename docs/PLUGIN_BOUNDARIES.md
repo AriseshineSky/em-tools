@@ -111,9 +111,9 @@ flowchart TD
 | 能力 | 归属 | 理由 |
 |------|------|------|
 | `amazon asins sync-user1` | `plugins/amazon/asin_sync/` | marketplace、ASIN 形状、目标索引命名 |
+| `ebay products sync-user1` | `plugins/ebay/product_sync/` | `user1_ebay_products` → `ebay_us_products`，双集群 URL |
 | `inventory sync` | `core/inventory/` | 多 source、统一 sink `em_inventory` |
 | `ElasticsearchClient#iterate_query` | `clients/` | 与业务无关的传输 |
-| 假设未来「eBay user1 → ebay_asins_*」 | `plugins/ebay/…` 或 Core 泛化 + 两 plugin 配置 | 与 Amazon 对称时先复制一版；第三渠道再抽象 |
 
 ---
 
@@ -124,8 +124,8 @@ flowchart TD
 - **推荐说法**：一个**业务渠道**（或**限界上下文**）一个 plugin。
 - **不推荐**：一个 ES 集群、一个 index、一条 cron 脚本各做一个 plugin。
 
-Cron / 脚本（如 `scripts/amazon-sync-user1-amz-asins.sh`）是**运维入口**，不是 plugin 边界；
-底层仍应调用 `em-tools amazon …`，逻辑留在 `plugins/amazon/`。
+Cron / 脚本（如 `scripts/amazon-sync-user1-amz-asins.sh`、`scripts/ebay-sync-user1-products.sh`）是**运维入口**，不是 plugin 边界；
+底层仍应调用 `em-tools amazon …` / `em-tools ebay …`，逻辑留在对应 plugin。
 
 ---
 
@@ -134,7 +134,7 @@ Cron / 脚本（如 `scripts/amazon-sync-user1-amz-asins.sh`）是**运维入口
 | Plugin | 典型职责 |
 |--------|----------|
 | `amazon` | 上架候选、ASIN 流、coverage snapshot、user1→amz_asins 同步 |
-| `ebay` | listings coverage、product_id 导出等 |
+| `ebay` | listings coverage、user1→ebay_us_products 同步、product_id 导出等 |
 | `storefront` | 目录导入、下架候选 |
 | `lotteon` / `ssg` / `oliveyoung` | 渠道商品导出 |
 | `google_ads` / `lazada` | 广告 / 区域相关导出 |

@@ -127,7 +127,7 @@ See [`PLUGIN_BOUNDARIES.md`](PLUGIN_BOUNDARIES.md) for when to add a plugin vs C
 |---|---|---|
 | `amazon/uploadable` | `plugins/amazon/uploadable/` | "Can we upload this product to Amazon?" rules + ASIN product index pipeline + the upload runner. |
 | `amazon/lowest_offer` | `plugins/amazon/lowest_offer/` | Lowest-offer monitoring snapshot, seed-file plumbing, offer filter / service. |
-| `ebay` | `plugins/ebay/` | eBay listings coverage snapshot. |
+| `ebay` | `plugins/ebay/` | eBay listings coverage; `user1_ebay_products` → `ebay_us_products` sync. |
 | `storefront` | `plugins/storefront/` | Spree storefront sync (download + delisting candidates). |
 | `lotteon` | `plugins/lotteon/` | Lotteon-specific pricing / catalog rules. |
 | `ssg` | `plugins/ssg/` | SSG-specific pricing / catalog rules. |
