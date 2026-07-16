@@ -1,20 +1,22 @@
-# em-tools — hourly user1_ebay_products -> ebay_us_products sync
+# em-tools — user1_ebay_products (data ES) -> ebay_us_products (primary ES)
 #
-# Requires .env in the repo (or EnvironmentFile=) with:
-#   ELASTICSEARCH_URL='http://user:pw@34.44.148.50:80'
-#   DATA_ELASTICSEARCH_URL='http://user:pw@34.16.105.219:9200'
-#   EBAY_PRODUCT_SYNC_SINCE_HOURS=3    # optional default window (CLI --since-hours overrides)
+# Production (c1002us / 35.202.167.107): twice daily, last 24h of source `date`.
 #
-# Install:
-#   chmod +x /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh
+# Requires .env in the repo with:
+#   ELASTICSEARCH_URL='http://user:pw@…'
+#   DATA_ELASTICSEARCH_URL='http://user:pw@…'
+#   EBAY_PRODUCT_SYNC_SINCE_HOURS=24   # optional default; CLI --since-hours overrides
+#
+# Install on VPS:
+#   chmod +x /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh
 #   sudo cp schedule/cron.ebay-sync-user1-products.example /etc/cron.d/em-tools-ebay-products-sync
-#   sudo vim /etc/cron.d/em-tools-ebay-products-sync    # edit USER and paths
-#   sudo mkdir -p /home/sky/src/em-tools/log
+#   sudo chmod 644 /etc/cron.d/em-tools-ebay-products-sync
+#   sudo mkdir -p /home/Admin/src/em-tools/log
 #   sudo systemctl reload cron
 
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
-# Every hour at :25 — incremental sync (default 2h window; use --since-date or --since-hours to override).
-25 * * * *  sky  EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 3 >> /home/sky/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+# Twice daily (UTC): 02:25 and 14:25 — sync docs updated in the last 24 hours.
+25 2,14 * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 24 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1

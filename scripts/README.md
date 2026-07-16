@@ -49,14 +49,19 @@ chmod +x scripts/amazon-sync-user1-amz-asins.sh
 15 * * * * EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/amazon-sync-user1-amz-asins.sh --since-hours 3 >> /home/sky/src/em-tools/log/amazon-sync-user1-amz-asins.log 2>&1
 ```
 
-## eBay user1 product sync (hourly cron)
+## eBay user1 product sync (twice daily cron)
+
+Syncs `user1_ebay_products` (data ES) → `ebay_us_products` (primary ES).
+Production on `c1002us` (`35.202.167.107`) runs twice daily with a 24h window.
 
 ```bash
 chmod +x scripts/ebay-sync-user1-products.sh
-./scripts/ebay-sync-user1-products.sh --since-hours 3
+./scripts/ebay-sync-user1-products.sh --since-hours 24
 
-# crontab -e
-25 * * * * EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 3 >> /home/sky/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+# Prefer /etc/cron.d (see schedule/cron.ebay-sync-user1-products.example):
+# 25 2,14 * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle \
+#   /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 24 \
+#   >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
 ```
 
 ## 11ST price freshness snapshot (daily cron)

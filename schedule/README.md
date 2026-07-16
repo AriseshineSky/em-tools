@@ -20,7 +20,7 @@ schedule/
 ├── cron.inventory-sync.example                 single-job: daily full inventory sync
 ├── cron.amazon-lowest-offer.example            single-job: daily lowest-offer snapshot
 ├── cron.amazon-sync-user1-amz-asins.example      hourly user1_amz_asins -> amz_asins_<mp> sync
-├── cron.ebay-sync-user1-products.example         hourly user1_ebay_products sync
+├── cron.ebay-sync-user1-products.example         twice-daily user1_ebay_products sync (24h)
 ├── cron.elevenst-price-freshness.example         daily 11ST price freshness snapshot
 └── systemd/
     ├── em-tools-inventory-sync.service.example

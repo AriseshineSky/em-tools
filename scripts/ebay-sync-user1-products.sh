@@ -6,8 +6,8 @@
 #   ./scripts/ebay-sync-user1-products.sh --since-hours 6
 #   ./scripts/ebay-sync-user1-products.sh --full --skip-missing --dry-run
 #
-# Cron (hourly at :25):
-#   25 * * * * EM_TOOLS_BUNDLE=/home/sky/.rbenv/shims/bundle /home/sky/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 3 >> /home/sky/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+# Cron (twice daily UTC at 02:25 / 14:25, last 24h):
+#   25 2,14 * * * EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 24 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
 #
 # Requires .env with ELASTICSEARCH_URL and DATA_ELASTICSEARCH_URL (loaded by bin/em-tools).
 
@@ -35,7 +35,7 @@ Usage: $0 [em-tools ebay products sync-user1 options]
     SKIP_FLOCK=1          do not skip overlapping runs
 
   Cron example:
-    25 * * * * EM_TOOLS_BUNDLE=/path/to/bundle $ROOT/scripts/ebay-sync-user1-products.sh --since-hours 3 >> $LOG_DIR/ebay-sync-user1-products.log 2>&1
+    25 2,14 * * * EM_TOOLS_BUNDLE=/path/to/bundle $ROOT/scripts/ebay-sync-user1-products.sh --since-hours 24 >> $LOG_DIR/ebay-sync-user1-products.log 2>&1
 EOF
 }
 

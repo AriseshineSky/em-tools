@@ -429,13 +429,13 @@ bundle exec bin/em-tools ebay products sync-user1 --since-hours 6 --skip-missing
 bundle exec bin/em-tools ebay products sync-user1 --dry-run
 
 # Cron wrapper (flock + logging): scripts/ebay-sync-user1-products.sh
-./scripts/ebay-sync-user1-products.sh --since-hours 3
+./scripts/ebay-sync-user1-products.sh --since-hours 24
 ```
 
 Useful options: `--source-url` / `--target-url`, `--source-index` / `--target-index`,
 `--since-date` / `--before-date`, `--time-field` (default `date`), `--skip-missing`,
 `--dry-run`, `--sample-dir` / `--no-samples`. See also
-[`scripts/README.md`](../scripts/README.md#ebay-user1-product-sync-hourly-cron) and
+[`scripts/README.md`](../scripts/README.md#ebay-user1-product-sync-twice-daily-cron) and
 [`schedule/cron.ebay-sync-user1-products.example`](../schedule/cron.ebay-sync-user1-products.example).
 
 ### Storefront (`plugins/storefront/`)
