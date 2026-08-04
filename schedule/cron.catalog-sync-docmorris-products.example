@@ -1,0 +1,22 @@
+# em-tools — user1_de_products source=docmorris (data ES) -> catalog_products (primary ES)
+#
+# Daily incremental sync with a 36h overlapping window (slim projection).
+#
+# Requires .env in the repo with:
+#   ELASTICSEARCH_URL='http://user:pw@…'
+#   DATA_ELASTICSEARCH_URL='http://user:pw@…'
+#   CATALOG_DOCMORRIS_SYNC_SINCE_HOURS=36   # optional; CLI --since-hours overrides
+#
+# Install on VPS:
+#   chmod +x /home/Admin/src/em-tools/scripts/catalog-sync-docmorris-products.sh
+#   sudo cp schedule/cron.catalog-sync-docmorris-products.example /etc/cron.d/em-tools-catalog-docmorris-sync
+#   sudo chmod 644 /etc/cron.d/em-tools-catalog-docmorris-sync
+#   sudo mkdir -p /home/Admin/src/em-tools/log
+#   sudo systemctl reload cron
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# Daily (UTC) 03:40 — sync Docmorris crawl rows updated in the last 36 hours.
+40 3 * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/catalog-sync-docmorris-products.sh --since-hours 36 >> /home/Admin/src/em-tools/log/catalog-sync-docmorris-products.log 2>&1

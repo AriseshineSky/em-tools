@@ -10,6 +10,7 @@ Shell wrappers for cron / manual runs. Business logic stays in `bin/em-tools`.
 | `amazon-lowest-offer-snapshot.sh` | `em-tools amazon coverage download-and-publish` |
 | `amazon-sync-user1-amz-asins.sh` | `em-tools amazon asins sync-user1` |
 | `ebay-sync-user1-products.sh` | `em-tools ebay products sync-user1` |
+| `catalog-sync-docmorris-products.sh` | `em-tools catalog products sync-docmorris` |
 | `elevenst-price-freshness-snapshot.sh` | `em-tools kr elevenst publish-price-freshness-snapshot` |
 | `elevenst-schedule-stale-recrawl.sh` | `em-tools kr elevenst schedule-stale-recrawl` → Scrapyd (one-shot) |
 | `elevenst-recrawl-queue-keeper.sh` | systemd daemon: keep Scrapyd queue near target depth |
