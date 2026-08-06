@@ -1,11 +1,11 @@
 # em-tools — user1_ebay_products (data ES) -> ebay_us_products (primary ES)
 #
-# Production (c1002us / 35.202.167.107): twice daily, last 24h of source `date`.
+# Production (c1002us / 35.202.167.107): hourly, last 2h of source `date`.
 #
 # Requires .env in the repo with:
 #   ELASTICSEARCH_URL='http://user:pw@…'
 #   DATA_ELASTICSEARCH_URL='http://user:pw@…'
-#   EBAY_PRODUCT_SYNC_SINCE_HOURS=24   # optional default; CLI --since-hours overrides
+#   EBAY_PRODUCT_SYNC_SINCE_HOURS=2   # optional default; CLI --since-hours overrides
 #
 # Install on VPS:
 #   chmod +x /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh
@@ -18,5 +18,5 @@ SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
-# Twice daily (UTC): 02:25 and 14:25 — sync docs updated in the last 24 hours.
-25 2,14 * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 24 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+# Every hour at :25 UTC — sync docs updated in the last 2 hours (overlap with prior run).
+25 * * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 2 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
