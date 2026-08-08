@@ -27,6 +27,10 @@ module EmTools
           DEFAULT_BULK_CHUNK = 500
           DEFAULT_TIME_FIELD = "created_at"
 
+          # Max bytes per bulk HTTP body; kept under the ES-fronting proxy's
+          # request-body limit (~10 KB) so large flushes are auto-split.
+          MAX_BULK_BYTES = 6_000
+
           def initialize(
             source_client:,
             target_client:,
@@ -167,18 +171,38 @@ module EmTools
               return
             end
 
-            lines = rows.flat_map do |row|
-              body = { "asin" => row[:asin], "timestamp" => row[:timestamp] }
-              [
-                JSON.generate(index: { _index: sink_index, _id: row[:asin] }),
-                JSON.generate(body),
-              ]
+            each_bulk_body(sink_index, rows) do |body, count|
+              @stats.bulk_requests += 1
+              resp = @target.bulk(body: body)
+              errors = count_bulk_errors(resp)
+              @stats.bulk_errors += errors
+              @stats.indexed += count - errors
             end
-            @stats.bulk_requests += 1
-            resp = @target.bulk(body: "#{lines.join("\n")}\n")
-            errors = count_bulk_errors(resp)
-            @stats.bulk_errors += errors
-            @stats.indexed += rows.size - errors
+          end
+
+          # The ES-fronting proxy rejects request bodies larger than ~10 KB with
+          # an instant HTTP 500. Split each flush into bulk sub-requests that stay
+          # under MAX_BULK_BYTES so correctness never depends on a tiny --bulk-chunk.
+          def each_bulk_body(sink_index, rows)
+            buffer = +""
+            count = 0
+
+            rows.each do |row|
+              action = JSON.generate(index: { _index: sink_index, _id: row[:asin] })
+              source = JSON.generate("asin" => row[:asin], "timestamp" => row[:timestamp])
+              pair = "#{action}\n#{source}\n"
+
+              if count.positive? && buffer.bytesize + pair.bytesize > MAX_BULK_BYTES
+                yield buffer, count
+                buffer = +""
+                count = 0
+              end
+
+              buffer << pair
+              count += 1
+            end
+
+            yield buffer, count if count.positive?
           end
 
           def count_bulk_errors(resp)
