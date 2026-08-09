@@ -49,6 +49,7 @@ RSpec.describe(EmTools::Plugins::Amazon::AsinSync::User1ToAmzAsinsSync) do
     ))
     expect(target).to(receive(:bulk)) do |body:|
       expect(body).to(include('"asin":"B0DCBCK799"'))
+      expect(body).to(include('"created_at":"2026-05-29T06:06:50.473353+00:00"'))
       expect(body).to(include('"timestamp":"2026-05-29T06:06:50.473353+00:00"'))
       expect(body).not_to(include("B07DCT7Q9T"))
       { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }

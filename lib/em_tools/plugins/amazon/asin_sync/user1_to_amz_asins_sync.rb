@@ -122,12 +122,25 @@ module EmTools
             {
               asin: asin,
               marketplace: marketplace,
+              created_at: pick_created_at(src),
               timestamp: pick_timestamp(src),
             }
           end
 
           def pick_timestamp(src)
             value = src[@time_field] || src["created_at"] || src["updated_at"]
+            normalize_time(value)
+          end
+
+          # Creation instant carried into +amz_asins_<mp>+ so newly synced rows expose a
+          # +created_at+ field (mirrors +timestamp+); without it the index activity
+          # collector reports empty +created_at+ windows for freshly created ASINs.
+          def pick_created_at(src)
+            value = src["created_at"] || src[@time_field] || src["updated_at"]
+            normalize_time(value)
+          end
+
+          def normalize_time(value)
             value = value.iso8601(3) if value.respond_to?(:iso8601)
             value.to_s.strip.empty? ? Time.now.utc.iso8601(3) : value.to_s
           end
@@ -189,7 +202,11 @@ module EmTools
 
             rows.each do |row|
               action = JSON.generate(index: { _index: sink_index, _id: row[:asin] })
-              source = JSON.generate("asin" => row[:asin], "timestamp" => row[:timestamp])
+              source = JSON.generate(
+                "asin" => row[:asin],
+                "created_at" => row[:created_at],
+                "timestamp" => row[:timestamp],
+              )
               pair = "#{action}\n#{source}\n"
 
               if count.positive? && buffer.bytesize + pair.bytesize > MAX_BULK_BYTES
