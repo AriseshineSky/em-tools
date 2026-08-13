@@ -54,7 +54,7 @@ module EmTools
               inventory_max_hits: inventory_max_hits,
             )
             tf = time_field.to_s.strip
-            @time_field = tf.empty? ? ENV.fetch("EBAY_LISTINGS_COVERAGE_TIME_FIELD", "time") : tf
+            @time_field = tf.empty? ? ENV.fetch("EBAY_LISTINGS_COVERAGE_TIME_FIELD", "date") : tf
             af = id_field.to_s.strip
             @id_field = af.empty? ? ENV.fetch("EBAY_LISTINGS_COVERAGE_ID_FIELD", "product_id.keyword") : af
             raw_bs = ENV.fetch("EBAY_LISTINGS_COVERAGE_TERMS_BATCH_SIZE", TERMS_BATCH_SIZE_DEFAULT.to_s).to_i
