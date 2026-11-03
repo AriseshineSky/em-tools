@@ -73,4 +73,39 @@ RSpec.describe(EmTools::Plugins::Amazon::AsinSync::User1ToAmzAsinsSync) do
     stats = sync.run!
     expect(stats.source_hits).to(eq(0))
   end
+
+  it "filters by marketplace case-insensitively on text and keyword fields" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      full_scan: true,
+      marketplace: "SG",
+    )
+
+    expect(source).to(receive(:iterate_query)) do |index:, query:, **|
+      expect(index).to(eq("user1_amz_asins"))
+      expect(query).to(
+        eq(
+          bool: {
+            must: [
+              {
+                bool: {
+                  should: [
+                    { match: { "marketplace" => "sg" } },
+                    { term: { "marketplace.keyword" => "sg" } },
+                    { term: { "marketplace.keyword" => "SG" } },
+                  ],
+                  minimum_should_match: 1,
+                },
+              },
+            ],
+          },
+        ),
+      )
+    end
+    expect(target).not_to(receive(:bulk))
+
+    stats = sync.run!
+    expect(stats.source_hits).to(eq(0))
+  end
 end

@@ -89,10 +89,28 @@ module EmTools
 
           def build_query
             must = @full_scan ? [] : [{ range: { @time_field => { gt: cutoff_time } } }]
-            must << { term: { "marketplace" => @marketplace.upcase } } if @marketplace
+            must << marketplace_filter(@marketplace) if @marketplace
             return { match_all: {} } if must.empty?
 
             { bool: { must: must } }
+          end
+
+          # +marketplace+ is a +text+ field (values stored uppercase, e.g. "SG", with a
+          # +keyword+ subfield). A +term+ query on the analyzed field matches the lowercased
+          # term only, so uppercasing the filter value (as +--marketplace+ used to) returned
+          # **zero** hits on every source index. Match either case and either field flavour.
+          def marketplace_filter(marketplace)
+            value = normalize_marketplace(marketplace)
+            {
+              bool: {
+                should: [
+                  { match: { "marketplace" => value } },
+                  { term: { "marketplace.keyword" => value } },
+                  { term: { "marketplace.keyword" => value.upcase } },
+                ],
+                minimum_should_match: 1,
+              },
+            }
           end
 
           def cutoff_time
