@@ -261,13 +261,20 @@ module EmTools
             end
           end
 
+          # True when the target doc is missing ``source`` (legacy bulk loads) or
+          # carries the other spelling. Both cases must be rewritten so the
+          # target always ends up with the two documented flavours:
+          #
+          #   <item id>       -> source=Ebay_US
+          #   ebay_us_<item>  -> source=ebay_us
           def source_casing_differs?(source_body, target_body)
             return false unless source_body.is_a?(Hash) && target_body.is_a?(Hash)
 
             expected = source_body["source"]
             return false if expected.nil?
 
-            !target_body["source"].nil? && target_body["source"].to_s != expected.to_s
+            stored = target_body["source"].to_s.strip
+            stored.empty? || stored != expected.to_s
           end
 
           def source_newer?(source_body, target_body)

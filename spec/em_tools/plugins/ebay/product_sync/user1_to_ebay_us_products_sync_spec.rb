@@ -183,10 +183,14 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       ids: ["111", "ebay_us_111", "222", "ebay_us_222"],
     ).and_return(
       "docs" => [
-        { "_id" => "111", "found" => true, "_source" => { "date" => "2026-05-19T14:45:15+00:00" } },
-        { "_id" => "ebay_us_111", "found" => true, "_source" => { "date" => "2026-05-19T14:45:15+00:00" } },
-        { "_id" => "222", "found" => true, "_source" => { "date" => "2026-05-20T14:45:15+00:00" } },
-        { "_id" => "ebay_us_222", "found" => true, "_source" => { "date" => "2026-05-20T14:45:15+00:00" } },
+        { "_id" => "111", "found" => true,
+          "_source" => { "date" => "2026-05-19T14:45:15+00:00", "source" => "Ebay_US" } },
+        { "_id" => "ebay_us_111", "found" => true,
+          "_source" => { "date" => "2026-05-19T14:45:15+00:00", "source" => "ebay_us" } },
+        { "_id" => "222", "found" => true,
+          "_source" => { "date" => "2026-05-20T14:45:15+00:00", "source" => "Ebay_US" } },
+        { "_id" => "ebay_us_222", "found" => true,
+          "_source" => { "date" => "2026-05-20T14:45:15+00:00", "source" => "ebay_us" } },
       ],
     ))
     expect(target).to(receive(:bulk)) do |body:|
@@ -231,6 +235,33 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
 
     stats = sync.run!
     expect(stats.indexed).to(eq(1))
+  end
+
+  it "rewrites a legacy target doc that has no source field" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      since_hours: 1,
+      bulk_chunk: 10,
+    )
+
+    hits = [{ "_id" => "111", "_source" => sample_source.merge("product_id" => "111") }]
+    allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    expect(target).to(receive(:mget).and_return(
+      "docs" => [
+        { "_id" => "111", "found" => true, "_source" => { "date" => sample_source["date"] } },
+        { "_id" => "ebay_us_111", "found" => false },
+      ],
+    ))
+    expect(target).to(receive(:bulk)) do |body:|
+      expect(body).to(include('"source":"Ebay_US"'))
+      expect(body).to(include('"ebay_us_111"'))
+      { "errors" => false, "items" => [{ "index" => { "status" => 200 } }] }
+    end
+
+    stats = sync.run!
+    expect(stats.indexed).to(eq(2))
   end
 
   it "scans the entire source index when full_scan is enabled" do
