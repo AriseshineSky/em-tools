@@ -25,8 +25,10 @@ module EmTools
             option :target_index,
               default: User1ToEbayUsProductsSync::DEFAULT_TARGET_INDEX,
               desc: "Target index (default ebay_us_products)"
-            option :source,
-              aliases: ["--source-values"],
+            # NOTE: keep the option name distinct from the ``source`` local
+            # (the resolved source URL) below, otherwise the value is shadowed.
+            option :source_values,
+              aliases: ["--source"],
               desc: "Comma-separated doc `source` values to scan (default ebay_us,Ebay_US; empty = no filter). Needed for a merged crawl index such as user1_us_products."
             option :full,
               type: :flag,
@@ -85,7 +87,7 @@ module EmTools
               target_url: nil,
               source_index: User1ToEbayUsProductsSync::DEFAULT_SOURCE_INDEX,
               target_index: User1ToEbayUsProductsSync::DEFAULT_TARGET_INDEX,
-              source: nil,
+              source_values: nil,
               since_hours: nil,
               since_date: nil,
               before_date: nil,
@@ -115,7 +117,7 @@ module EmTools
                   target_client: build_client(target),
                   source_index: source_index,
                   target_index: target_index,
-                  source_values: resolve_source_values(source),
+                  source_values: resolve_source_values(source_values),
                   since_hours: resolve_since_hours(since_hours, full: full, since_date: since_date),
                   since_date: since_date,
                   before_date: before_date,
