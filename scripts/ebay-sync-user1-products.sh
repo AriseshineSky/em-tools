@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Incremental sync: user1_ebay_products (DATA_ELASTICSEARCH_URL) -> ebay_us_products (ELASTICSEARCH_URL).
+# Incremental sync: eBay US crawl docs (DATA_ELASTICSEARCH_URL) -> ebay_us_products (ELASTICSEARCH_URL).
+#
+# Migration window: pass both crawl indices so old and new docs coexist in the
+# target — --source-index user1_ebay_products,user1_us_products --source ebay_us,Ebay_US
 #
 # Usage:
 #   ./scripts/ebay-sync-user1-products.sh
@@ -7,7 +10,7 @@
 #   ./scripts/ebay-sync-user1-products.sh --full --skip-missing --dry-run
 #
 # Cron (hourly UTC at :25, last 2h):
-#   25 * * * * EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 2 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+#   25 * * * * EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --source-index user1_ebay_products,user1_us_products --source ebay_us,Ebay_US --since-hours 2 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
 #
 # Requires .env with ELASTICSEARCH_URL and DATA_ELASTICSEARCH_URL (loaded by bin/em-tools).
 
@@ -35,7 +38,7 @@ Usage: $0 [em-tools ebay products sync-user1 options]
     SKIP_FLOCK=1          do not skip overlapping runs
 
   Cron example:
-    25 * * * * EM_TOOLS_BUNDLE=/path/to/bundle $ROOT/scripts/ebay-sync-user1-products.sh --since-hours 2 >> $LOG_DIR/ebay-sync-user1-products.log 2>&1
+    25 * * * * EM_TOOLS_BUNDLE=/path/to/bundle $ROOT/scripts/ebay-sync-user1-products.sh --source-index user1_ebay_products,user1_us_products --source ebay_us,Ebay_US --since-hours 2 >> $LOG_DIR/ebay-sync-user1-products.log 2>&1
 EOF
 }
 

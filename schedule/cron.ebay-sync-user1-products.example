@@ -1,4 +1,9 @@
-# em-tools — user1_ebay_products (data ES) -> ebay_us_products (primary ES)
+# em-tools — eBay US crawl docs (data ES) -> ebay_us_products (primary ES)
+#
+# Migration window (2026-11): BOTH source indices are scanned so the target
+# keeps the old and the new documents side by side —
+#   user1_ebay_products  -> _id=<item id>,      source=Ebay_US   (legacy)
+#   user1_us_products    -> _id=ebay_us_<item>, source=ebay_us   (merged US)
 #
 # Production (c1002us / 35.202.167.107): hourly, last 2h of source `date`.
 #
@@ -19,4 +24,4 @@ PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
 # Every hour at :25 UTC — sync docs updated in the last 2 hours (overlap with prior run).
-25 * * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --since-hours 2 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1
+25 * * * *  Admin  EM_TOOLS_BUNDLE=/home/Admin/.rbenv/shims/bundle /home/Admin/src/em-tools/scripts/ebay-sync-user1-products.sh --source-index user1_ebay_products,user1_us_products --source ebay_us,Ebay_US --since-hours 2 >> /home/Admin/src/em-tools/log/ebay-sync-user1-products.log 2>&1

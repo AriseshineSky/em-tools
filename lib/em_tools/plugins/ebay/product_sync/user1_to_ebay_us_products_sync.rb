@@ -101,23 +101,35 @@ module EmTools
 
           def run!
             query = build_query
-            log_scan_mode(query)
 
-            @source.iterate_query(index: @source_index, query: query, batch_size: @bulk_chunk) do |hit|
-              @stats.source_hits += 1
-              row = extract_row(hit)
-              unless row
-                @stats.skipped_invalid += 1
-                next
+            # ``source_indexes`` holds one entry per crawl index; a migration
+            # window scans both the legacy eBay-only index and the merged US
+            # index so the target keeps the old (bare id + ``Ebay_US``) and the
+            # new (``ebay_us_<id>`` + ``ebay_us``) documents side by side.
+            source_indexes.each do |index_name|
+              log_scan_mode(query, index_name)
+
+              @source.iterate_query(index: index_name, query: query, batch_size: @bulk_chunk) do |hit|
+                @stats.source_hits += 1
+                row = extract_row(hit)
+                unless row
+                  @stats.skipped_invalid += 1
+                  next
+                end
+
+                @pending << row
+                flush! if @pending.size >= @bulk_chunk
               end
-
-              @pending << row
-              flush! if @pending.size >= @bulk_chunk
             end
 
             flush!
             flush_samples!
             @stats
+          end
+
+          def source_indexes
+            @source_indexes ||= @source_index.split(",").map(&:strip).reject(&:empty?)
+            @source_indexes.empty? ? [@source_index] : @source_indexes
           end
 
           private
@@ -157,14 +169,14 @@ module EmTools
             (Time.now.utc - (@since_hours * 3600)).iso8601(3)
           end
 
-          def log_scan_mode(query)
+          def log_scan_mode(query, index_name = @source_index)
             if @full_scan
-              log("scan source_index=#{@source_index} target_index=#{@target_index} mode=full")
+              log("scan source_index=#{index_name} target_index=#{@target_index} mode=full")
               return
             end
 
             parts = [
-              "scan source_index=#{@source_index}",
+              "scan source_index=#{index_name}",
               "target_index=#{@target_index}",
               "time_field=#{@time_field}",
             ]
@@ -329,22 +341,19 @@ module EmTools
             Array(resp["items"]).count { |item| item.values.first&.dig("error") }
           end
 
-          # Merged crawl indices key documents as ``<source>_<item id>`` while the
-          # target index (and every downstream consumer) uses the bare item id.
+          # During the migration window the target keeps both id spaces:
+          # ``<item id>`` (legacy ``user1_ebay_products`` docs, source
+          # ``Ebay_US``) and ``<source>_<item id>`` (merged ``user1_us_products``
+          # docs, source ``ebay_us``). Ids are copied verbatim so the two
+          # flavours never overwrite each other; callers that need the bare
+          # item id derive it from the document body (``product_id``).
           def normalize_id(value)
-            text = value.to_s.strip
-            @source_values.each do |source|
-              prefix = "#{source}_"
-              next unless text.start_with?(prefix)
-
-              tail = text[prefix.length..] || ""
-              return tail if tail.match?(/\A\d+\z/)
-            end
-            text
+            value.to_s.strip
           end
 
           def valid_doc_id?(doc_id)
-            !doc_id.empty? && doc_id.match?(/\A\d+\z/)
+            # bare item id (legacy) or ``<source>_<item id>`` (merged crawl)
+            !doc_id.empty? && doc_id.match?(/\A(?:\d+|[a-z0-9_]+_\d+)\z/i)
           end
 
           def normalize_time_value(value)

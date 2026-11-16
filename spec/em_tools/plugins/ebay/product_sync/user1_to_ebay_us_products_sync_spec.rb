@@ -226,7 +226,31 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     sync.run!
   end
 
-  it "scans a merged crawl index by source and strips the doc-id prefix" do
+  it "scans every configured source index so old and new docs coexist" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      source_index: "user1_ebay_products,user1_us_products",
+      since_date: "2026-05-01T00:00:00+00:00",
+    )
+
+    scanned = []
+    allow(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
+      scanned << index
+      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
+      block.call(index == "user1_us_products" ?
+        { "_id" => "ebay_us_222", "_source" => sample_source.merge("product_id" => "222") } :
+        { "_id" => "111", "_source" => sample_source.merge("product_id" => "111") })
+    end
+    allow(target).to(receive(:index_exists?).with("ebay_us_products").and_return(false))
+    allow(target).to(receive(:bulk)).and_return({ "errors" => false, "items" => [] })
+
+    sync.run!
+
+    expect(scanned).to(eq(["user1_ebay_products", "user1_us_products"]))
+  end
+
+  it "scans a merged crawl index by source and keeps the doc id verbatim" do
     sync = described_class.new(
       source_client: source,
       target_client: target,
@@ -235,9 +259,9 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       source_values: %w[ebay_us Ebay_US],
     )
 
+    # the source filter is applied server-side, so every hit is an eBay doc
     hits = [
       { "_id" => "ebay_us_113222835111", "_source" => sample_source },
-      { "_id" => "aliexpress_us_999", "_source" => sample_source.merge("source" => "aliexpress_us") },
     ]
 
     expect(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
@@ -247,12 +271,11 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     end
 
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["113222835111"]).and_return(
-      "docs" => [{ "_id" => "113222835111", "found" => false }],
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["ebay_us_113222835111"]).and_return(
+      "docs" => [{ "_id" => "ebay_us_113222835111", "found" => false }],
     ))
     expect(target).to(receive(:bulk)) do |body:|
-      expect(body).to(include('"113222835111"'))
-      expect(body).not_to(include("ebay_us_113222835111"))
+      expect(body).to(include('"ebay_us_113222835111"'))
       { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }
     end
 
