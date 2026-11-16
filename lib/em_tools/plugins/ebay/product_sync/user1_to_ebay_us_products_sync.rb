@@ -39,6 +39,9 @@ module EmTools
           #: crawler writes the platform-marketplace spelling, older docs keep
           #: the legacy Camel form).
           DEFAULT_SOURCE_VALUES = ["ebay_us", "Ebay_US"].freeze
+          #: Casing written into the target docs while both spellings coexist.
+          LEGACY_SOURCE = "Ebay_US"
+          MODERN_SOURCE = "ebay_us"
           DEFAULT_TARGET_INDEX = "ebay_us_products"
           DEFAULT_SINCE_HOURS = 2
           DEFAULT_BULK_CHUNK = 500
@@ -111,14 +114,16 @@ module EmTools
 
               @source.iterate_query(index: index_name, query: query, batch_size: @bulk_chunk) do |hit|
                 @stats.source_hits += 1
-                row = extract_row(hit)
-                unless row
+                rows = extract_rows(hit)
+                if rows.empty?
                   @stats.skipped_invalid += 1
                   next
                 end
 
-                @pending << row
-                flush! if @pending.size >= @bulk_chunk
+                rows.each do |row|
+                  @pending << row
+                  flush! if @pending.size >= @bulk_chunk
+                end
               end
             end
 
@@ -187,14 +192,32 @@ module EmTools
             log(parts.join(" "))
           end
 
-          def extract_row(hit)
+          # One crawl hit can become **two** target documents while the source
+          # casing is being migrated, so both flavours are always present:
+          #
+          #   bare id       + source=Ebay_US   (legacy consumers)
+          #   ebay_us_<id>  + source=ebay_us   (migrated consumers)
+          #
+          # Hits whose ``_id`` is already prefixed (merged crawl index) are
+          # written once; the prefixed doc they produce is the same ``_id`` the
+          # legacy hit derives, so the two runs stay idempotent.
+          def extract_rows(hit)
             doc_id = normalize_id(hit["_id"])
-            return nil unless valid_doc_id?(doc_id)
+            return [] unless valid_doc_id?(doc_id)
 
-            {
-              doc_id: doc_id,
-              body: hit["_source"] || {},
-            }
+            body = hit["_source"] || {}
+            if doc_id.match?(/\A\d+\z/)
+              item_id = doc_id
+              [
+                { doc_id: item_id, body: body.merge("source" => LEGACY_SOURCE) },
+                {
+                  doc_id: "#{MODERN_SOURCE}_#{item_id}",
+                  body: body.merge("source" => MODERN_SOURCE),
+                },
+              ]
+            else
+              [{ doc_id: doc_id, body: body.merge("source" => MODERN_SOURCE) }]
+            end
           end
 
           def flush!
