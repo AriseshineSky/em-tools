@@ -8,8 +8,17 @@ module EmTools
   module Plugins
     module Ebay
       module ProductSync
-        # Copies product rows from +user1_ebay_products+ (data cluster) into
+        # Copies product rows from the crawl catalog (data cluster) into
         # +ebay_us_products+ (primary cluster), keyed by Elasticsearch +_id+.
+        #
+        # Two source layouts are supported:
+        #
+        # * +user1_ebay_products+ — legacy eBay-only crawl index, +_id+ = item id,
+        #   docs carry +source = ebay_us+ / +Ebay_US+;
+        # * +user1_us_products+ — country-merged crawl index (alias of
+        #   +user1_us_products_v1+) that also holds +aliexpress_us+ /
+        #   +aliexpress_cn+, so the scan must filter by doc +source+, and its
+        #   +_id+ is +ebay_us_<item id>+ (the item id is what the target keys on).
         class User1ToEbayUsProductsSync
           Stats = Struct.new(
             :source_hits,
@@ -25,6 +34,11 @@ module EmTools
           )
 
           DEFAULT_SOURCE_INDEX = "user1_ebay_products"
+          MERGED_SOURCE_INDEX = "user1_us_products"
+          #: Doc ``source`` values accepted from a merged crawl index (the
+          #: crawler writes the platform-marketplace spelling, older docs keep
+          #: the legacy Camel form).
+          DEFAULT_SOURCE_VALUES = ["ebay_us", "Ebay_US"].freeze
           DEFAULT_TARGET_INDEX = "ebay_us_products"
           DEFAULT_SINCE_HOURS = 2
           DEFAULT_BULK_CHUNK = 500
@@ -37,6 +51,7 @@ module EmTools
             target_client:,
             source_index: DEFAULT_SOURCE_INDEX,
             target_index: DEFAULT_TARGET_INDEX,
+            source_values: DEFAULT_SOURCE_VALUES,
             since_hours: DEFAULT_SINCE_HOURS,
             since_date: nil,
             before_date: nil,
@@ -54,6 +69,7 @@ module EmTools
             @target = target_client
             @source_index = source_index.to_s.strip
             @target_index = target_index.to_s.strip
+            @source_values = Array(source_values).map { |v| v.to_s.strip }.reject(&:empty?)
             @full_scan = full_scan ? true : false
             @since_hours = [since_hours.to_f, 0.01].max unless @full_scan
             @since_date = normalize_time_value(since_date)
@@ -108,6 +124,8 @@ module EmTools
 
           def build_query
             filters = []
+            source_clause = source_filter_clause
+            filters << source_clause unless source_clause.nil?
             unless @full_scan
               range = {}
               range[:gt] = cutoff_time unless cutoff_time.nil?
@@ -117,6 +135,20 @@ module EmTools
             return { match_all: {} } if filters.empty?
 
             { bool: { filter: filters } }
+          end
+
+          # ``source`` is mapped as text (+ .keyword) in some indices, so match
+          # both forms; nil when no filter was configured.
+          def source_filter_clause
+            return if @source_values.empty?
+
+            should = @source_values.flat_map do |value|
+              [
+                { term: { "source" => value } },
+                { term: { "source.keyword" => value } },
+              ]
+            end
+            { bool: { should: should, minimum_should_match: 1 } }
           end
 
           def cutoff_time
@@ -297,8 +329,18 @@ module EmTools
             Array(resp["items"]).count { |item| item.values.first&.dig("error") }
           end
 
+          # Merged crawl indices key documents as ``<source>_<item id>`` while the
+          # target index (and every downstream consumer) uses the bare item id.
           def normalize_id(value)
-            value.to_s.strip
+            text = value.to_s.strip
+            @source_values.each do |source|
+              prefix = "#{source}_"
+              next unless text.start_with?(prefix)
+
+              tail = text[prefix.length..] || ""
+              return tail if tail.match?(/\A\d+\z/)
+            end
+            text
           end
 
           def valid_doc_id?(doc_id)

@@ -25,6 +25,9 @@ module EmTools
             option :target_index,
               default: User1ToEbayUsProductsSync::DEFAULT_TARGET_INDEX,
               desc: "Target index (default ebay_us_products)"
+            option :source,
+              aliases: ["--source-values"],
+              desc: "Comma-separated doc `source` values to scan (default ebay_us,Ebay_US; empty = no filter). Needed for a merged crawl index such as user1_us_products."
             option :full,
               type: :flag,
               default: false,
@@ -74,6 +77,7 @@ module EmTools
               "--full",
               "--dry-run",
               "--sample-dir tmp/my_checks --sample-interval 1000",
+              "--source-index user1_us_products --source ebay_us,Ebay_US",
             ]
 
             def call(
@@ -81,6 +85,7 @@ module EmTools
               target_url: nil,
               source_index: User1ToEbayUsProductsSync::DEFAULT_SOURCE_INDEX,
               target_index: User1ToEbayUsProductsSync::DEFAULT_TARGET_INDEX,
+              source: nil,
               since_hours: nil,
               since_date: nil,
               before_date: nil,
@@ -110,6 +115,7 @@ module EmTools
                   target_client: build_client(target),
                   source_index: source_index,
                   target_index: target_index,
+                  source_values: resolve_source_values(source),
                   since_hours: resolve_since_hours(since_hours, full: full, since_date: since_date),
                   since_date: since_date,
                   before_date: before_date,
@@ -152,6 +158,15 @@ module EmTools
 
             def build_client(url)
               EmTools::Core::Config.elasticsearch_client(url: url)
+            end
+
+            # ``--source`` overrides the default doc-source filter. An explicit
+            # empty value ("") disables the filter (legacy eBay-only index).
+            def resolve_source_values(raw)
+              text = raw.to_s.strip
+              return User1ToEbayUsProductsSync::DEFAULT_SOURCE_VALUES if text.empty?
+
+              text.split(",").map(&:strip).reject(&:empty?)
             end
 
             def resolve_since_hours(cli_value, full:, since_date:)

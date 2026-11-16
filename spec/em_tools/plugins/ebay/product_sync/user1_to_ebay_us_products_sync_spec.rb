@@ -197,11 +197,66 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
 
     expect(source).to(receive(:iterate_query)) do |index:, query:, **|
       expect(index).to(eq("user1_ebay_products"))
-      expect(query).to(eq(match_all: {}))
+      # the doc-source filter is always applied (all eBay sources are merged
+      # into one index), only the range filter is dropped by --full
+      expect(query).to(include(:bool))
+      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
+      expect(query.dig(:bool, :filter).to_s).not_to(include(":range"))
     end
     expect(target).not_to(receive(:bulk))
 
     stats = sync.run!
     expect(stats.source_hits).to(eq(0))
+  end
+
+  it "omits the source filter when source_values is empty" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      full_scan: true,
+      source_values: [],
+    )
+
+    expect(source).to(receive(:iterate_query)) do |index:, query:, **|
+      expect(index).to(eq("user1_ebay_products"))
+      expect(query).to(eq(match_all: {}))
+    end
+    expect(target).not_to(receive(:bulk))
+
+    sync.run!
+  end
+
+  it "scans a merged crawl index by source and strips the doc-id prefix" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      source_index: "user1_us_products",
+      since_date: "2026-05-01T00:00:00+00:00",
+      source_values: %w[ebay_us Ebay_US],
+    )
+
+    hits = [
+      { "_id" => "ebay_us_113222835111", "_source" => sample_source },
+      { "_id" => "aliexpress_us_999", "_source" => sample_source.merge("source" => "aliexpress_us") },
+    ]
+
+    expect(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
+      expect(index).to(eq("user1_us_products"))
+      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
+      hits.each { |hit| block.call(hit) }
+    end
+
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["113222835111"]).and_return(
+      "docs" => [{ "_id" => "113222835111", "found" => false }],
+    ))
+    expect(target).to(receive(:bulk)) do |body:|
+      expect(body).to(include('"113222835111"'))
+      expect(body).not_to(include("ebay_us_113222835111"))
+      { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }
+    end
+
+    stats = sync.run!
+    expect(stats.indexed).to(eq(1))
   end
 end
