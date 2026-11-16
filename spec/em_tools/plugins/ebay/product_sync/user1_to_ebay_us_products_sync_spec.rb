@@ -13,10 +13,15 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       "product_id" => "113222835111",
       "title" => "example",
       "existence" => true,
+      "source" => "ebay_us",
     }
   end
 
-  it "upserts source documents into the target index by _id" do
+  def range_filter_in(query)
+    Array(query.dig(:bool, :filter)).any? { |clause| clause.is_a?(Hash) && clause.key?(:range) }
+  end
+
+  it "upserts one document per item, keyed by the bare _id" do
     sync = described_class.new(
       source_client: source,
       target_client: target,
@@ -32,27 +37,18 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
 
     expect(source).to(receive(:iterate_query)) do |index:, query:, batch_size:, &block|
       expect(index).to(eq("user1_ebay_products"))
-      expect(query).to(include(bool: hash_including(filter: array_including(
-        hash_including(range: hash_including("date" => hash_including(:gt))),
-      ))))
+      expect(range_filter_in(query)).to(be(true))
       hits.each(&block)
     end
 
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).with(
-      index: "ebay_us_products",
-      ids: ["113222835111", "ebay_us_113222835111"],
-    ).and_return(
-      "docs" => [
-        { "_id" => "113222835111", "found" => false },
-        { "_id" => "ebay_us_113222835111", "found" => false },
-      ],
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["113222835111"]).and_return(
+      "docs" => [{ "_id" => "113222835111", "found" => false }],
     ))
     expect(target).to(receive(:bulk)) do |body:|
-      # both flavours of the same product, each with its own source casing
       expect(body).to(include('"113222835111"'))
-      expect(body).to(include('"ebay_us_113222835111"'))
-      expect(body).to(include('"source":"Ebay_US"'))
+      expect(body).to(include('"title":"example"'))
+      # body copied verbatim: the crawler's source casing is kept as-is
       expect(body).to(include('"source":"ebay_us"'))
       expect(body).not_to(include('"999"'))
       { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }
@@ -61,7 +57,35 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     stats = sync.run!
     expect(stats.source_hits).to(eq(3))
     expect(stats.skipped_invalid).to(eq(2))
-    expect(stats.indexed).to(eq(2))
+    expect(stats.indexed).to(eq(1))
+  end
+
+  it "strips the <source>_ prefix of a merged crawl index id" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      source_index: "user1_us_products",
+      since_date: "2026-05-01T00:00:00+00:00",
+    )
+
+    hits = [{ "_id" => "ebay_us_113222835111", "_source" => sample_source }]
+    expect(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
+      expect(index).to(eq("user1_us_products"))
+      expect(query.to_s).to(include("ebay_us"))
+      hits.each(&block)
+    end
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["113222835111"]).and_return(
+      "docs" => [{ "_id" => "113222835111", "found" => false }],
+    ))
+    expect(target).to(receive(:bulk)) do |body:|
+      expect(body).to(include('"113222835111"'))
+      expect(body).not_to(include("ebay_us_113222835111"))
+      { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }
+    end
+
+    stats = sync.run!
+    expect(stats.indexed).to(eq(1))
   end
 
   it "updates only existing target docs when skip_missing is enabled" do
@@ -80,15 +104,14 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
 
     allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).with(
-      index: "ebay_us_products",
-      ids: ["111", "ebay_us_111", "222", "ebay_us_222"],
-    ).and_return(
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["111", "222"]).and_return(
       "docs" => [
-        { "_id" => "111", "found" => true, "_source" => { "date" => "2026-05-01T00:00:00+00:00" } },
-        { "_id" => "ebay_us_111", "found" => true, "_source" => { "date" => "2026-05-01T00:00:00+00:00" } },
+        {
+          "_id" => "111",
+          "found" => true,
+          "_source" => { "date" => "2026-05-01T00:00:00+00:00", "source" => "ebay_us" },
+        },
         { "_id" => "222", "found" => false },
-        { "_id" => "ebay_us_222", "found" => false },
       ],
     ))
     expect(target).to(receive(:bulk)) do |body:|
@@ -98,8 +121,8 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     end
 
     stats = sync.run!
-    expect(stats.skipped_missing).to(eq(2))
-    expect(stats.indexed).to(eq(2))
+    expect(stats.skipped_missing).to(eq(1))
+    expect(stats.indexed).to(eq(1))
   end
 
   it "writes _id and date checkpoint files every sample_interval indexed docs" do
@@ -134,19 +157,18 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     ))
 
     stats = sync.run!
-    # each bare hit writes the legacy and the modern document
-    expect(stats.indexed).to(eq(6))
-    expect(stats.sample_files).to(eq(3))
-    expect(stats.sample_rows).to(eq(6))
+    expect(stats.indexed).to(eq(3))
+    expect(stats.sample_files).to(eq(2))
+    expect(stats.sample_rows).to(eq(3))
 
     batch1 = File.read(File.join(dir, "batch_001.tsv"))
     expect(batch1).to(include("_id\tdate"))
     expect(batch1).to(include("1\t2026-05-18T14:45:11+00:00"))
-    expect(batch1).to(include("ebay_us_1\t2026-05-18T14:45:11+00:00"))
+    expect(batch1).to(include("2\t2026-05-18T14:45:12+00:00"))
     expect(batch1).not_to(include("3\t"))
 
-    batch3 = File.read(File.join(dir, "batch_003.tsv"))
-    expect(batch3).to(include("3\t2026-05-18T14:45:13+00:00"))
+    batch2 = File.read(File.join(dir, "batch_002.tsv"))
+    expect(batch2).to(include("3\t2026-05-18T14:45:13+00:00"))
   ensure
     FileUtils.rm_rf(dir) if dir && File.directory?(dir)
   end
@@ -163,34 +185,31 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       {
         "_id" => "111",
         "_source" => sample_source.merge(
-          "product_id" => "111",
-          "date" => "2026-05-18T14:45:15+00:00",
+          "product_id" => "111", "date" => "2026-05-18T14:45:15+00:00",
         ),
       },
       {
         "_id" => "222",
         "_source" => sample_source.merge(
-          "product_id" => "222",
-          "date" => "2026-05-21T14:45:15+00:00",
+          "product_id" => "222", "date" => "2026-05-21T14:45:15+00:00",
         ),
       },
     ]
 
     allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).with(
-      index: "ebay_us_products",
-      ids: ["111", "ebay_us_111", "222", "ebay_us_222"],
-    ).and_return(
+    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["111", "222"]).and_return(
       "docs" => [
-        { "_id" => "111", "found" => true,
-          "_source" => { "date" => "2026-05-19T14:45:15+00:00", "source" => "Ebay_US" } },
-        { "_id" => "ebay_us_111", "found" => true,
-          "_source" => { "date" => "2026-05-19T14:45:15+00:00", "source" => "ebay_us" } },
-        { "_id" => "222", "found" => true,
-          "_source" => { "date" => "2026-05-20T14:45:15+00:00", "source" => "Ebay_US" } },
-        { "_id" => "ebay_us_222", "found" => true,
-          "_source" => { "date" => "2026-05-20T14:45:15+00:00", "source" => "ebay_us" } },
+        {
+          "_id" => "111",
+          "found" => true,
+          "_source" => { "date" => "2026-05-19T14:45:15+00:00", "source" => "ebay_us" },
+        },
+        {
+          "_id" => "222",
+          "found" => true,
+          "_source" => { "date" => "2026-05-20T14:45:15+00:00", "source" => "Ebay_US" },
+        },
       ],
     ))
     expect(target).to(receive(:bulk)) do |body:|
@@ -200,12 +219,11 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     end
 
     stats = sync.run!
-    # one stale product = two stale target documents (legacy + modern flavour)
-    expect(stats.skipped_stale).to(eq(2))
-    expect(stats.indexed).to(eq(2))
+    expect(stats.skipped_stale).to(eq(1))
+    expect(stats.indexed).to(eq(1))
   end
 
-  it "rewrites a target doc whose source casing is stale even if the time matches" do
+  it "overwrites a target doc when the source is newer, regardless of casing" do
     sync = described_class.new(
       source_client: source,
       target_client: target,
@@ -213,23 +231,26 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
       bulk_chunk: 10,
     )
 
-    hits = [{ "_id" => "111", "_source" => sample_source.merge("product_id" => "111") }]
+    hits = [{
+      "_id" => "111",
+      "_source" => sample_source.merge(
+        "product_id" => "111", "date" => "2026-05-18T14:45:15+00:00", "source" => "ebay_us",
+      ),
+    }]
     allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
     expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    # bare-id doc was written with the lowercase spelling by an older run
     expect(target).to(receive(:mget).and_return(
       "docs" => [
-        { "_id" => "111", "found" => true,
-          "_source" => { "date" => sample_source["date"], "source" => "ebay_us" } },
-        { "_id" => "ebay_us_111", "found" => true,
-          "_source" => { "date" => sample_source["date"], "source" => "ebay_us" } },
+        {
+          "_id" => "111",
+          "found" => true,
+          "_source" => { "date" => "2026-05-10T00:00:00+00:00", "source" => "Ebay_US" },
+        },
       ],
     ))
     expect(target).to(receive(:bulk)) do |body:|
       expect(body).to(include('"111"'))
-      expect(body).to(include('"source":"Ebay_US"'))
-      # the modern doc already has the right casing and the same time → skipped
-      expect(body).not_to(include('"ebay_us_111"'))
+      expect(body).to(include('"source":"ebay_us"'))
       { "errors" => false, "items" => [{ "index" => { "status" => 200 } }] }
     end
 
@@ -237,31 +258,26 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     expect(stats.indexed).to(eq(1))
   end
 
-  it "rewrites a legacy target doc that has no source field" do
+  it "scans every configured source index in order" do
     sync = described_class.new(
       source_client: source,
       target_client: target,
-      since_hours: 1,
-      bulk_chunk: 10,
+      source_index: "user1_ebay_products,user1_us_products",
+      since_date: "2026-05-01T00:00:00+00:00",
     )
 
-    hits = [{ "_id" => "111", "_source" => sample_source.merge("product_id" => "111") }]
-    allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
-    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).and_return(
-      "docs" => [
-        { "_id" => "111", "found" => true, "_source" => { "date" => sample_source["date"] } },
-        { "_id" => "ebay_us_111", "found" => false },
-      ],
-    ))
-    expect(target).to(receive(:bulk)) do |body:|
-      expect(body).to(include('"source":"Ebay_US"'))
-      expect(body).to(include('"ebay_us_111"'))
-      { "errors" => false, "items" => [{ "index" => { "status" => 200 } }] }
+    scanned = []
+    allow(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
+      scanned << index
+      expect(query.to_s).to(include("ebay_us"))
+      block.call(index == "user1_us_products" ? { "_id" => "ebay_us_222", "_source" => sample_source.merge("product_id" => "222") } : { "_id" => "111", "_source" => sample_source.merge("product_id" => "111") })
     end
+    allow(target).to(receive(:index_exists?).with("ebay_us_products").and_return(false))
+    allow(target).to(receive(:bulk)).and_return({ "errors" => false, "items" => [] })
 
-    stats = sync.run!
-    expect(stats.indexed).to(eq(2))
+    sync.run!
+
+    expect(scanned).to(eq(["user1_ebay_products", "user1_us_products"]))
   end
 
   it "scans the entire source index when full_scan is enabled" do
@@ -269,11 +285,9 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
 
     expect(source).to(receive(:iterate_query)) do |index:, query:, **|
       expect(index).to(eq("user1_ebay_products"))
-      # the doc-source filter is always applied (all eBay sources are merged
-      # into one index), only the range filter is dropped by --full
-      expect(query).to(include(:bool))
-      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
-      expect(query.dig(:bool, :filter).to_s).not_to(include(":range"))
+      # only the doc-source filter remains (no time range) in a full scan
+      expect(range_filter_in(query)).to(be(false))
+      expect(query.to_s).to(include("ebay_us"))
     end
     expect(target).not_to(receive(:bulk))
 
@@ -296,62 +310,5 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     expect(target).not_to(receive(:bulk))
 
     sync.run!
-  end
-
-  it "scans every configured source index so old and new docs coexist" do
-    sync = described_class.new(
-      source_client: source,
-      target_client: target,
-      source_index: "user1_ebay_products,user1_us_products",
-      since_date: "2026-05-01T00:00:00+00:00",
-    )
-
-    scanned = []
-    allow(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
-      scanned << index
-      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
-      block.call(index == "user1_us_products" ?
-        { "_id" => "ebay_us_222", "_source" => sample_source.merge("product_id" => "222") } :
-        { "_id" => "111", "_source" => sample_source.merge("product_id" => "111") })
-    end
-    allow(target).to(receive(:index_exists?).with("ebay_us_products").and_return(false))
-    allow(target).to(receive(:bulk)).and_return({ "errors" => false, "items" => [] })
-
-    sync.run!
-
-    expect(scanned).to(eq(["user1_ebay_products", "user1_us_products"]))
-  end
-
-  it "scans a merged crawl index by source and keeps the doc id verbatim" do
-    sync = described_class.new(
-      source_client: source,
-      target_client: target,
-      source_index: "user1_us_products",
-      since_date: "2026-05-01T00:00:00+00:00",
-      source_values: %w[ebay_us Ebay_US],
-    )
-
-    # the source filter is applied server-side, so every hit is an eBay doc
-    hits = [
-      { "_id" => "ebay_us_113222835111", "_source" => sample_source },
-    ]
-
-    expect(source).to(receive(:iterate_query)) do |index:, query:, **, &block|
-      expect(index).to(eq("user1_us_products"))
-      expect(query.dig(:bool, :filter).to_s).to(include("ebay_us"))
-      hits.each { |hit| block.call(hit) }
-    end
-
-    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
-    expect(target).to(receive(:mget).with(index: "ebay_us_products", ids: ["ebay_us_113222835111"]).and_return(
-      "docs" => [{ "_id" => "ebay_us_113222835111", "found" => false }],
-    ))
-    expect(target).to(receive(:bulk)) do |body:|
-      expect(body).to(include('"ebay_us_113222835111"'))
-      { "errors" => false, "items" => [{ "index" => { "status" => 201 } }] }
-    end
-
-    stats = sync.run!
-    expect(stats.indexed).to(eq(1))
   end
 end

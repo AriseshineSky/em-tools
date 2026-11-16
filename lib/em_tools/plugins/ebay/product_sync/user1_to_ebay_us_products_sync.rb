@@ -39,9 +39,6 @@ module EmTools
           #: crawler writes the platform-marketplace spelling, older docs keep
           #: the legacy Camel form).
           DEFAULT_SOURCE_VALUES = ["ebay_us", "Ebay_US"].freeze
-          #: Casing written into the target docs while both spellings coexist.
-          LEGACY_SOURCE = "Ebay_US"
-          MODERN_SOURCE = "ebay_us"
           DEFAULT_TARGET_INDEX = "ebay_us_products"
           DEFAULT_SINCE_HOURS = 2
           DEFAULT_BULK_CHUNK = 500
@@ -192,32 +189,15 @@ module EmTools
             log(parts.join(" "))
           end
 
-          # One crawl hit can become **two** target documents while the source
-          # casing is being migrated, so both flavours are always present:
-          #
-          #   bare id       + source=Ebay_US   (legacy consumers)
-          #   ebay_us_<id>  + source=ebay_us   (migrated consumers)
-          #
-          # Hits whose ``_id`` is already prefixed (merged crawl index) are
-          # written once; the prefixed doc they produce is the same ``_id`` the
-          # legacy hit derives, so the two runs stay idempotent.
+          # One target document per item: ``_id`` is always the bare item id and
+          # the body is copied verbatim (``source`` stays whatever the crawler
+          # wrote). A crawl hit keeps its own timestamp, so ``source_newer?``
+          # decides which of the two indexes wins for the same item.
           def extract_rows(hit)
-            doc_id = normalize_id(hit["_id"])
-            return [] unless valid_doc_id?(doc_id)
+            item_id = ebay_item_id(hit["_id"])
+            return [] unless valid_doc_id?(item_id)
 
-            body = hit["_source"] || {}
-            if doc_id.match?(/\A\d+\z/)
-              item_id = doc_id
-              [
-                { doc_id: item_id, body: body.merge("source" => LEGACY_SOURCE) },
-                {
-                  doc_id: "#{MODERN_SOURCE}_#{item_id}",
-                  body: body.merge("source" => MODERN_SOURCE),
-                },
-              ]
-            else
-              [{ doc_id: doc_id, body: body.merge("source" => MODERN_SOURCE) }]
-            end
+            [{ doc_id: item_id, body: hit["_source"] || {} }]
           end
 
           def flush!
@@ -248,10 +228,6 @@ module EmTools
                 else
                   true
                 end
-              elsif source_casing_differs?(row[:body], target_doc["_source"])
-                # migration repair: a bare-id doc written while the crawler still
-                # emitted the lowercase spelling must be normalised to Ebay_US
-                true
               elsif source_newer?(row[:body], target_doc["_source"])
                 true
               else
@@ -259,22 +235,6 @@ module EmTools
                 false
               end
             end
-          end
-
-          # True when the target doc is missing ``source`` (legacy bulk loads) or
-          # carries the other spelling. Both cases must be rewritten so the
-          # target always ends up with the two documented flavours:
-          #
-          #   <item id>       -> source=Ebay_US
-          #   ebay_us_<item>  -> source=ebay_us
-          def source_casing_differs?(source_body, target_body)
-            return false unless source_body.is_a?(Hash) && target_body.is_a?(Hash)
-
-            expected = source_body["source"]
-            return false if expected.nil?
-
-            stored = target_body["source"].to_s.strip
-            stored.empty? || stored != expected.to_s
           end
 
           def source_newer?(source_body, target_body)
@@ -287,10 +247,10 @@ module EmTools
           end
 
           def parse_doc_time(body)
-            return nil unless body.is_a?(Hash)
+            return unless body.is_a?(Hash)
 
             value = body[@time_field] || body[@time_field.to_sym]
-            return nil if value.nil?
+            return if value.nil?
 
             parse_time_value(value)
           end
@@ -299,7 +259,7 @@ module EmTools
             return value.utc if value.is_a?(Time)
 
             raw = value.to_s.strip
-            return nil if raw.empty?
+            return if raw.empty?
 
             Time.parse(raw).utc
           rescue ArgumentError
@@ -384,7 +344,25 @@ module EmTools
             Array(resp["items"]).count { |item| item.values.first&.dig("error") }
           end
 
-          # During the migration window the target keeps both id spaces:
+          # Merged crawl indices key documents as ``<source>_<item id>``; the
+          # target index always uses the bare item id.
+          def ebay_item_id(value)
+            text = value.to_s.strip
+            @source_values.each do |source|
+              prefix = "#{source}_"
+              next unless text.start_with?(prefix)
+
+              tail = text[prefix.length..] || ""
+              return tail if tail.match?(/\A\d+\z/)
+            end
+            text
+          end
+
+          # Kept for callers/tests: the exported id normaliser alias.
+          def normalize_id(value)
+            ebay_item_id(value)
+          end
+
           # ``<item id>`` (legacy ``user1_ebay_products`` docs, source
           # ``Ebay_US``) and ``<source>_<item id>`` (merged ``user1_us_products``
           # docs, source ``ebay_us``). Ids are copied verbatim so the two
@@ -401,7 +379,7 @@ module EmTools
 
           def normalize_time_value(value)
             raw = value.to_s.strip
-            return nil if raw.empty?
+            return if raw.empty?
 
             parsed = Time.parse(raw).utc
             parsed.iso8601(3)
@@ -421,7 +399,7 @@ module EmTools
           end
 
           def debug_row_summary(row)
-            return nil unless row
+            return unless row
 
             "#{row[:doc_id]} date=#{extract_date(row[:body]).inspect}"
           end
