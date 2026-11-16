@@ -248,6 +248,10 @@ module EmTools
                 else
                   true
                 end
+              elsif source_casing_differs?(row[:body], target_doc["_source"])
+                # migration repair: a bare-id doc written while the crawler still
+                # emitted the lowercase spelling must be normalised to Ebay_US
+                true
               elsif source_newer?(row[:body], target_doc["_source"])
                 true
               else
@@ -255,6 +259,15 @@ module EmTools
                 false
               end
             end
+          end
+
+          def source_casing_differs?(source_body, target_body)
+            return false unless source_body.is_a?(Hash) && target_body.is_a?(Hash)
+
+            expected = source_body["source"]
+            return false if expected.nil?
+
+            !target_body["source"].nil? && target_body["source"].to_s != expected.to_s
           end
 
           def source_newer?(source_body, target_body)

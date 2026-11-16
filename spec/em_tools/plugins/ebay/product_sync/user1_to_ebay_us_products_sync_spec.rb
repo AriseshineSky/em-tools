@@ -201,6 +201,38 @@ RSpec.describe(EmTools::Plugins::Ebay::ProductSync::User1ToEbayUsProductsSync) d
     expect(stats.indexed).to(eq(2))
   end
 
+  it "rewrites a target doc whose source casing is stale even if the time matches" do
+    sync = described_class.new(
+      source_client: source,
+      target_client: target,
+      since_hours: 1,
+      bulk_chunk: 10,
+    )
+
+    hits = [{ "_id" => "111", "_source" => sample_source.merge("product_id" => "111") }]
+    allow(source).to(receive(:iterate_query)) { |**, &block| hits.each(&block) }
+    expect(target).to(receive(:index_exists?).with("ebay_us_products").and_return(true))
+    # bare-id doc was written with the lowercase spelling by an older run
+    expect(target).to(receive(:mget).and_return(
+      "docs" => [
+        { "_id" => "111", "found" => true,
+          "_source" => { "date" => sample_source["date"], "source" => "ebay_us" } },
+        { "_id" => "ebay_us_111", "found" => true,
+          "_source" => { "date" => sample_source["date"], "source" => "ebay_us" } },
+      ],
+    ))
+    expect(target).to(receive(:bulk)) do |body:|
+      expect(body).to(include('"111"'))
+      expect(body).to(include('"source":"Ebay_US"'))
+      # the modern doc already has the right casing and the same time → skipped
+      expect(body).not_to(include('"ebay_us_111"'))
+      { "errors" => false, "items" => [{ "index" => { "status" => 200 } }] }
+    end
+
+    stats = sync.run!
+    expect(stats.indexed).to(eq(1))
+  end
+
   it "scans the entire source index when full_scan is enabled" do
     sync = described_class.new(source_client: source, target_client: target, full_scan: true)
 
